@@ -1,5 +1,7 @@
 # 临时部署、正式发布与验收
 
+最近本机部署见 [2026-09-12 Controls 部署记录](deployments/2026-09-12-local-controls.md)：Release 构建和 275 项测试通过，已部署到 `D:\data\avalonia\Controls\NovelGeneratePlugin`。
+
 部署分为开发期临时联调和正式 ZIP 发布。两者都必须使用 Build 包筛选出的干净插件目录，不能直接复制
 普通 `bin/Debug` 或 `bin/Release`，因为普通输出可能包含 Host 应当统一提供的共享程序集。
 
