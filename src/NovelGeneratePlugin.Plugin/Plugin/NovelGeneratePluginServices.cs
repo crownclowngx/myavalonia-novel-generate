@@ -1,13 +1,20 @@
 using Microsoft.Extensions.DependencyInjection;
-
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using NovelGeneratePlugin.Application.Projects;
+using NovelGeneratePlugin.Infrastructure.Persistence;
 namespace NovelGeneratePlugin.Plugin;
 
 public static class NovelGeneratePluginServices
 {
-    /// <summary>登记插件自己的业务服务；Standalone 可以复用同一个组合入口。</summary>
     public static IServiceCollection AddNovelGeneratePluginServices(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton(_ => WorkspacePaths.ForCurrentUser());
+        services.AddSingleton<IProjectStore, ProjectStore>();
+        services.AddSingleton<IProjectCatalog, CatalogStore>();
+        services.AddSingleton<IRecoveryStore, RecoveryStore>();
+        services.AddSingleton<IProjectLeaseProvider, FileProjectLeaseProvider>();
+        services.AddSingleton<ProjectSessions>();
         return services;
     }
 }

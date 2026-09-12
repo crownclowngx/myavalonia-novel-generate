@@ -1,12 +1,60 @@
-<UserControl x:Class="NovelGeneratePlugin.Features.Main.MainView"
- xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- xmlns:vm="using:NovelGeneratePlugin.Features.Main" x:DataType="vm:MainDocument">
- <ScrollViewer><StackPanel Margin="32" Spacing="18" MaxWidth="850" HorizontalAlignment="Stretch">
-  <TextBlock Text="网络小说创作工作台" FontSize="28" FontWeight="SemiBold" />
-  <TextBlock Text="从创意开始，逐步形成可审阅的长篇作品。" TextWrapping="Wrap" />
-  <TextBlock Text="书名" /><TextBox Text="{Binding BookTitle}" />
-  <TextBlock Text="创意与主角方向" /><TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
-  <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="新建小说项目" IsEnabled="False"/><Button Content="打开已有项目" IsEnabled="False"/></StackPanel>
-  <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
- </StackPanel></ScrollViewer>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.Main.MainView" x:DataType="local:MainDocument">
+  <Grid RowDefinitions="Auto,*,Auto" Margin="20" RowSpacing="14">
+    <StackPanel Spacing="10">
+      <TextBlock Text="网络小说创作工作台" FontSize="25" FontWeight="SemiBold" />
+      <WrapPanel Orientation="Horizontal">
+        <Button Content="新建项目" Command="{Binding NewProjectCommand}" Margin="0,0,8,0" />
+        <Button Content="打开项目" Command="{Binding OpenProjectCommand}" Margin="0,0,8,0" />
+        <Button Content="保存本书" Command="{Binding SaveCommand}" Margin="0,0,8,0" />
+        <Button Content="新增章节" Command="{Binding AddChapterCommand}" Margin="0,0,8,0" />
+        <Button Content="新增卷" Command="{Binding AddVolumeCommand}" />
+      </WrapPanel>
+      <TextBlock Text="{Binding ProjectPath}" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ProjectPath}" />
+    </StackPanel>
+    <Grid Grid.Row="1" ColumnDefinitions="230,14,*">
+      <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8" />
+        <ListBox x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
+        <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
+          <Expander Header="最近项目" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="6">
+              <ComboBox ItemsSource="{Binding RecentProjects}" SelectedItem="{Binding SelectedRecent}" HorizontalAlignment="Stretch" />
+              <Button Content="打开所选项目" Command="{Binding OpenRecentCommand}" />
+            </StackPanel>
+          </Expander>
+          <Expander Header="恢复副本" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="6">
+              <ComboBox ItemsSource="{Binding Recoveries}" SelectedItem="{Binding SelectedRecovery}" HorizontalAlignment="Stretch" />
+              <Button Content="恢复为新项目" Command="{Binding RestoreRecoveryCommand}" />
+              <Button Content="刷新列表" Command="{Binding RefreshLibraryCommand}" />
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </Grid>
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanSwitch}">
+          <TextBlock Text="书名" VerticalAlignment="Center" />
+          <TextBox Grid.Column="1" Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="输入书名" />
+        </Grid>
+        <Expander Grid.Row="1" Header="本书创意与方向" IsExpanded="True" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSwitch}">
+          <TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="150" PlaceholderText="主角、世界背景、核心冲突，以及希望写出的感觉。" />
+        </Expander>
+        <TextBlock Grid.Row="2" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
+        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
+          <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
+          <Expander Grid.Row="1" Header="本章提纲" HorizontalAlignment="Stretch">
+            <TextBox Text="{Binding ChapterOutline}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="150" PlaceholderText="目标、冲突、事件与承接" />
+          </Expander>
+          <TextBox x:Name="ChapterEditor" Grid.Row="2" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64"
+                   PlaceholderText="在这里开始正文。输入后会自动保存；也可以点击“保存本书”。" />
+          <TextBlock Grid.Row="3" Text="{Binding WordCount}" Opacity="0.65" HorizontalAlignment="Right" />
+        </Grid>
+      </Grid>
+    </Grid>
+    <StackPanel Grid.Row="2" Spacing="5">
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Opacity="0.65" FontSize="12" />
+    </StackPanel>
+  </Grid>
 </UserControl>

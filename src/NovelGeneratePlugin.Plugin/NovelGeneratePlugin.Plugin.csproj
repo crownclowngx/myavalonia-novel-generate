@@ -14,6 +14,13 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <ManagedPluginPrivatePackage Include="Microsoft.Data.Sqlite.Core" />
+    <ManagedPluginPrivatePackage Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <ManagedPluginPrivatePackage Include="SQLitePCLRaw.core" />
+    <ManagedPluginPrivatePackage Include="SQLitePCLRaw.provider.e_sqlite3" />
+    <ManagedPluginPrivatePackage Include="SQLitePCLRaw.lib.e_sqlite3" />
     <PackageReference Include="MyAvaloniaManagement.Plugin.Build" PrivateAssets="all" />
     <PackageReference Include="MyAvaloniaManagement.PluginSdk" />
     <PackageReference Include="MyAvaloniaManagement.Icons" />

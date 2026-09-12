@@ -1,7 +1,9 @@
 using Avalonia.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using MyAvaloniaManagement.PluginSdk;
+using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Plugin;
+using NovelGeneratePlugin.Features.Main;
 namespace NovelGeneratePlugin.Standalone;
 
 public sealed partial class MainWindow : Window
@@ -12,10 +14,12 @@ public sealed partial class MainWindow : Window
     private readonly CancellationTokenSource _closing = new();
     private Task _initialization = Task.CompletedTask;
     private bool _mayClose;
+    private bool _isClosing;
     public MainWindow()
     {
         InitializeComponent();
         var registration = new PreviewRegistration();
+        registration.Services.AddSingleton<IPluginWindowInteraction>(new PreviewWindowInteraction(this));
         new NovelGeneratePluginModule().Configure(registration);
         _services = registration.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         _scope = _services.CreateAsyncScope();
@@ -38,17 +42,24 @@ public sealed partial class MainWindow : Window
     {
         if (_mayClose) return;
         args.Cancel = true;
-        if (_closing.IsCancellationRequested) return;
+        if (_isClosing) return;
+        _isClosing = true;
         _closing.Cancel();
+        PreviewHost.IsEnabled = false;
         try
         {
             await _initialization;
-            PreviewHost.Content = null;
+            if (_document is MainDocument novel && !await novel.SaveBeforeCloseAsync()) return;
             await _scope.DisposeAsync();
             if (_services is not null) await _services.DisposeAsync();
             _services = null;
+            PreviewHost.Content = null;
+            _document = null;
+            _mayClose = true;
+            _closing.Dispose();
+            Close();
         }
-        catch (Exception exception) { System.Diagnostics.Debug.WriteLine(exception.Message); }
-        finally { _document = null; _mayClose = true; _closing.Dispose(); Close(); }
+        catch (Exception exception) { Title = "未关闭：" + exception.Message; }
+        finally { _isClosing = false; PreviewHost.IsEnabled = true; }
     }
 }
