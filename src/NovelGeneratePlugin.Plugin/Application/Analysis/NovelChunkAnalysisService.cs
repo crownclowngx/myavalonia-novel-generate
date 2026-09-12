@@ -21,22 +21,44 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         "描述和结论使用中文，枚举使用契约规定名称。" +
         "摘要不超过500字，实体最多25条，结论最多36条，每条优先1条简短证据；文风必须依据原句，推断必须标记。只输出符合契约的JSON。";
 
+    public const string CurrentPromptVersion = "v3";
+    /// <summary>保留旧提示供历史运行重放。Kind 是确定性，Narration 是叙述来源，两组枚举不能混用。</summary>
+    public static string Prompt(string version) => version switch
+    {
+        "v2" => SystemPrompt,
+        "v3" => SystemPrompt + "特别检查枚举：Findings.Kind只能是Explicit、Inferred、Uncertain三者之一，绝不能填CharacterClaim、Narration、Plan或Recollection。" +
+            "Findings.Narration只能是Narration、CharacterClaim、Rumor、Dream、Recollection、Plan、Unknown。" +
+            "例如角色自称身世，写Kind=Uncertain、Narration=CharacterClaim；叙述明确记载他说了这句话可写Kind=Explicit、Narration=CharacterClaim，Statement应明确是角色说法而非已证实的身世。" +
+            "Entities.Kind只表示实体类别Person、Place、Organization、Item。提交JSON前逐条核对这些独立字段。",
+        _ => throw new NotSupportedException("提取提示版本不受支持，历史内容保留。")
+    };
+
     public async Task<ChunkAnalysisResult> AnalyzeAsync(ReferenceImport input, Guid chunkId, ConnectionBinding binding,
         Guid operationId, RequestBudget budget, CancellationToken ct)
     {
         input.Validate(); ct.ThrowIfCancellationRequested();
         var chunk = input.Chunks.SingleOrDefault(c => c.Id == chunkId) ?? throw new InvalidOperationException("分析单元不属于当前来源。");
         var frozen = await connections.FreezeAsync(binding, input.Book.Id, ModelTask.Checking).ConfigureAwait(false);
+        var prepared = Prepare(input, chunk, frozen, operationId, CurrentPromptVersion);
+        var response = await requests.GenerateAsync(prepared.Request, budget, null, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        if (response.Completion != ModelCompletion.Complete) throw new InvalidOperationException("分析结果被截断，已保留候选；请缩小单元或核对输出预算后重试。");
+        return prepared.Contract.Read(response.Text);
+    }
+
+    /// <summary>构造与解析共用一个入口；断点恢复重放原响应时必须得到完全相同的输入指纹和证据坐标。</summary>
+    public static PreparedChunkAnalysis Prepare(ReferenceImport input, AnalysisChunk chunk, FrozenConnection frozen, Guid operationId, string promptVersion = "v2")
+    {
+        if (frozen.BookId != input.Book.Id || !input.Chunks.Contains(chunk)) throw new InvalidDataException("冻结连接或分析单元不属于当前来源。");
         var passages = ChunkAnalysisContract.Passages(input.Source, chunk);
         // 提示是模型输入而不是 HTML：保留可直接阅读的中文，避免把整章转成大量 Unicode 转义字符。
         var prompt = JsonSerializer.Serialize(new { Body = chunk.Body, Context = chunk.Context, Passages = passages },
             new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
-        var stamp = CanonicalJson.Hash(new { input.Source.Id, input.Source.TextHash, chunk.Body, chunk.Context, frozen, Version = ChunkAnalysisContract.Version, SystemPrompt, prompt });
+        var system = Prompt(promptVersion);
+        var stamp = CanonicalJson.Hash(new { input.Source.Id, input.Source.TextHash, chunk.Body, chunk.Context, frozen, Version = ChunkAnalysisContract.Version, SystemPrompt = system, prompt });
         var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages);
-        var response = await requests.GenerateAsync(new(operationId, frozen, SystemPrompt, prompt, true)
-        { Contract = contract, AllowJsonWrapperRepair = true }, budget, null, ct).ConfigureAwait(false);
-        ct.ThrowIfCancellationRequested();
-        if (response.Completion != ModelCompletion.Complete) throw new InvalidOperationException("分析结果被截断，已保留候选；请缩小单元或核对输出预算后重试。");
-        return contract.Read(response.Text);
+        return new(new(operationId, frozen, system, prompt, true) { Contract = contract, AllowJsonWrapperRepair = true }, contract, stamp);
     }
 }
+
+public sealed record PreparedChunkAnalysis(TextModelRequest Request, ChunkAnalysisContract Contract, string InputStamp);

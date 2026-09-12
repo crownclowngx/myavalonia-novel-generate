@@ -51,6 +51,16 @@ public sealed class NovelChunkAnalysisTests
     }
 
     [Fact]
+    public void 同维度多个信息缺口完整保留但数量仍有上限()
+    {
+        var input = ReferenceSourceTests.Create(); var chunk = input.Chunks[0];
+        var contract = new ChunkAnalysisContract(input.Source, chunk, Guid.NewGuid(), "stamp", ChunkAnalysisContract.Passages(input.Source, chunk));
+        var output = Output() with { Gaps = [.. Output().Gaps, new(AnalysisDimension.World, "力量代价未知。"), new(AnalysisDimension.World, "地理范围未知。")] };
+        Assert.Equal(7, contract.Read(Json(output)).Gaps.Length);
+        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Gaps = Enumerable.Repeat(new DimensionGap(AnalysisDimension.World, "未知。"), 25).ToImmutableArray() })));
+    }
+
+    [Fact]
     public void 角色说法梦境与时间线索独立保存()
     {
         var input = ReferenceSourceTests.Create(); var chunk = input.Chunks[0];

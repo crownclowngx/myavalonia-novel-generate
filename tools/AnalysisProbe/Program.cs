@@ -12,13 +12,15 @@ using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Infrastructure.Models;
 
 // 显式开发工具，不纳入普通测试或生产包。输入与输出必须由调用者给出；本工具的 import/benchmark 不访问网络。
-if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol"))
+if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract"))
     throw new ArgumentException("用法：AnalysisProbe <import|benchmark|chunk> <TXT路径或-> <新的输出目录>；chunk 从标准输入读取本次密钥");
 var output = Path.GetFullPath(args[2]);
-if (Directory.Exists(output) || File.Exists(output)) throw new InvalidOperationException("输出目录必须尚不存在，避免覆盖已有验证资料。");
+var resuming = args[0] is "retry-extract" or "revise-extract";
+if (!resuming && (Directory.Exists(output) || File.Exists(output))) throw new InvalidOperationException("输出目录必须尚不存在，避免覆盖已有验证资料。");
+if (resuming && !File.Exists(Path.Combine(output, "run-id.txt"))) throw new InvalidOperationException("恢复目录缺少运行身份。");
 Directory.CreateDirectory(output);
 var input = args[1];
-if (args[0] is "chunk" or "protocol")
+if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract")
 {
     // 密钥通过标准输入传入，既不出现在进程命令行，也不写入配置文件。普通 import/benchmark 不读取凭据。
     var secret = await Console.In.ReadLineAsync() ?? throw new InvalidOperationException("标准输入缺少本次密钥。");
@@ -27,7 +29,8 @@ if (args[0] is "chunk" or "protocol")
     var connections = new ConnectionService(new ConnectionStore(paths), vault);
     // 2026-09-12 本次密钥实际 /models 返回 deepseek-flash；不把公开文档中的历史别名假定为当前账户可用模型。
     var preset = new ModelPreset("deepseek-flash", args[0] == "protocol" ? 512 : 16384, args[0] == "protocol" ? "low" : "none");
-    var connection = await connections.SaveAsync(null, new("DeepSeek Flash 本次提取验证", ModelProvider.DeepSeek, "https://api.deepseek.com", "", preset, preset, preset));
+    var connection = resuming ? (await connections.ListAsync()).Connections.Single() :
+        await connections.SaveAsync(null, new("DeepSeek Flash 本次提取验证", ModelProvider.DeepSeek, "https://api.deepseek.com", "", preset, preset, preset));
     var binding = ConnectionService.Bind(connection);
     await connections.SetSecretAsync(binding, secret, false); secret = "";
     try
@@ -50,13 +53,35 @@ if (args[0] is "chunk" or "protocol")
             return;
         }
         var store = new ReferenceSourceStore(paths);
-        var preview = await new NovelImportService(new TxtSourceReader(), store).PreviewAsync(input, null, new(), default);
-        store.Import(preview.Import);
+        var preview = resuming ? null : await new NovelImportService(new TxtSourceReader(), store).PreviewAsync(input, null, new(), default);
+        if (preview is not null) store.Import(preview.Import);
         using var client = DeepSeekTextModel.CreateClient();
         var requests = new ModelRequestService(new DeepSeekTextModel(connections, client), new ModelRequestStore(paths));
+        if (args[0] is "extract" or "retry-extract" or "revise-extract")
+        {
+            var runs = new AnalysisRunStore(paths);
+            var runner = new NovelAnalysisRunService(store, runs, connections, requests, new NovelAnalysisNodePreparer());
+            // 本次完整文件验证总额 80 次/300 万；先扣除 G0031 已消耗的 6 次及 200862 已知或保守预留 token。
+            var run = resuming ? runs.Read(Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt")))) :
+                await runner.CreateAsync(preview!.Import.Book.Id, binding, 74, 2799138, new(32, 1200000), default);
+            if (args[0] == "revise-extract") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id);
+            if (resuming) run = runner.Resume(run.Id, true, run.Budget.MaximumRequests, run.Budget.MaximumTokens);
+            await File.WriteAllTextAsync(Path.Combine(output, "run-id.txt"), run.Id.ToString());
+            try
+            {
+                var finished = await runner.ExecuteAsync(run.Id, new(), new RunProgress(), default);
+                await File.WriteAllTextAsync(Path.Combine(output, "extraction-results.json"), JsonSerializer.Serialize(runner.ReadExtractions(run.Id), new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine(JsonSerializer.Serialize(new { finished.Id, State = finished.State.ToString(), finished.Message, Chunks = finished.Chunks.Length, Completed = finished.Nodes.Count(n => n.State == AnalysisNodeState.Completed) }));
+            }
+            finally
+            {
+                await File.WriteAllTextAsync(Path.Combine(output, "usage.json"), JsonSerializer.Serialize(runner.Usage(run.Id).Select(e => new { e.Id, e.Model, e.State, e.Usage, e.ReservedTokens, e.Failure }), new JsonSerializerOptions { WriteIndented = true }));
+            }
+            return;
+        }
         var service = new NovelChunkAnalysisService(connections, requests);
         var budget = new RequestBudget(Guid.NewGuid(), 2, 150000);
-        var chunk = preview.Import.Chunks.Skip(1).FirstOrDefault() ?? preview.Import.Chunks[0];
+        var chunk = preview!.Import.Chunks.Skip(1).FirstOrDefault() ?? preview.Import.Chunks[0];
         Console.WriteLine(JsonSerializer.Serialize(new { State = "RequestStarting", Model = preset.Model, Chunk = chunk.Number, BodyCharacters = chunk.Body.Length, budget.MaximumRequests, budget.MaximumTokens }));
         var watch = Stopwatch.StartNew();
         try
@@ -170,4 +195,9 @@ sealed class ProtocolShapeHandler(HttpMessageHandler inner) : DelegatingHandler(
         response.Content.Dispose(); response.Content = replacement;
         return response;
     }
+}
+
+sealed class RunProgress : IProgress<AnalysisRun>
+{
+    public void Report(AnalysisRun value) => Console.WriteLine(JsonSerializer.Serialize(new { Time = DateTimeOffset.UtcNow, State = value.State.ToString(), Completed = value.Nodes.Count(n => n.State == AnalysisNodeState.Completed), Total = value.Nodes.Length, value.Message }));
 }

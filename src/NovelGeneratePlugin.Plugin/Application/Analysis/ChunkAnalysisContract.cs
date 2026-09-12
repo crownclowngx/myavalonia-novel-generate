@@ -37,7 +37,7 @@ public sealed class ChunkAnalysisContract
     {
         var output = JsonSerializer.Deserialize<ChunkOutput>(json, Options) ?? throw new InvalidDataException("分析提取结果为空。");
         if (string.IsNullOrWhiteSpace(output.Summary) || output.Summary.Length > 3000 || output.Entities.IsDefault || output.Entities.Length > 40 ||
-            output.Findings.IsDefault || output.Findings.Length > 64 || output.Gaps.IsDefault || output.Gaps.Length > 6)
+            output.Findings.IsDefault || output.Findings.Length > 64 || output.Gaps.IsDefault || output.Gaps.Length > 24)
             throw new InvalidDataException("单元提取字段缺失或超过容量。");
         var entities = ImmutableArray.CreateBuilder<ReferenceMention>();
         foreach (var item in output.Entities)
@@ -60,9 +60,12 @@ public sealed class ChunkAnalysisContract
         var missing = new HashSet<AnalysisDimension>();
         foreach (var gap in output.Gaps)
         {
-            if (gap is null || !Enum.IsDefined(gap.Dimension) || !missing.Add(gap.Dimension) ||
+            if (gap is null || !Enum.IsDefined(gap.Dimension) ||
                 string.IsNullOrWhiteSpace(gap.Reason) || gap.Reason.Length > 1000)
-                throw new InvalidDataException("未观察维度缺少明确说明或与已有结论冲突。");
+                throw new InvalidDataException("未观察维度缺少明确说明或超过容量。");
+            // 同一维度可以有多个不同缺口；原契约限制每维一条会把有效的不确定信息误拒绝。
+            // JSON 字段结构未变，保留 v2 输入身份及已验证缓存；不拼接、截断或猜测修补模型内容。
+            missing.Add(gap.Dimension);
         }
         if (observed.Union(missing).Count() != Enum.GetValues<AnalysisDimension>().Length)
             throw new InvalidDataException("六个分析维度必须有结论或明确的未观察说明。");

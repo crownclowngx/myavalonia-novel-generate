@@ -22,6 +22,26 @@ public static partial class NovelTextPartitioner
     [GeneratedRegex(@"^[\t 　]*(?:第[零〇一二三四五六七八九十百千万两\d]+[章回节卷部篇集](?:[^\r\n]*)|[Cc][Hh][Aa][Pp][Tt][Ee][Rr][\t ]+\d+[^\r\n]*)[\t ]*\r?$", RegexOptions.Multiline, 1000)]
     private static partial Regex Heading();
 
+    /// <summary>在同一不可变来源上新建切分版本，保留章节身份；旧运行继续持有自己的切分，未受影响单元可以按输入指纹复用。</summary>
+    public static ReferenceImport Rechunk(ReferenceImport input, PartitionOptions options, CancellationToken ct)
+    {
+        input.Validate(); options.Validate(); var chunks = ImmutableArray.CreateBuilder<AnalysisChunk>();
+        foreach (var section in input.Sections.Where(s => s.Included))
+        {
+            for (var offset = section.Range.Start; offset < section.Range.End;)
+            {
+                ct.ThrowIfCancellationRequested();
+                var end = Boundary(input.Source.Text, offset, Math.Min(section.Range.End, offset + options.ChunkCharacters));
+                var contextStart = SafeLeft(input.Source.Text, Math.Max(0, offset - options.ContextCharacters));
+                var contextEnd = SafeRight(input.Source.Text, Math.Min(input.Source.Text.Length, end + options.ContextCharacters));
+                var body = new SourceRange(offset, end - offset); var context = new SourceRange(contextStart, contextEnd - contextStart);
+                var previous = input.Chunks.FirstOrDefault(c => c.SectionId == section.Id && c.Body == body && c.Context == context);
+                chunks.Add(new(previous?.Id ?? Guid.NewGuid(), section.Id, chunks.Count + 1, body, context)); offset = end;
+            }
+        }
+        var result = input with { Chunks = chunks.ToImmutable() }; result.Validate(); return result;
+    }
+
     public static ReferenceImport Partition(SourceSnapshot source, string name, PartitionOptions options, CancellationToken ct)
     {
         source.Validate(); options.Validate(); ct.ThrowIfCancellationRequested();
