@@ -106,6 +106,8 @@ public static class StoryMemory
     {
         book.Id,
         Chapter = book.Chapters.Single(c => c.Id == chapterId),
+        book.Planning.Mainline,
+        Volume = book.Volumes.Single(v => v.Id == book.Chapters.Single(c => c.Id == chapterId).VolumeId),
         book.Title,
         book.Idea,
         book.Profile,
@@ -132,18 +134,24 @@ public static class StoryMemory
     };
     public static string FactKey(Guid entityId, StoryFactKind kind, string field, Guid? relatedEntityId = null) =>
         $"{entityId:N}/{kind}/{field}" + (relatedEntityId is Guid related ? $"/{related:N}" : "");
-    public static string PolicyStamp(BookProject book, Guid chapterId, Guid? runId) => RevisionRules.Hash(JsonSerializer.Serialize(new
+    public static string PolicyStamp(BookProject book, Guid chapterId, Guid? runId)
     {
-        book.Id,
-        book.Title,
-        book.Idea,
-        book.Profile,
-        ChapterId = chapterId,
-        book.Chapters.Single(c => c.Id == chapterId).Outline,
-        Story = CanonicalCatalog(book.Story),
-        Rules = RuleEvaluation.Stamp(book, chapterId, runId),
-        Run = runId
-    }));
+        var basis = RevisionRules.Hash(JsonSerializer.Serialize(new
+        {
+            book.Id,
+            book.Title,
+            book.Idea,
+            book.Profile,
+            ChapterId = chapterId,
+            book.Chapters.Single(c => c.Id == chapterId).Outline,
+            Story = CanonicalCatalog(book.Story),
+            Rules = RuleEvaluation.Stamp(book, chapterId, runId),
+            Run = runId
+        }));
+        var plan = book.Chapters.Single(c => c.Id == chapterId).Plan;
+        // 无规划的旧版作品保留 v6 指纹语义，避免升级后无故使旧工作稿失效。
+        return plan == ChapterPlan.Empty && book.Planning.Mainline.Length == 0 ? basis : CanonicalJson.Hash(new { Basis = basis, plan, book.Planning.Mainline });
+    }
     public static FactDelta ValidateCandidate(BookProject book, StoryContext context, StoryFactCandidate candidate, string generatedText)
     {
         if (candidate.BookId != book.Id || context.BookId != book.Id || candidate.ChapterId != context.ChapterId ||

@@ -201,7 +201,7 @@ public sealed class StoryMemoryTests
             using var command = connection.CreateCommand(); command.CommandText = "UPDATE project SET snapshot=json_remove(snapshot,'$.Story'); PRAGMA user_version=5;"; command.ExecuteNonQuery();
         }
         var migrated = workspace.Store.Read(workspace.ProjectPath()); Assert.Empty(migrated.Project.Story.Entities); Assert.Empty(migrated.Project.Revisions.History);
-        var backup = Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v6-*.noveldb"));
+        var backup = Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v" + ProjectStore.SchemaVersion + "-*.noveldb"));
         using var source = ProjectStore.Connect(backup, SqliteOpenMode.ReadOnly); using var check = source.CreateCommand(); check.CommandText = "PRAGMA user_version"; Assert.Equal(5L, check.ExecuteScalar());
     }
     [Fact]

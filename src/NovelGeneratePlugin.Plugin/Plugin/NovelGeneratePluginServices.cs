@@ -36,6 +36,7 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<ITextModel, TextModelRouter>();
         services.AddSingleton<IModelRequestStore, ModelRequestStore>();
         services.AddSingleton<ModelRequestService>();
+        services.AddSingleton<PlanningService>();
         return services;
     }
 }

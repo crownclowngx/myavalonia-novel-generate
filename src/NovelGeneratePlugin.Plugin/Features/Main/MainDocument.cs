@@ -12,7 +12,7 @@ namespace NovelGeneratePlugin.Features.Main;
 public sealed record ChapterItem(Guid Id, string Label) { public override string ToString() => Label; }
 
 /// <summary>一本书一个 Document；窗口只通过公开文件选择端口接触宿主。</summary>
-public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections, NovelGeneratePlugin.Application.Export.ArtifactService artifacts, PluginCloseCoordinator shutdown)
+public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections, NovelGeneratePlugin.Application.Export.ArtifactService artifacts, PluginCloseCoordinator shutdown, NovelGeneratePlugin.Application.Models.PlanningService planning)
     : ObservableObject, IPluginDocument, IAsyncDisposable, IDisposable, IClosePreparation
 {
     private CloseRegistration? _closeRegistration;
@@ -62,6 +62,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         NotifyExportCommands();
         NotifyStoryCommands();
+        NotifyPlanningCommands();
         NotifyRuleDraft(); DiscardRuleDraftCommand.NotifyCanExecuteChanged(); SaveRuleVersionCommand.NotifyCanExecuteChanged(); CheckLocalRulesCommand.NotifyCanExecuteChanged(); LocateRuleFindingCommand.NotifyCanExecuteChanged();
         RefreshConnectionsCommand.NotifyCanExecuteChanged(); BindConnectionCommand.NotifyCanExecuteChanged(); UnbindConnectionCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
@@ -92,7 +93,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         _loading = true;
         try { ChapterTitle = chapter.Title; ChapterOutline = chapter.Outline; ChapterText = chapter.Text; RevisionSummary = chapter.Summary; }
         finally { _loading = false; }
-        UpdateRevisionStatus();
+        UpdateRevisionStatus(); LoadPlanning();
     }
     private void CaptureEdit()
     {
@@ -139,6 +140,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         NotifyExportCommands();
         UpdateLocalRuleStatus();
         UpdateStoryContextStatus();
+        UpdatePlanningStatus();
         if (_session is null || SelectedChapter is null) return;
         var ledger = _session.Current.Revisions; var head = ledger.Head(SelectedChapter.Id);
         var working = ledger.Get(head.WorkingId); var formal = ledger.Get(head.FormalId);
@@ -311,9 +313,11 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     /// </summary>
     public async Task<bool> SaveBeforeCloseAsync()
     {
+        _planningCancellation?.Cancel();
         await _operation;
         if (_session is null) return true;
-        var result = await _session.PrepareCloseAsync();
+        // 此时其他工具尚可否决关闭，只保存而不冻结会话；真正释放时由 DisposeAsync 冻结。
+        var result = await _session.SaveAsync();
         Status = result.Message;
         return result.Saved || result.RecoveryAvailable;
     }

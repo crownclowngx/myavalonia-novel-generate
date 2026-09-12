@@ -1,8 +1,11 @@
 using System.Collections.Immutable;
 namespace NovelGeneratePlugin.Domain;
 
-public sealed record Chapter(Guid Id, Guid VolumeId, string Title, string Outline, string Text, string Summary = "");
-public sealed record Volume(Guid Id, string Title);
+public sealed record Chapter(Guid Id, Guid VolumeId, string Title, string Outline, string Text, string Summary = "")
+{
+    public ChapterPlan Plan { get; init; } = ChapterPlan.Empty;
+}
+public sealed record Volume(Guid Id, string Title) { public string Goal { get; init; } = ""; }
 
 /// <summary>本书的当前编辑快照；保存它不代表定稿或 AI 检查通过。</summary>
 public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableArray<Volume> Volumes, ImmutableArray<Chapter> Chapters)
@@ -15,6 +18,7 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
     public ImmutableArray<LocalRuleCheck> RuleChecks { get; init; } = [];
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
     public StoryCatalog Story { get; init; } = StoryCatalog.Empty;
+    public PlanningLedger Planning { get; init; } = PlanningLedger.Empty;
     public static BookProject Create(string title, string idea = "")
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("新建作品需要书名。", nameof(title));
@@ -32,12 +36,15 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
             throw new InvalidDataException("项目需要有效的卷章，最多支持 1000 卷、10000 章。");
         var ids = new HashSet<Guid> { Id };
         foreach (var volume in Volumes)
-            if (volume is null || volume.Id == Guid.Empty || !ids.Add(volume.Id) || volume.Title is null || volume.Title.Length > 200)
+            if (volume is null || volume.Id == Guid.Empty || !ids.Add(volume.Id) || volume.Title is null || volume.Title.Length > 200 || volume.Goal is null || volume.Goal.Length > 10000)
                 throw new InvalidDataException("卷身份或标题无效。");
         foreach (var chapter in Chapters)
             if (chapter is null || chapter.Id == Guid.Empty || !ids.Add(chapter.Id) ||
                 !Volumes.Any(v => v.Id == chapter.VolumeId) || chapter.Title is null || chapter.Title.Length > 200 || chapter.Text is null || chapter.Outline is null || chapter.Summary is null)
                 throw new InvalidDataException("章节身份、归属或内容无效。");
+        foreach (var chapter in Chapters) { if (chapter.Plan is null) throw new InvalidDataException("章纲不能为空。"); chapter.Plan.Validate(); }
+        if (Planning is null) throw new InvalidDataException("规划记录不能为空。");
+        Planning.Validate(this);
         if (Story is null) throw new InvalidDataException("故事实体目录不能为空。");
         Story.Validate();
         if (Revisions is null) throw new InvalidDataException("修订状态不能为空。");
@@ -66,16 +73,18 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
     }
     public BookProject CopyAsNew()
     {
-        var volumes = Volumes.ToDictionary(v => v.Id, v => new Volume(Guid.NewGuid(), v.Title));
+        var volumes = Volumes.ToDictionary(v => v.Id, v => v with { Id = Guid.NewGuid() });
         var copy = this with
         {
             Revisions = RevisionLedger.Empty,
+            Planning = PlanningLedger.Empty,
             Rules = Rules with { Items = Rules.Items.Select(r => r.Scope == WritingRuleScope.Volume ? r with { ScopeId = volumes[r.ScopeId!.Value].Id } : r).ToImmutableArray() },
             RuleChecks = [],
             Id = Guid.NewGuid(),
             Volumes = Volumes.Select(v => volumes[v.Id]).ToImmutableArray(),
             Chapters = Chapters.Select(c => c with { Id = Guid.NewGuid(), VolumeId = volumes[c.VolumeId].Id }).ToImmutableArray()
         };
+        copy = PlanningRules.CopyIdentities(this, copy);
         return RevisionRules.CopyRevisionIdentities(this, copy);
     }
 }

@@ -30,6 +30,9 @@ public sealed class StoryContextBuilder
         }
         Add("任务边界", book.Id.ToString(), "仅使用本书当前章之前已接受的故事事实；人物设定和章纲是约束/计划，不代表已经发生。复杂倒叙、知情推演与时间歧义必须提示复核。", true);
         Add("本书创意", "作者", book.Title + "\n" + book.Idea, true);
+        Add("全书主线（计划）", "作者与已采用规划", book.Planning.Mainline, true);
+        var volume = book.Volumes.Single(v => v.Id == chapter.VolumeId);
+        Add("当前卷目标（计划）", volume.Id.ToString(), volume.Goal, true);
         Add("当前章规划", chapter.Id.ToString(), chapter.Title + "\n" + chapter.Outline, true);
         Add("世界与锁定设定", "本书规范快照", book.Profile.World, true);
         Add("长期规范原文", "本书规范快照", book.Profile.Rules, true);

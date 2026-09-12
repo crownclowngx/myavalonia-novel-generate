@@ -148,6 +148,55 @@
             </StackPanel>
           </StackPanel>
         </Expander>
+        <Expander x:Name="PlanningExpander" Grid.Row="3" Header="分层规划与近期章纲" IsVisible="{Binding HasProject}" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8">
+            <TextBlock Text="从当前章起规划近期 3–5 章，保留已有正文；生成会消耗本书连接额度。" TextWrapping="Wrap" />
+            <WrapPanel>
+              <ComboBox ItemsSource="{Binding PlanningModes}" SelectedItem="{Binding SelectedPlanningMode}" ItemTemplate="{StaticResource RuleChoice}" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6" />
+              <NumericUpDown Value="{Binding PlanningChapterCount}" Minimum="3" Maximum="5" Increment="1" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6" />
+              <Button Content="生成分层规划" Command="{Binding GeneratePlanningCommand}" Margin="0,0,8,6" />
+              <Button Content="取消规划" Command="{Binding CancelPlanningCommand}" Margin="0,0,8,6" />
+              <Button Content="采用待选规划" Command="{Binding ApplyPlanningCommand}" Margin="0,0,8,6" />
+              <Button Content="放弃待选规划" Command="{Binding DiscardPlanningCandidateCommand}" />
+            </WrapPanel>
+            <TextBlock Text="{Binding PlanningStatus}" TextWrapping="Wrap" />
+            <Expander Header="待采用候选与修订记录" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="6">
+                <TextBox Text="{Binding PlanningPreview}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
+                <TextBlock Text="{Binding PlanningHistoryText}" TextWrapping="Wrap" />
+              </StackPanel>
+            </Expander>
+            <StackPanel IsEnabled="{Binding CanEdit}" Spacing="8">
+              <TextBox Text="{Binding PlanningMainline}" PlaceholderText="全书主线与远期方向" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="20000" />
+              <TextBox Text="{Binding VolumeGoal}" PlaceholderText="当前卷目标" MaxLength="10000" />
+              <CheckBox Content="锁定本章计划（模型不可修改，作者仍可编辑）" IsChecked="{Binding PlanLocked}" />
+              <TextBox x:Name="PlanGoalEditor" Text="{Binding PlanGoal}" PlaceholderText="本章目标" MaxLength="10000" />
+              <TextBox Text="{Binding PlanConflict}" PlaceholderText="核心冲突与障碍" MaxLength="10000" />
+              <TextBox Text="{Binding PlanViewpoint}" PlaceholderText="叙事视角" MaxLength="10000" />
+              <TextBox Text="{Binding PlanTimePlace}" PlaceholderText="时间与地点" MaxLength="10000" />
+              <TextBox Text="{Binding PlanEvents}" PlaceholderText="具体事件及信息分配" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="10000" />
+              <TextBox Text="{Binding PlanStateChanges}" PlaceholderText="预计状态变化（计划，不是已发生事实）" MaxLength="10000" />
+              <TextBox Text="{Binding PlanForeshadow}" PlaceholderText="伏笔铺设与回收" MaxLength="10000" />
+              <TextBox Text="{Binding PlanBridge}" PlaceholderText="前后章承接" MaxLength="10000" />
+              <TextBlock Text="方法应用：必须落实到剧情事件，来源逐字引用本书方法原文。" TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding PlanMethods}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="local:MethodApplicationEditor">
+                    <StackPanel Spacing="6" Margin="0,0,0,10">
+                      <TextBox Text="{Binding SourceQuote}" PlaceholderText="方法来源原文" MaxLength="2000" />
+                      <TextBox Text="{Binding SetupEvent}" PlaceholderText="用什么事件铺设期待" MaxLength="2000" />
+                      <TextBox Text="{Binding PressureEvent}" PlaceholderText="用什么障碍持续施压" MaxLength="2000" />
+                      <TextBox Text="{Binding PayoffEvent}" PlaceholderText="用什么事件兑现" MaxLength="2000" />
+                      <Button Content="移除此方法应用" Command="{Binding RemoveCommand}" />
+                    </StackPanel>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="添加方法应用" Command="{Binding AddPlanMethodCommand}" />
+              <Button Content="保存本章规划修订" Command="{Binding SaveChapterPlanCommand}" />
+            </StackPanel>
+          </StackPanel>
+        </Expander>
         <TextBlock Grid.Row="3" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
         <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
           <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />

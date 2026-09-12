@@ -51,6 +51,7 @@ public sealed class ProjectSession : IAsyncDisposable
                 !project.Chapters.Select(c => (c.Id, c.VolumeId)).SequenceEqual(_current.Chapters.Select(c => (c.Id, c.VolumeId)))))
                 throw new InvalidOperationException("稿件提交期间暂不能改变卷章结构，请在提交结束后重试。");
             if (project.Revisions != _current.Revisions) throw new InvalidOperationException("编辑入口不能改变修订状态，请使用稿件提交用例。");
+            project.Planning.EnsureAppendOnlyFrom(_current.Planning);
             if (project == _current) return;
             _current = project; _editVersion++;
             _status = new SaveStatus(SaveState.Unsaved, "有未保存修改");
@@ -106,7 +107,7 @@ public sealed class ProjectSession : IAsyncDisposable
                 var recovered = false; var message = "保存失败：" + exception.Message;
                 try
                 {
-                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(6, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
+                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(7, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
                     lock (_sync) _recoveredEditVersion = editVersion;
                     message += "；本次编辑快照已写入恢复副本。";
                 }

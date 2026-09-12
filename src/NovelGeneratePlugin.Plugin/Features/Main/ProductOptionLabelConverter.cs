@@ -19,6 +19,8 @@ public sealed class ProductOptionLabelConverter : IValueConverter
         ManuscriptVersion.Editing => "编辑稿",
         ManuscriptVersion.WorkingView => "工作稿视图",
         ManuscriptVersion.Formal => "正式稿",
+        PlanningMode.Automatic => "自动采用合法规划",
+        PlanningMode.Collaborative => "协作：预览后采用",
         StoryEntityKind.Person => "人物",
         StoryEntityKind.Place => "地点",
         StoryEntityKind.Item => "物品",

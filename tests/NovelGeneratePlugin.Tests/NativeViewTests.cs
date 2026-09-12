@@ -121,6 +121,36 @@ public sealed class NativeViewTests
             return true;
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task 原生规划字段中文输入保存并重建视图()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await using var document = workspace.CreateDocument();
+            var view = new MainView { DataContext = document }; var window = new Window { Width = 1200, Height = 1000, Content = view };
+            try
+            {
+                window.Show(); await document.InitializeAsync(new NewDocumentActivation("规划测试"), default);
+                workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
+                view.FindControl<Expander>("PlanningExpander")!.IsExpanded = true; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var editor = view.FindControl<TextBox>("PlanGoalEditor")!; editor.BringIntoView(); editor.Focus(); window.KeyTextInput("找到雾港寄信人");
+                Assert.Equal("找到雾港寄信人", document.PlanGoal); await document.SaveCommand.ExecuteAsync(null);
+                Assert.Equal(document.PlanGoal, workspace.Store.Read(document.ProjectPath).Project.Chapters[0].Plan.Goal);
+                view = new MainView { DataContext = document }; window.Content = view; view.FindControl<Expander>("PlanningExpander")!.IsExpanded = true;
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Assert.Equal(document.PlanGoal, view.FindControl<TextBox>("PlanGoalEditor")!.Text);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "planning.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]
