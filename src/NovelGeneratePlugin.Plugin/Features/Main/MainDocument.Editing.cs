@@ -46,7 +46,7 @@ public sealed partial class MainDocument
     [RelayCommand(CanExecute = nameof(CanEdit))] private Task ReviewCurrentText() => EditTextAsync(false, true);
     private Task EditTextAsync(bool append, bool review) => RunAsync(async () =>
     {
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token); _generationCancellation = cancellation; NotifyGenerationCommands();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(OperationToken); _generationCancellation = cancellation; NotifyGenerationCommands();
         var book = _session!.Current; var chapter = SelectedChapter!.Id; var epoch = ++_generationViewEpoch; var run = book.Revisions.ActiveRunId ?? Guid.NewGuid();
         var start = append ? ChapterText.Length : Math.Min(EditorSelectionStart, EditorSelectionEnd);
         var edit = new SelectionEdit(start, append ? 0 : Math.Abs(EditorSelectionEnd - EditorSelectionStart), RewriteInstruction, append);
@@ -70,7 +70,7 @@ public sealed partial class MainDocument
     {
         if (!ConfirmFinalizeRange) throw new InvalidOperationException("请先勾选已逐章审阅，再明确执行连续范围定稿。");
         var first = FinalizeFirstChapter; var last = FinalizeLastChapter;
-        await _session!.CommitRevisionChangeAsync(book => EditingRules.FinalizeRange(book, first, last, true), _closing.Token);
+        await _session!.CommitRevisionChangeAsync(book => EditingRules.FinalizeRange(book, first, last, true), OperationToken);
         ConfirmFinalizeRange = false; UpdateRevisionStatus(); Notice = $"第 {first}–{last} 章已一次性定稿。";
     });
 }

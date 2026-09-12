@@ -59,7 +59,7 @@ public sealed partial class MainDocument
             SuggestedFileName = "小说正文." + extension,
             DefaultExtension = extension,
             FileTypeChoices = [new FilePickerFileType("正文") { Patterns = ["*." + extension] }]
-        }, _closing.Token);
+        }, OperationToken);
         if (path is null) return;
         if (!ReferenceEquals(prepared.Source, _session!.Current) || prepared.Selection != ExportSelection) throw new InvalidOperationException("作品或导出选择已变化，请重新预览。");
         await artifacts.WriteAsync(prepared, path); Status = "已导出选定正文：" + path;
@@ -68,16 +68,16 @@ public sealed partial class MainDocument
     private Task BackupProject() => RunAsync(async () =>
     {
         var saved = await _session!.SaveAsync(); if (!saved.Saved) throw new IOException("本书尚未可靠保存，未生成不完整备份。" + saved.Message);
-        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "备份小说项目（请选择新文件名）", SuggestedFileName = "作品备份.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, _closing.Token);
+        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "备份小说项目（请选择新文件名）", SuggestedFileName = "作品备份.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, OperationToken);
         if (path is null) return;
         await artifacts.BackupAsync(_session.Path, path); Status = "已创建一致性备份：" + path;
     });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task RestoreBackup() => RunAsync(async () =>
     {
-        var sources = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "选择要恢复的备份", AllowMultiple = false, FileTypeFilter = [ProjectType] }, _closing.Token);
+        var sources = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "选择要恢复的备份", AllowMultiple = false, FileTypeFilter = [ProjectType] }, OperationToken);
         if (sources.Count == 0) return;
-        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "恢复到新文件（保留作品身份）", SuggestedFileName = "恢复作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, _closing.Token);
+        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "恢复到新文件（保留作品身份）", SuggestedFileName = "恢复作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, OperationToken);
         if (path is null) return;
         await artifacts.BackupAsync(sources[0], path); Status = "已恢复到新文件：" + path;
         Notice = "恢复保留作品身份；打开前请关闭同一作品的其他工作区。当前作品未被替换。";
@@ -87,14 +87,14 @@ public sealed partial class MainDocument
     private Task ExportTemplateFile() => RunAsync(async () =>
     {
         var choice = SelectedTemplateChoice ?? throw new InvalidOperationException("请先选择模板。");
-        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "导出此模板的草案与版本（请选择新文件）", SuggestedFileName = "创作模板.json", DefaultExtension = "json", FileTypeChoices = [TemplateFileType] }, _closing.Token);
+        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "导出此模板的草案与版本（请选择新文件）", SuggestedFileName = "创作模板.json", DefaultExtension = "json", FileTypeChoices = [TemplateFileType] }, OperationToken);
         if (path is null) return;
         await artifacts.ExportTemplateAsync(choice.TemplateId, path); Status = "模板已导出，不含作品正文、运行状态或凭据。";
     });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task ImportTemplateFile() => RunAsync(async () =>
     {
-        var paths = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "导入为独立模板", AllowMultiple = false, FileTypeFilter = [TemplateFileType] }, _closing.Token);
+        var paths = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "导入为独立模板", AllowMultiple = false, FileTypeFilter = [TemplateFileType] }, OperationToken);
         if (paths.Count == 0) return;
         var imported = await artifacts.ImportTemplateAsync(paths[0]); await RefreshTemplateChoicesAsync();
         SelectedTemplateChoice = TemplateChoices.FirstOrDefault(c => c.TemplateId == imported.Id); Status = "已导入独立模板：" + imported.Draft.Name;

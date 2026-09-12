@@ -22,7 +22,9 @@ public sealed class CompositionTests
         registration.Services.AddSingleton<IPluginWindowInteraction>(workspace.Interaction);
         new NovelGeneratePluginModule().Configure(registration);
         Assert.Equal(PluginIds.MainDocument, Assert.Single(registration.Documents).Descriptor.DocumentTypeId);
-        Assert.Empty(registration.Commands);
+        Assert.Equal(7, registration.Commands.Count); Assert.Equal(7, registration.Menus.Count);
+        Assert.All(registration.CommandTargets, c => Assert.Equal(PluginIds.MainDocument, c.Target));
+        Assert.All(registration.Commands, c => Assert.Contains(NovelCommands.All, n => n.Id == c.CommandId));
         Assert.Equal(typeof(NovelGeneratePlugin.Application.Projects.PluginCloseCoordinator), Assert.Single(registration.Lifecycles));
         Assert.Equal(2, registration.Tools.Count);
         Assert.Single(registration.Tools, t => t.Descriptor.ToolTypeId == PluginIds.Templates);

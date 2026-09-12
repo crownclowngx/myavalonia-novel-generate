@@ -20,6 +20,7 @@ public sealed partial class MainDocument
     public bool CanResumeRun => CanEdit && _currentRun is not null && _currentRun.BookId == _session?.Id && _currentRun.State != ContinuousRunState.Completed;
     private void NotifyRunCommands()
     {
+        NotifyWorkbenchCommands();
         StartContinuousCommand.NotifyCanExecuteChanged(); ResumeContinuousCommand.NotifyCanExecuteChanged(); LoadContinuousCommand.NotifyCanExecuteChanged();
         PauseContinuousCommand.NotifyCanExecuteChanged(); CancelContinuousCommand.NotifyCanExecuteChanged(); AbandonContinuousCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanPauseRun)); OnPropertyChanged(nameof(CanResumeRun));
@@ -51,7 +52,7 @@ public sealed partial class MainDocument
     private Task ResumeContinuous() => RunContinuousOperation(true);
     private Task RunContinuousOperation(bool resume) => RunAsync(async () =>
     {
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token); _runCancellation = cancellation; _runControl = new(); var epoch = ++_runViewEpoch; NotifyRunCommands();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(OperationToken); _runCancellation = cancellation; _runControl = new(); var epoch = ++_runViewEpoch; NotifyRunCommands();
         var progress = new Progress<ContinuousRun>(run => { if (epoch == _runViewEpoch) ShowRun(run); });
         try
         {

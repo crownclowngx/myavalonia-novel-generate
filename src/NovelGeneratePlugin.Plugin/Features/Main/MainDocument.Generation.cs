@@ -29,6 +29,7 @@ public sealed partial class MainDocument
     public bool CanCommitGeneration => CanEdit && _currentGeneration?.State == ChapterWorkState.Ready && _currentGeneration.ChapterId == SelectedChapter?.Id;
     private void NotifyGenerationCommands()
     {
+        NotifyWorkbenchCommands();
         GenerateChapterCommand.NotifyCanExecuteChanged(); CancelGenerationCommand.NotifyCanExecuteChanged(); RefreshGenerationCommand.NotifyCanExecuteChanged(); CommitGenerationCommand.NotifyCanExecuteChanged();
         LocateGenerationIssueCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanCancelGeneration)); OnPropertyChanged(nameof(CanCommitGeneration));
@@ -60,7 +61,7 @@ public sealed partial class MainDocument
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task GenerateChapter() => RunAsync(async () =>
     {
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token); _generationCancellation = cancellation; NotifyGenerationCommands();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(OperationToken); _generationCancellation = cancellation; NotifyGenerationCommands();
         var book = _session!.Current; var chapter = SelectedChapter!.Id; var epoch = ++_generationViewEpoch;
         try
         {
@@ -83,8 +84,9 @@ public sealed partial class MainDocument
     private Task CommitGeneration() => RunAsync(async () =>
     {
         var candidate = _currentGeneration!;
-        await _session!.CommitGeneratedChapterAsync(candidate, _closing.Token);
-        LoadChapter(candidate.ChapterId); ShowGeneration(candidate);
+        await _session!.CommitGeneratedChapterAsync(candidate, OperationToken);
+        if (SelectedChapter?.Id == candidate.ChapterId) { LoadChapter(candidate.ChapterId); ShowGeneration(candidate); }
+        else UpdateRevisionStatus();
         Notice = "正文、摘要与事实增量已一起保存为工作稿；正式稿仍由作者主动定稿。";
     });
 }

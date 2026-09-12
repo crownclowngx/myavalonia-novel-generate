@@ -44,6 +44,7 @@ public sealed partial class MainDocument
     public bool CanApplyPlanning => CanEdit && _session?.Current.Planning.Pending is not null;
     private void NotifyPlanningCommands()
     {
+        NotifyWorkbenchCommands();
         GeneratePlanningCommand.NotifyCanExecuteChanged(); CancelPlanningCommand.NotifyCanExecuteChanged(); ApplyPlanningCommand.NotifyCanExecuteChanged();
         SaveChapterPlanCommand.NotifyCanExecuteChanged(); DiscardPlanningCandidateCommand.NotifyCanExecuteChanged(); AddPlanMethodCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanCancelPlanning)); OnPropertyChanged(nameof(CanApplyPlanning));
@@ -113,7 +114,7 @@ public sealed partial class MainDocument
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task GeneratePlanning() => RunAsync(async () =>
     {
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_closing.Token); _planningCancellation = cancellation; NotifyPlanningCommands();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(OperationToken); _planningCancellation = cancellation; NotifyPlanningCommands();
         var mode = SelectedPlanningMode;
         try
         {

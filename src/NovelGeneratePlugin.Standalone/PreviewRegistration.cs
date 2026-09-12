@@ -13,6 +13,8 @@ public sealed class PreviewRegistration : IPluginRegistration, IPluginIconRegist
     public List<(ToolDescriptor Descriptor, Type Model, Type View)> Tools { get; } = [];
     public List<Type> Lifecycles { get; } = [];
     public List<CommandDescriptor> Commands { get; } = [];
+    public List<(CommandDescriptor Command, DocumentTypeId Target)> CommandTargets { get; } = [];
+    public List<MenuCommandContributionDescriptor> Menus { get; } = [];
     public void UseLifecycle<T>() where T : class, IPluginLifecycle { Services.AddSingleton<T>(); Lifecycles.Add(typeof(T)); }
     public void AddDocument<T, V>(DocumentDescriptor descriptor) where T : class, IPluginDocument where V : Control, new()
     { Documents.Add((descriptor, typeof(T), typeof(V))); Services.AddScoped<T>(); Services.AddTransient<V>(); }
@@ -21,7 +23,7 @@ public sealed class PreviewRegistration : IPluginRegistration, IPluginIconRegist
     public void AddTool<T, V>(ToolDescriptor descriptor) where T : class where V : Control, new()
     { Tools.Add((descriptor, typeof(T), typeof(V))); Services.AddSingleton<T>(); Services.AddTransient<V>(); }
     public string AddIcon(string localName, VectorIconDefinition definition) => $"plugin:{PluginId.Value}/{localName}";
-    public void AddDocumentCommand(CommandDescriptor descriptor, DocumentTypeId targetDocumentTypeId) => Commands.Add(descriptor);
-    public void AddMenuCommandContribution(MenuCommandContributionDescriptor descriptor) { }
+    public void AddDocumentCommand(CommandDescriptor descriptor, DocumentTypeId targetDocumentTypeId) { Commands.Add(descriptor); CommandTargets.Add((descriptor, targetDocumentTypeId)); }
+    public void AddMenuCommandContribution(MenuCommandContributionDescriptor descriptor) => Menus.Add(descriptor);
     public void AddKeyBindingContribution(KeyBindingContributionDescriptor descriptor) => throw new NotSupportedException("开发窗口不模拟全局快捷键。");
 }

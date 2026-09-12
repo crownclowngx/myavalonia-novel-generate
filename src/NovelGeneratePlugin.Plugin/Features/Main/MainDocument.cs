@@ -60,6 +60,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     partial void OnHasProjectChanged(bool value) => NotifyCommands();
     private void NotifyCommands()
     {
+        NotifyWorkbenchCommands();
         NotifyExportCommands();
         NotifyStoryCommands();
         NotifyPlanningCommands();
@@ -85,10 +86,16 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     partial void OnRevisionSummaryChanged(string value) => CaptureEdit();
     partial void OnChapterTextChanged(string value)
     { WordCount = value.EnumerateRunes().Count(r => !Rune.IsWhiteSpace(r)) + " 字（非空白字符）"; CaptureEdit(); }
-    partial void OnSelectedChapterChanged(ChapterItem? value)
+    partial void OnSelectedChapterChanged(ChapterItem? oldValue, ChapterItem? newValue)
     {
-        if (_loading || value is null || _session is null) return;
-        LoadChapter(value.Id);
+        if (_loading || newValue is null || _session is null) return;
+        if (!CanEdit)
+        {
+            _loading = true;
+            try { SelectedChapter = oldValue; } finally { _loading = false; }
+            return;
+        }
+        LoadChapter(newValue.Id);
     }
     private void LoadChapter(Guid id)
     {
@@ -160,7 +167,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         var submission = new DraftSubmission(project.Id, chapter.Id, head.WorkingId, head.FormalId, RevisionRules.Hash(chapter.Text),
             RevisionRules.ContextStamp(project, chapter.Id), chapter.Text, RevisionSummary, [], RevisionCheck.NotChecked,
             project.Revisions.ActiveRunId ?? Guid.NewGuid(), Guid.NewGuid());
-        await _session.CommitRevisionChangeAsync(current => RevisionRules.CommitWorking(current, submission), _closing.Token);
+        await _session.CommitRevisionChangeAsync(current => RevisionRules.CommitWorking(current, submission), OperationToken);
         UpdateRevisionStatus();
     });
     [RelayCommand(CanExecute = nameof(CanEdit))]
@@ -168,21 +175,21 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         var id = SelectedChapter!.Id; var head = _session!.Current.Revisions.Head(id);
         if (head.WorkingId is not Guid working) throw new InvalidOperationException("请先提交本章工作稿。");
-        await _session.CommitRevisionChangeAsync(current => RevisionRules.FinalizeChapter(current, id, working, authorConfirmed: true), _closing.Token);
+        await _session.CommitRevisionChangeAsync(current => RevisionRules.FinalizeChapter(current, id, working, authorConfirmed: true), OperationToken);
         UpdateRevisionStatus();
     });
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task DiscardWorking() => RunAsync(async () =>
     {
-        await _session!.CommitRevisionChangeAsync(RevisionRules.DiscardWorking, _closing.Token);
-        RevisionSummary = ""; UpdateRevisionStatus(); Notice = "本轮工作稿已放弃；编辑缓冲、正式稿与历史仍保留。";
+        await _session!.CommitRevisionChangeAsync(RevisionRules.DiscardWorking, OperationToken);
+        UpdateRevisionStatus(); Notice = "本轮工作稿已放弃；编辑缓冲、正式稿与历史仍保留。";
     });
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task RollbackFormal() => RunAsync(async () =>
     {
         var id = SelectedChapter!.Id;
-        await _session!.CommitRevisionChangeAsync(current => RevisionRules.RollbackFrom(current, id), _closing.Token);
-        RevisionSummary = ""; UpdateRevisionStatus(); Notice = "本章及后续正式指针与本轮工作稿已撤销；正文历史和编辑缓冲保留。";
+        await _session!.CommitRevisionChangeAsync(current => RevisionRules.RollbackFrom(current, id), OperationToken);
+        UpdateRevisionStatus(); Notice = "本章及后续正式指针与本轮工作稿已撤销；正文历史和编辑缓冲保留。";
     });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task NewProject() => RunAsync(() => CreateProjectAsync(false));
@@ -200,19 +207,19 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
             var choice = SelectedTemplateChoice ?? throw new InvalidOperationException("请先选择一个已保存的模板版本。");
             project = await templates.AdoptAsync(project, choice, SelectedDimensions);
         }
-        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "创建小说项目（请选择新文件名）", SuggestedFileName = "新作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, _closing.Token);
+        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "创建小说项目（请选择新文件名）", SuggestedFileName = "新作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, OperationToken);
         if (path is null) return;
-        await SwitchAsync(() => sessions.CreateAsync(path, project, _closing.Token));
+        await SwitchAsync(() => sessions.CreateAsync(path, project, OperationToken));
     }
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task OpenProject() => RunAsync(async () =>
     {
-        var files = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "打开小说项目", AllowMultiple = false, FileTypeFilter = [ProjectType] }, _closing.Token);
-        if (files.Count > 0) await SwitchAsync(() => sessions.OpenAsync(files[0], _closing.Token));
+        var files = await interaction.PickOpenFilesAsync(new FilePickerOpenOptions { Title = "打开小说项目", AllowMultiple = false, FileTypeFilter = [ProjectType] }, OperationToken);
+        if (files.Count > 0) await SwitchAsync(() => sessions.OpenAsync(files[0], OperationToken));
     });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task OpenRecent() => RunAsync(async () =>
-    { if (SelectedRecent is not null) await SwitchAsync(() => sessions.OpenAsync(SelectedRecent.Path, _closing.Token)); });
+    { if (SelectedRecent is not null) await SwitchAsync(() => sessions.OpenAsync(SelectedRecent.Path, OperationToken)); });
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task Save() => RunAsync(async () =>
     {
@@ -230,7 +237,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         if (!CanEdit) return;
         try { var result = edit(); _session!.Update(result.Project); ReloadChapters(result.SelectedChapterId); }
-        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException) { Status = exception.Message; }
+        catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException) { _lastOperationError = exception; Status = exception.Message; }
     }
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task RefreshLibrary() => RunAsync(RefreshListsAsync);
@@ -239,9 +246,9 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         if (SelectedRecovery is null) return;
         var snapshot = await Task.Run(() => recovery.Read(SelectedRecovery.Path));
-        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "恢复为独立的新项目（原项目不覆盖）", SuggestedFileName = "恢复作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, _closing.Token);
+        var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "恢复为独立的新项目（原项目不覆盖）", SuggestedFileName = "恢复作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, OperationToken);
         if (path is null) return;
-        await SwitchAsync(() => sessions.CreateAsync(path, snapshot.Project.CopyAsNew(), _closing.Token));
+        await SwitchAsync(() => sessions.CreateAsync(path, snapshot.Project.CopyAsNew(), OperationToken));
         Notice = "恢复副本已另存为独立作品；原项目和原恢复文件均保留。";
     });
     private async Task SwitchAsync(Func<Task<ProjectSession>> acquire)
@@ -301,14 +308,23 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         if (!CanSwitch) return Task.CompletedTask;
         EnsureCloseRegistration();
-        return _operation = RunCoreAsync(operation);
+        // 先登记任务，再发布 IsBusy/宿主命令通知；同步事件重入关闭时也必须等待本次操作。
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _operation = completion.Task;
+        _ = CompleteOperationAsync(operation, completion);
+        return completion.Task;
+    }
+    private async Task CompleteOperationAsync(Func<Task> operation, TaskCompletionSource completion)
+    {
+        try { await RunCoreAsync(operation); completion.TrySetResult(); }
+        catch (Exception error) { completion.TrySetException(error); }
     }
     private async Task RunCoreAsync(Func<Task> operation)
     {
-        IsBusy = true;
-        try { await operation(); }
+        _lastOperationError = null; IsBusy = true;
+        try { OperationToken.ThrowIfCancellationRequested(); await operation(); }
         catch (OperationCanceledException) when (_closing.IsCancellationRequested) { }
-        catch (Exception exception) when (exception is not OutOfMemoryException) { Status = exception.Message; }
+        catch (Exception exception) when (exception is not OutOfMemoryException) { _lastOperationError = exception; Status = exception.Message; }
         finally { IsBusy = false; }
     }
     /// <summary>
@@ -335,6 +351,6 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         if (_disposed) return;
         _closing.Cancel(); NotifyCommands(); await _operation;
         if (_session is not null) { await _session.DisposeAsync(); _session.StateChanged -= OnSessionStateChanged; }
-        _disposed = true; _closing.Dispose();
+        _disposed = true; CommandStateChanged = null; _closing.Dispose();
     }
 }

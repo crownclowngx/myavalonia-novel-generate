@@ -1,310 +1,909 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.Main.MainView" x:DataType="local:MainDocument">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.Main.MainView" x:DataType="local:MainDocument">
+  
+
   <UserControl.Resources>
-    <local:ProductOptionLabelConverter x:Key="RuleLabel" />
-    <DataTemplate x:Key="RuleChoice"><TextBlock Text="{ReflectionBinding Converter={StaticResource RuleLabel}}" /></DataTemplate>
+    <local:ProductOptionLabelConverter x:Key="RuleLabel"/>
+    <DataTemplate x:Key="RuleChoice">
+      <TextBlock Text="{ReflectionBinding Converter={StaticResource RuleLabel}}"/>
+    </DataTemplate>
   </UserControl.Resources>
-  <Grid RowDefinitions="Auto,*,Auto" Margin="20" RowSpacing="14">
-    <StackPanel Spacing="10">
-      <TextBlock Text="网络小说创作工作台" FontSize="25" FontWeight="SemiBold" />
-      <WrapPanel Orientation="Horizontal">
-        <Button Content="新建项目" Command="{Binding NewProjectCommand}" Margin="0,0,8,0" />
-        <Button Content="打开项目" Command="{Binding OpenProjectCommand}" Margin="0,0,8,0" />
-        <Button Content="保存本书" Command="{Binding SaveCommand}" Margin="0,0,8,0" />
-        <Button Content="新增章节" Command="{Binding AddChapterCommand}" Margin="0,0,8,0" />
-        <Button Content="新增卷" Command="{Binding AddVolumeCommand}" />
+  
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="14" RowSpacing="12">
+    
+
+    <StackPanel Spacing="8">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="网络小说创作工作台" FontSize="23" FontWeight="SemiBold"/>
+        <ToggleButton x:Name="InspectorToggle" Grid.Column="1" Content="创作 / 检查 / 设定" IsVisible="False"/>
+      </Grid>
+      
+
+      <WrapPanel>
+        <Button Content="新建" Command="{Binding NewProjectCommand}" Margin="0,0,6,4"/>
+        <Button Content="打开" Command="{Binding OpenProjectCommand}" Margin="0,0,6,4"/>
+        <Button Content="保存" Command="{Binding SaveCommand}" Margin="0,0,12,4"/>
+        <Button Content="生成本章" Command="{Binding GenerateChapterCommand}" Margin="0,0,6,4"/>
+        <Button Content="连续创作" Command="{Binding StartContinuousCommand}" Margin="0,0,6,4"/>
+        <Button Content="章后暂停" Command="{Binding PauseContinuousCommand}" Margin="0,0,6,4"/>
+        <Button Content="立即取消" Command="{Binding CancelCreationCommand}" Margin="0,0,6,4"/>
       </WrapPanel>
-      <TextBlock Text="{Binding ProjectPath}" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ProjectPath}" />
+      
+
+      <TextBlock Text="{Binding ProjectPath}" FontSize="11" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ProjectPath}"/>
     </StackPanel>
-    <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-    <Grid ColumnDefinitions="230,14,*">
-      <Grid RowDefinitions="Auto,*,Auto">
-        <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8" />
-        <ListBox MaxHeight="600" x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
-        <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
-          <Expander Header="备份与正文导出" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="8">
-              <Button Content="一致性备份本书" Command="{Binding BackupProjectCommand}" />
-              <Button Content="从备份恢复到新文件" Command="{Binding RestoreBackupCommand}" />
-              <ComboBox ItemsSource="{Binding ExportVersions}" SelectedItem="{Binding ExportVersion}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
-              <ComboBox ItemsSource="{Binding ExportFormats}" SelectedItem="{Binding ExportFormat}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
-              <TextBlock Text="起始章 / 结束章（从 1 开始）" TextWrapping="Wrap" />
-              <NumericUpDown Value="{Binding ExportFirstChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}" />
-              <NumericUpDown Value="{Binding ExportLastChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}" />
-              <Button Content="预览选定稿与检查结果" Command="{Binding PreviewExportCommand}" />
-              <TextBox Text="{Binding ExportReport}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="220" />
-              <CheckBox IsChecked="{Binding AcknowledgeExportWarnings}"><TextBlock Text="已阅读提示，按所选版本导出" TextWrapping="Wrap" /></CheckBox>
-              <Button Content="写入新文件" Command="{Binding WriteExportCommand}" />
-            </StackPanel>
-          </Expander>
-          <Expander Header="本书模型连接" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="6">
-              <TextBlock Text="{Binding BookConnectionStatus}" TextWrapping="Wrap" />
-              <ComboBox ItemsSource="{Binding ConnectionChoices}" SelectedItem="{Binding SelectedBookConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
-              <Button Content="刷新连接" Command="{Binding RefreshConnectionsCommand}" />
-              <Button Content="明确绑定此配置" Command="{Binding BindConnectionCommand}" />
-              <Button Content="解除本书绑定" Command="{Binding UnbindConnectionCommand}" />
-            </StackPanel>
-          </Expander>
-          <Expander x:Name="StoryExpander" Header="故事实体与上下文" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="8">
-              <ComboBox ItemsSource="{Binding StoryEntities}" SelectedItem="{Binding SelectedStoryEntity}" IsEnabled="{Binding CanSelectEntity}" HorizontalAlignment="Stretch" />
-              <Button Content="新实体" Command="{Binding NewStoryEntityCommand}" />
-              <StackPanel IsEnabled="{Binding CanEdit}" Spacing="6">
-                <ComboBox ItemsSource="{Binding EntityKinds}" SelectedItem="{Binding EntityKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
-                <TextBox x:Name="EntityNameEditor" Text="{Binding EntityName}" PlaceholderText="人物 / 地点 / 物品名称" MaxLength="100" />
-                <TextBox Text="{Binding EntityAliases}" PlaceholderText="别名，每行一个" AcceptsReturn="True" MinHeight="55" MaxHeight="120" TextWrapping="Wrap" />
-                <TextBox Text="{Binding EntityDescription}" PlaceholderText="作者设定，不代表已发生事实" AcceptsReturn="True" MinHeight="55" MaxHeight="150" TextWrapping="Wrap" MaxLength="10000" />
-                <TextBox Text="{Binding EntityLockedField}" PlaceholderText="锁定状态字段，例如 出生地" MaxLength="100" />
-                <TextBox Text="{Binding EntityLockedValue}" PlaceholderText="锁定值；留空字段和值可取消该项" MaxLength="2000" />
-              </StackPanel>
-              <Button Content="保存实体登记" Command="{Binding SaveStoryEntityCommand}" />
-              <Button Content="放弃实体表单草案" Command="{Binding DiscardEntityDraftCommand}" />
-              <TextBox Text="{Binding ContextQuery}" PlaceholderText="检索人物或关键词（可选）" MaxLength="1000" IsEnabled="{Binding CanEdit}" />
-              <CheckBox IsChecked="{Binding ContextUseWorking}" IsEnabled="{Binding CanEdit}"><TextBlock Text="包含本轮有效工作稿" TextWrapping="Wrap" /></CheckBox>
-              <TextBlock Text="上下文容量（UTF-8 字节，非 token）" TextWrapping="Wrap" />
-              <NumericUpDown Value="{Binding ContextMaximumBytes}" Minimum="100" Maximum="500000" Increment="1000" IsEnabled="{Binding CanEdit}" />
-              <Button Content="预览上下文（不调用模型）" Command="{Binding PreviewStoryContextCommand}" />
-              <TextBlock Text="{Binding StoryContextStatus}" TextWrapping="Wrap" />
-              <TextBox Text="{Binding StoryContextText}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
-            </StackPanel>
-          </Expander>
-          <Expander Header="最近项目" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="6">
-              <ComboBox ItemsSource="{Binding RecentProjects}" SelectedItem="{Binding SelectedRecent}" HorizontalAlignment="Stretch" />
-              <Button Content="打开所选项目" Command="{Binding OpenRecentCommand}" />
-            </StackPanel>
-          </Expander>
-          <Expander Header="恢复副本" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="6">
-              <ComboBox ItemsSource="{Binding Recoveries}" SelectedItem="{Binding SelectedRecovery}" HorizontalAlignment="Stretch" />
-              <Button Content="恢复为新项目" Command="{Binding RestoreRecoveryCommand}" />
-              <Button Content="刷新列表" Command="{Binding RefreshLibraryCommand}" />
-            </StackPanel>
-          </Expander>
-        </StackPanel>
-      </Grid>
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" RowSpacing="10">
-        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanSwitch}">
-          <TextBlock Text="书名" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="输入书名" />
+    
+
+    <Grid x:Name="AdaptiveWorkspace" Grid.Row="1" ColumnDefinitions="*,390" ColumnSpacing="12">
+      
+
+      <Grid x:Name="ManuscriptPanel" ColumnDefinitions="160,*" ColumnSpacing="12">
+        
+
+        <Grid RowDefinitions="Auto,*,Auto" IsVisible="{Binding HasProject}">
+          <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <ListBox x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}"/>
+          <WrapPanel Grid.Row="2">
+            <Button Content="新增章" Command="{Binding AddChapterCommand}" Margin="0,6,4,0"/>
+            <Button Content="新增卷" Command="{Binding AddVolumeCommand}" Margin="0,6,0,0"/>
+          </WrapPanel>
         </Grid>
-        <Expander Grid.Row="1" Header="本书创意与方向" IsExpanded="True" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSwitch}">
-          <TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="150" PlaceholderText="主角、世界背景、核心冲突，以及希望写出的感觉。" />
-        </Expander>
-        <Expander Grid.Row="2" Header="本书规范与模板" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSwitch}">
-          <StackPanel Spacing="10">
-            <TextBlock Text="{Binding TemplateSource}" TextWrapping="Wrap" />
-            <ComboBox ItemsSource="{Binding TemplateChoices}" SelectedItem="{Binding SelectedTemplateChoice}" HorizontalAlignment="Stretch" />
-            <WrapPanel>
-              <CheckBox Content="世界观" IsChecked="{Binding UseWorld}" Margin="0,0,12,0" />
-              <CheckBox Content="文风" IsChecked="{Binding UseStyle}" Margin="0,0,12,0" />
-              <CheckBox Content="方法" IsChecked="{Binding UseMethods}" Margin="0,0,12,0" />
-              <CheckBox Content="规则" IsChecked="{Binding UseRules}" />
-            </WrapPanel>
-            <WrapPanel>
-              <Button Content="刷新模板" Command="{Binding RefreshTemplatesCommand}" Margin="0,0,6,6" />
-              <Button Content="按此模板新建作品" Command="{Binding NewFromTemplateCommand}" Margin="0,0,6,6" />
-              <Button Content="预览采用差异" Command="{Binding PreviewTemplateCommand}" Margin="0,0,6,6" />
-              <Button Content="采用此版本" Command="{Binding ApplyTemplateCommand}" Margin="0,0,6,6" />
-              <Button Content="本书规范另存模板" Command="{Binding SaveAsTemplateCommand}" Margin="0,0,6,6" />
-              <Button Content="导出所选模板" Command="{Binding ExportTemplateFileCommand}" Margin="0,0,6,6" />
-              <Button Content="导入独立模板" Command="{Binding ImportTemplateFileCommand}" Margin="0,0,6,6" />
-            </WrapPanel>
-            <TextBox Text="{Binding TemplateDifference}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="220" />
-            <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
-            <TextBlock Text="本书世界观与设定" FontWeight="SemiBold" />
-            <TextBox Text="{Binding ProfileWorld}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200" />
-            <TextBlock Text="本书文风" FontWeight="SemiBold" />
-            <TextBox Text="{Binding ProfileStyle}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
-            <TextBlock Text="本书写作方法" FontWeight="SemiBold" />
-            <TextBox Text="{Binding ProfileMethods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
-            <TextBlock Text="本书长期规则原文" FontWeight="SemiBold" />
-            <TextBox Text="{Binding ProfileRules}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
-            <Expander Header="规则管理与本地检查" HorizontalAlignment="Stretch">
-              <StackPanel Spacing="8">
-                <ComboBox ItemsSource="{Binding WritingRules}" SelectedItem="{Binding SelectedWritingRule}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSelectRule}" />
-                <Button Content="新规则" Command="{Binding NewRuleCommand}" />
-                <Button Content="放弃规则草案" Command="{Binding DiscardRuleDraftCommand}" />
-                <TextBox Text="{Binding RuleOriginal}" MaxLength="10000" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="150" PlaceholderText="规则原文" />
-                <TextBox Text="{Binding RuleInterpretation}" PlaceholderText="执行解释，例如禁止总结式结尾中的某个固定词组" />
-                <ComboBox ItemsSource="{Binding RuleKinds}" SelectedItem="{Binding RuleKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
-                <ComboBox ItemsSource="{Binding RuleScopes}" SelectedItem="{Binding RuleScope}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
-                <ComboBox ItemsSource="{Binding RuleStrengths}" SelectedItem="{Binding RuleStrength}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
-                <TextBox Text="{Binding RulePattern}" MaxLength="2000" PlaceholderText="匹配文本（普通文字，不使用正则）" />
-                <CheckBox Content="匹配时忽略标点、空白与换行" IsChecked="{Binding RuleIgnoreSeparators}" />
-                <TextBox Text="{Binding RuleExceptions}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" PlaceholderText="禁止文本的例外，每行一条；例外需完整覆盖命中片段" />
-                <TextBox Text="{Binding RuleSource}" PlaceholderText="规则来源" />
-                <CheckBox Content="启用此规则（保存版本后生效）" IsChecked="{Binding RuleEnabled}" />
-                <WrapPanel>
-                  <Button Content="保存规则版本" Command="{Binding SaveRuleVersionCommand}" Margin="0,0,6,6" />
-                  <Button Content="检查当前章正文" Command="{Binding CheckLocalRulesCommand}" />
-                </WrapPanel>
-                <TextBlock Text="{Binding LocalRuleStatus}" TextWrapping="Wrap" />
-                <ComboBox ItemsSource="{Binding RuleFindings}" SelectedItem="{Binding SelectedFinding}" HorizontalAlignment="Stretch" />
-                <Button Content="选中正文命中位置" Command="{Binding LocateRuleFindingCommand}" />
-              </StackPanel>
-            </Expander>
+        
+
+        <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" RowSpacing="8" IsVisible="{Binding HasProject}">
+          <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" IsEnabled="{Binding CanEdit}"/>
+          <TextBox x:Name="ChapterEditor" Grid.Row="1" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64" IsReadOnly="{Binding !CanEdit}" SelectionStart="{Binding EditorSelectionStart, Mode=TwoWay}" SelectionEnd="{Binding EditorSelectionEnd, Mode=TwoWay}" PlaceholderText="开始正文。输入后自动保存；保存与人工定稿分别操作。"/>
+          <TextBlock Grid.Row="2" Text="{Binding WordCount}" Opacity="0.65" HorizontalAlignment="Right"/>
+        </Grid>
+        
+
+        <ScrollViewer Grid.ColumnSpan="2" IsVisible="{Binding !HasProject}" HorizontalContentAlignment="Stretch">
+          <StackPanel MaxWidth="620" Spacing="18" Margin="24">
+            <TextBlock Text="从一个创意开始" FontSize="25" FontWeight="SemiBold"/>
+            <TextBlock Text="填写书名与创意，创建本地作品。已有作品可直接打开；模型连接在作品建立后配置。" TextWrapping="Wrap"/>
+            <StackPanel Spacing="8" IsEnabled="{Binding CanSwitch}">
+              <TextBlock Text="书名"/>
+              <TextBox Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="为故事取一个名字"/>
+              <TextBlock Text="创意与方向"/>
+              <TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="180" PlaceholderText="主角、世界、核心冲突，以及希望写出的感觉。"/>
             </StackPanel>
-            <Expander Header="采用材料提炼结果" HorizontalAlignment="Stretch">
-              <StackPanel Spacing="6">
-                <Button Content="刷新已提炼材料" Command="{Binding RefreshBookMaterialsCommand}" />
-                <ComboBox ItemsSource="{Binding BookMaterials}" SelectedItem="{Binding SelectedBookMaterial}" HorizontalAlignment="Stretch" />
-                <Button Content="只采用到本书规范" Command="{Binding AdoptBookMaterialCommand}" />
-              </StackPanel>
-            </Expander>
-          </StackPanel>
-        </Expander>
-        <Expander x:Name="PlanningExpander" Grid.Row="3" Header="分层规划与近期章纲" IsVisible="{Binding HasProject}" HorizontalAlignment="Stretch">
-          <StackPanel Spacing="8">
-            <TextBlock Text="从当前章起规划近期 3–5 章，保留已有正文；生成会消耗本书连接额度。" TextWrapping="Wrap" />
             <WrapPanel>
-              <ComboBox ItemsSource="{Binding PlanningModes}" SelectedItem="{Binding SelectedPlanningMode}" ItemTemplate="{StaticResource RuleChoice}" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6" />
-              <NumericUpDown Value="{Binding PlanningChapterCount}" Minimum="3" Maximum="5" Increment="1" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6" />
-              <Button Content="生成分层规划" Command="{Binding GeneratePlanningCommand}" Margin="0,0,8,6" />
-              <Button Content="取消规划" Command="{Binding CancelPlanningCommand}" Margin="0,0,8,6" />
-              <Button Content="采用待选规划" Command="{Binding ApplyPlanningCommand}" Margin="0,0,8,6" />
-              <Button Content="放弃待选规划" Command="{Binding DiscardPlanningCandidateCommand}" />
+              <Button Content="创建本地作品" Command="{Binding NewProjectCommand}" Margin="0,0,8,8"/>
+              <Button Content="打开已有作品" Command="{Binding OpenProjectCommand}" Margin="0,0,8,8"/>
             </WrapPanel>
-            <TextBlock Text="{Binding PlanningStatus}" TextWrapping="Wrap" />
-            <Expander Header="待采用候选与修订记录" HorizontalAlignment="Stretch">
-              <StackPanel Spacing="6">
-                <TextBox Text="{Binding PlanningPreview}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
-                <TextBlock Text="{Binding PlanningHistoryText}" TextWrapping="Wrap" />
-              </StackPanel>
-            </Expander>
-            <StackPanel IsEnabled="{Binding CanEdit}" Spacing="8">
-              <TextBox Text="{Binding PlanningMainline}" PlaceholderText="全书主线与远期方向" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="20000" />
-              <TextBox Text="{Binding VolumeGoal}" PlaceholderText="当前卷目标" MaxLength="10000" />
-              <CheckBox Content="锁定本章计划（模型不可修改，作者仍可编辑）" IsChecked="{Binding PlanLocked}" />
-              <TextBox x:Name="PlanGoalEditor" Text="{Binding PlanGoal}" PlaceholderText="本章目标" MaxLength="10000" />
-              <TextBox Text="{Binding PlanConflict}" PlaceholderText="核心冲突与障碍" MaxLength="10000" />
-              <TextBox Text="{Binding PlanViewpoint}" PlaceholderText="叙事视角" MaxLength="10000" />
-              <TextBox Text="{Binding PlanTimePlace}" PlaceholderText="时间与地点" MaxLength="10000" />
-              <TextBox Text="{Binding PlanEvents}" PlaceholderText="具体事件及信息分配" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="10000" />
-              <TextBox Text="{Binding PlanStateChanges}" PlaceholderText="预计状态变化（计划，不是已发生事实）" MaxLength="10000" />
-              <TextBox Text="{Binding PlanForeshadow}" PlaceholderText="伏笔铺设与回收" MaxLength="10000" />
-              <TextBox Text="{Binding PlanBridge}" PlaceholderText="前后章承接" MaxLength="10000" />
-              <TextBlock Text="方法应用：必须落实到剧情事件，来源逐字引用本书方法原文。" TextWrapping="Wrap" />
-              <ItemsControl ItemsSource="{Binding PlanMethods}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="local:MethodApplicationEditor">
-                    <StackPanel Spacing="6" Margin="0,0,0,10">
-                      <TextBox Text="{Binding SourceQuote}" PlaceholderText="方法来源原文" MaxLength="2000" />
-                      <TextBox Text="{Binding SetupEvent}" PlaceholderText="用什么事件铺设期待" MaxLength="2000" />
-                      <TextBox Text="{Binding PressureEvent}" PlaceholderText="用什么障碍持续施压" MaxLength="2000" />
-                      <TextBox Text="{Binding PayoffEvent}" PlaceholderText="用什么事件兑现" MaxLength="2000" />
-                      <Button Content="移除此方法应用" Command="{Binding RemoveCommand}" />
+          </StackPanel>
+        </ScrollViewer>
+        
+
+      </Grid>
+      
+
+      <Border x:Name="InspectorPanel" Grid.Column="1" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="1" CornerRadius="8">
+        <TabControl x:Name="InspectorTabs">
+          <TabItem Header="创作">
+            <ScrollViewer HorizontalContentAlignment="Stretch">
+              <StackPanel Spacing="10" Margin="8,12,8,8">
+                <Expander x:Name="PlanningExpander" Header="分层规划与近期章纲" IsVisible="{Binding HasProject}" HorizontalAlignment="Stretch">
+                  
+          
+                  <StackPanel Spacing="8">
+                    
+            
+                    <TextBlock Text="从当前章起规划近期 3–5 章，保留已有正文；生成会消耗本书连接额度。" TextWrapping="Wrap"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <ComboBox ItemsSource="{Binding PlanningModes}" SelectedItem="{Binding SelectedPlanningMode}" ItemTemplate="{StaticResource RuleChoice}" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6"/>
+                      
+              
+                      <NumericUpDown Value="{Binding PlanningChapterCount}" Minimum="3" Maximum="5" Increment="1" IsEnabled="{Binding CanEdit}" Margin="0,0,8,6"/>
+                      
+              
+                      <Button Content="生成分层规划" Command="{Binding GeneratePlanningCommand}" Margin="0,0,8,6"/>
+                      
+              
+                      <Button Content="取消规划" Command="{Binding CancelPlanningCommand}" Margin="0,0,8,6"/>
+                      
+              
+                      <Button Content="采用待选规划" Command="{Binding ApplyPlanningCommand}" Margin="0,0,8,6"/>
+                      
+              
+                      <Button Content="放弃待选规划" Command="{Binding DiscardPlanningCandidateCommand}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <TextBlock Text="{Binding PlanningStatus}" TextWrapping="Wrap"/>
+                    
+            
+                    <Expander Header="待采用候选与修订记录" HorizontalAlignment="Stretch">
+                      
+              
+                      <StackPanel Spacing="6">
+                        
+                
+                        <TextBox Text="{Binding PlanningPreview}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300"/>
+                        
+                
+                        <TextBlock Text="{Binding PlanningHistoryText}" TextWrapping="Wrap"/>
+                        
+              
+                      </StackPanel>
+                      
+            
+                    </Expander>
+                    
+            
+                    <StackPanel IsEnabled="{Binding CanEdit}" Spacing="8">
+                      
+              
+                      <TextBox Text="{Binding PlanningMainline}" PlaceholderText="全书主线与远期方向" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="20000"/>
+                      
+              
+                      <TextBox Text="{Binding VolumeGoal}" PlaceholderText="当前卷目标" MaxLength="10000"/>
+                      
+              
+                      <CheckBox Content="锁定本章计划（模型不可修改，作者仍可编辑）" IsChecked="{Binding PlanLocked}"/>
+                      
+              
+                      <TextBox x:Name="PlanGoalEditor" Text="{Binding PlanGoal}" PlaceholderText="本章目标" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanConflict}" PlaceholderText="核心冲突与障碍" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanViewpoint}" PlaceholderText="叙事视角" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanTimePlace}" PlaceholderText="时间与地点" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanEvents}" PlaceholderText="具体事件及信息分配" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanStateChanges}" PlaceholderText="预计状态变化（计划，不是已发生事实）" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanForeshadow}" PlaceholderText="伏笔铺设与回收" MaxLength="10000"/>
+                      
+              
+                      <TextBox Text="{Binding PlanBridge}" PlaceholderText="前后章承接" MaxLength="10000"/>
+                      
+              
+                      <TextBlock Text="方法应用：必须落实到剧情事件，来源逐字引用本书方法原文。" TextWrapping="Wrap"/>
+                      
+              
+                      <ItemsControl ItemsSource="{Binding PlanMethods}">
+                        
+                
+                        <ItemsControl.ItemTemplate>
+                          
+                  
+                          <DataTemplate x:DataType="local:MethodApplicationEditor">
+                            
+                    
+                            <StackPanel Spacing="6" Margin="0,0,0,10">
+                              
+                      
+                              <TextBox Text="{Binding SourceQuote}" PlaceholderText="方法来源原文" MaxLength="2000"/>
+                              
+                      
+                              <TextBox Text="{Binding SetupEvent}" PlaceholderText="用什么事件铺设期待" MaxLength="2000"/>
+                              
+                      
+                              <TextBox Text="{Binding PressureEvent}" PlaceholderText="用什么障碍持续施压" MaxLength="2000"/>
+                              
+                      
+                              <TextBox Text="{Binding PayoffEvent}" PlaceholderText="用什么事件兑现" MaxLength="2000"/>
+                              
+                      
+                              <Button Content="移除此方法应用" Command="{Binding RemoveCommand}"/>
+                              
+                    
+                            </StackPanel>
+                            
+                  
+                          </DataTemplate>
+                          
+                
+                        </ItemsControl.ItemTemplate>
+                        
+              
+                      </ItemsControl>
+                      
+              
+                      <Button Content="添加方法应用" Command="{Binding AddPlanMethodCommand}"/>
+                      
+              
+                      <Button Content="保存本章规划修订" Command="{Binding SaveChapterPlanCommand}"/>
+                      
+            
                     </StackPanel>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-              <Button Content="添加方法应用" Command="{Binding AddPlanMethodCommand}" />
-              <Button Content="保存本章规划修订" Command="{Binding SaveChapterPlanCommand}" />
-            </StackPanel>
-          </StackPanel>
-        </Expander>
-        <TextBlock Grid.Row="3" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
-        <Expander x:Name="GenerationExpander" Grid.Row="4" Header="单章生成与审校" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
-          <StackPanel Spacing="8">
-            <TextBlock Text="生成使用本书连接额度；候选独立保存，检查通过后可提交工作稿。" TextWrapping="Wrap" />
-            <WrapPanel>
-              <TextBlock Text="目标字数" VerticalAlignment="Center" Margin="0,0,8,0" />
-              <NumericUpDown Value="{Binding GenerationTargetCharacters}" Minimum="100" Maximum="10000" Increment="100" IsEnabled="{Binding CanEdit}" />
-              <TextBlock Text="最多局部修正次数" VerticalAlignment="Center" Margin="8,0" />
-              <NumericUpDown Value="{Binding GenerationMaximumRepairs}" Minimum="0" Maximum="2" Increment="1" IsEnabled="{Binding CanEdit}" />
-            </WrapPanel>
-            <WrapPanel>
-              <Button Content="生成并审校本章" Command="{Binding GenerateChapterCommand}" Margin="0,0,8,0" />
-              <Button Content="取消请求" Command="{Binding CancelGenerationCommand}" Margin="0,0,8,0" />
-              <Button Content="恢复本章候选" Command="{Binding RefreshGenerationCommand}" Margin="0,0,8,0" />
-              <Button Content="提交通过的候选" Command="{Binding CommitGenerationCommand}" />
-            </WrapPanel>
-            <TextBox Text="{Binding RewriteInstruction}" PlaceholderText="选区改写或续写要求" MaxLength="2000" IsEnabled="{Binding CanEdit}" />
-            <WrapPanel>
-              <Button Content="改写正文选区并复核" Command="{Binding RewriteSelectionCommand}" Margin="0,0,8,0" />
-              <Button Content="从正文末尾续写并复核" Command="{Binding ContinueTextCommand}" Margin="0,0,8,0" />
-              <Button Content="仅重新审校当前正文" Command="{Binding ReviewCurrentTextCommand}" Margin="0,0,8,0" />
-              <Button Content="放弃当前候选" Command="{Binding RejectCandidateCommand}" />
-            </WrapPanel>
-            <Expander Header="候选与当前正文差异" HorizontalAlignment="Stretch">
-              <TextBox Text="{Binding CandidateDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
-            </Expander>
-            <TextBlock Text="{Binding GenerationStatus}" TextWrapping="Wrap" />
-            <ComboBox ItemsSource="{Binding GenerationChoices}" SelectedItem="{Binding SelectedGeneration}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch" />
-            <TextBox x:Name="GenerationCandidate" Text="{Binding GenerationText}" SelectionStart="{Binding GenerationSelectionStart}" SelectionEnd="{Binding GenerationSelectionEnd}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="400" />
-            <ComboBox ItemsSource="{Binding GenerationIssues}" SelectedItem="{Binding SelectedGenerationIssue}" HorizontalAlignment="Stretch" />
-            <Button Content="在候选中定位问题证据" Command="{Binding LocateGenerationIssueCommand}" />
-            <TextBox Text="{Binding GenerationReport}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="250" />
-          </StackPanel>
-        </Expander>
-        <Expander x:Name="ContinuousExpander" Grid.Row="5" Header="连续创作与运行恢复" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
-          <StackPanel Spacing="8">
-            <TextBlock Text="复用单章区域的字数和修正次数，连续完成后全部保留为工作稿。" TextWrapping="Wrap" />
-            <WrapPanel>
-              <TextBlock Text="章节数" VerticalAlignment="Center" Margin="0,0,8,0" />
-              <NumericUpDown Value="{Binding RunChapterCount}" Minimum="3" Maximum="5" IsEnabled="{Binding CanEdit}" />
-              <TextBlock Text="总请求上限" VerticalAlignment="Center" Margin="8,0" />
-              <NumericUpDown Value="{Binding RunMaximumRequests}" Minimum="1" Maximum="1000" IsEnabled="{Binding CanEdit}" />
-              <TextBlock Text="总 token 上限" VerticalAlignment="Center" Margin="8,0" />
-              <NumericUpDown Value="{Binding RunMaximumTokens}" Minimum="1" Maximum="10000000" Increment="10000" IsEnabled="{Binding CanEdit}" />
-            </WrapPanel>
-            <CheckBox Content="章纲不足时先自动补齐，计入本次预算" IsChecked="{Binding RunPlanIfMissing}" IsEnabled="{Binding CanEdit}" />
-            <WrapPanel>
-              <Button Content="开始连续创作" Command="{Binding StartContinuousCommand}" Margin="0,0,8,0" />
-              <Button Content="完成本章后暂停" Command="{Binding PauseContinuousCommand}" Margin="0,0,8,0" />
-              <Button Content="立即取消请求" Command="{Binding CancelContinuousCommand}" Margin="0,0,8,0" />
-              <Button Content="读取运行记录" Command="{Binding LoadContinuousCommand}" />
-            </WrapPanel>
-            <TextBlock Text="{Binding RunStatus}" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding RunUsage}" TextWrapping="Wrap" />
-            <CheckBox IsChecked="{Binding AcknowledgeRunRetry}" IsEnabled="{Binding CanEdit}"><TextBlock Text="已复核失败/未知用量，知晓旧请求可能计费，允许继续新增请求" TextWrapping="Wrap" /></CheckBox>
-            <WrapPanel>
-              <Button Content="按上述预算明确继续" Command="{Binding ResumeContinuousCommand}" Margin="0,0,8,0" />
-              <Button Content="结束此运行，保留已有稿件" Command="{Binding AbandonContinuousCommand}" />
-            </WrapPanel>
-          </StackPanel>
-        </Expander>
-        <Grid Grid.Row="6" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
-          <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
-          <Expander Grid.Row="1" Header="本章提纲与修订" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="8">
-            <TextBox Text="{Binding ChapterOutline}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="150" PlaceholderText="目标、冲突、事件与承接" />
-            <TextBox Text="{Binding RevisionSummary}" PlaceholderText="本章摘要（随提交的修订保存）" />
-            <WrapPanel>
-              <Button Content="提交工作稿" Command="{Binding CommitDraftCommand}" Margin="0,0,6,6" />
-              <Button Content="人工定稿本章" Command="{Binding FinalizeChapterCommand}" Margin="0,0,6,6" />
-              <Button Content="放弃本轮工作稿" Command="{Binding DiscardWorkingCommand}" Margin="0,0,6,6" />
-              <Button Content="回退本章及后续定稿" Command="{Binding RollbackFormalCommand}" Margin="0,0,6,6" />
-            </WrapPanel>
-            <Expander x:Name="RevisionReviewExpander" Header="历史对比、影响清单与连续定稿" HorizontalAlignment="Stretch">
-              <StackPanel Spacing="8">
-                <TextBlock Text="{Binding ImpactReport}" TextWrapping="Wrap" />
-                <Button Content="读取本章修订历史" Command="{Binding RefreshRevisionsCommand}" />
-                <ComboBox ItemsSource="{Binding RevisionChoices}" SelectedItem="{Binding SelectedRevision}" HorizontalAlignment="Stretch" />
-                <TextBox Text="{Binding RevisionDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="250" />
-                <TextBlock Text="连续定稿起始章 / 结束章（从 1 开始）" />
-                <NumericUpDown Value="{Binding FinalizeFirstChapter}" Minimum="1" Maximum="10000" />
-                <NumericUpDown Value="{Binding FinalizeLastChapter}" Minimum="1" Maximum="10000" />
-                <CheckBox Content="我已逐章审阅上述连续范围" IsChecked="{Binding ConfirmFinalizeRange}" />
-                <Button Content="明确将整个范围定稿" Command="{Binding FinalizeRangeCommand}" />
+                    
+          
+                  </StackPanel>
+                  
+        
+                </Expander>
+                
+        
+                <Expander x:Name="GenerationExpander" Header="单章生成与审校" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
+                  
+          
+                  <StackPanel Spacing="8">
+                    
+            
+                    <TextBlock Text="生成使用本书连接额度；候选独立保存，检查通过后可提交工作稿。" TextWrapping="Wrap"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <TextBlock Text="目标字数" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      
+              
+                      <NumericUpDown Value="{Binding GenerationTargetCharacters}" Minimum="100" Maximum="10000" Increment="100" IsEnabled="{Binding CanEdit}"/>
+                      
+              
+                      <TextBlock Text="最多局部修正次数" VerticalAlignment="Center" Margin="8,0"/>
+                      
+              
+                      <NumericUpDown Value="{Binding GenerationMaximumRepairs}" Minimum="0" Maximum="2" Increment="1" IsEnabled="{Binding CanEdit}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="生成并审校本章" Command="{Binding GenerateChapterCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="取消请求" Command="{Binding CancelGenerationCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="恢复本章候选" Command="{Binding RefreshGenerationCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="提交通过的候选" Command="{Binding CommitGenerationCommand}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <TextBox Text="{Binding RewriteInstruction}" PlaceholderText="选区改写或续写要求" MaxLength="2000" IsEnabled="{Binding CanEdit}"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="改写正文选区并复核" Command="{Binding RewriteSelectionCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="从正文末尾续写并复核" Command="{Binding ContinueTextCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="仅重新审校当前正文" Command="{Binding ReviewCurrentTextCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="放弃当前候选" Command="{Binding RejectCandidateCommand}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <Expander Header="候选与当前正文差异" HorizontalAlignment="Stretch">
+                      
+              
+                      <TextBox Text="{Binding CandidateDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300"/>
+                      
+            
+                    </Expander>
+                    
+            
+                    <TextBlock Text="{Binding GenerationStatus}" TextWrapping="Wrap"/>
+                    
+            
+                    <ComboBox ItemsSource="{Binding GenerationChoices}" SelectedItem="{Binding SelectedGeneration}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch"/>
+                    
+            
+                    <TextBox x:Name="GenerationCandidate" Text="{Binding GenerationText}" SelectionStart="{Binding GenerationSelectionStart}" SelectionEnd="{Binding GenerationSelectionEnd}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="400"/>
+                    
+            
+                    <ComboBox ItemsSource="{Binding GenerationIssues}" SelectedItem="{Binding SelectedGenerationIssue}" HorizontalAlignment="Stretch"/>
+                    
+            
+                    <Button Content="在候选中定位问题证据" Command="{Binding LocateGenerationIssueCommand}"/>
+                    
+            
+                    <TextBox Text="{Binding GenerationReport}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="250"/>
+                    
+          
+                  </StackPanel>
+                  
+        
+                </Expander>
+                
+        
+                <Expander x:Name="ContinuousExpander" Header="连续创作与运行恢复" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
+                  
+          
+                  <StackPanel Spacing="8">
+                    
+            
+                    <TextBlock Text="复用单章区域的字数和修正次数，连续完成后全部保留为工作稿。" TextWrapping="Wrap"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <TextBlock Text="章节数" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                      
+              
+                      <NumericUpDown Value="{Binding RunChapterCount}" Minimum="3" Maximum="5" IsEnabled="{Binding CanEdit}"/>
+                      
+              
+                      <TextBlock Text="总请求上限" VerticalAlignment="Center" Margin="8,0"/>
+                      
+              
+                      <NumericUpDown Value="{Binding RunMaximumRequests}" Minimum="1" Maximum="1000" IsEnabled="{Binding CanEdit}"/>
+                      
+              
+                      <TextBlock Text="总 token 上限" VerticalAlignment="Center" Margin="8,0"/>
+                      
+              
+                      <NumericUpDown Value="{Binding RunMaximumTokens}" Minimum="1" Maximum="10000000" Increment="10000" IsEnabled="{Binding CanEdit}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <CheckBox Content="章纲不足时先自动补齐，计入本次预算" IsChecked="{Binding RunPlanIfMissing}" IsEnabled="{Binding CanEdit}"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="开始连续创作" Command="{Binding StartContinuousCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="完成本章后暂停" Command="{Binding PauseContinuousCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="立即取消请求" Command="{Binding CancelContinuousCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="读取运行记录" Command="{Binding LoadContinuousCommand}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <TextBlock Text="{Binding RunStatus}" TextWrapping="Wrap"/>
+                    
+            
+                    <TextBlock Text="{Binding RunUsage}" TextWrapping="Wrap"/>
+                    
+            
+                    <CheckBox IsChecked="{Binding AcknowledgeRunRetry}" IsEnabled="{Binding CanEdit}">
+                      <TextBlock Text="已复核失败/未知用量，知晓旧请求可能计费，允许继续新增请求" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="按上述预算明确继续" Command="{Binding ResumeContinuousCommand}" Margin="0,0,8,0"/>
+                      
+              
+                      <Button Content="结束此运行，保留已有稿件" Command="{Binding AbandonContinuousCommand}"/>
+                      
+            
+                    </WrapPanel>
+                    
+          
+                  </StackPanel>
+                  
+        
+                </Expander>
+                
+        
               </StackPanel>
-            </Expander>
-            <TextBlock Text="人工定稿是作者确认；未检查不等于 AI 检查通过。回退和放弃保留正文历史。" TextWrapping="Wrap" FontSize="12" />
-            </StackPanel>
-          </Expander>
-          <TextBox x:Name="ChapterEditor" Grid.Row="2" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64"
-                   SelectionStart="{Binding EditorSelectionStart, Mode=TwoWay}" SelectionEnd="{Binding EditorSelectionEnd, Mode=TwoWay}"
-                   PlaceholderText="在这里开始正文。输入后会自动保存；也可以点击“保存本书”。" />
-          <TextBlock Grid.Row="3" Text="{Binding WordCount}" Opacity="0.65" HorizontalAlignment="Right" />
-        </Grid>
-      </Grid>
+            </ScrollViewer>
+          </TabItem>
+          <TabItem Header="检查">
+            <ScrollViewer HorizontalContentAlignment="Stretch">
+              <StackPanel Spacing="10" Margin="8,12,8,8">
+                <Expander Header="规则管理与本地检查" HorizontalAlignment="Stretch">
+                  
+              
+                  <StackPanel Spacing="8">
+                    
+                
+                    <ComboBox ItemsSource="{Binding WritingRules}" SelectedItem="{Binding SelectedWritingRule}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSelectRule}"/>
+                    
+                
+                    <Button Content="新规则" Command="{Binding NewRuleCommand}"/>
+                    
+                
+                    <Button Content="放弃规则草案" Command="{Binding DiscardRuleDraftCommand}"/>
+                    
+                
+                    <TextBox Text="{Binding RuleOriginal}" MaxLength="10000" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="150" PlaceholderText="规则原文"/>
+                    
+                
+                    <TextBox Text="{Binding RuleInterpretation}" PlaceholderText="执行解释，例如禁止总结式结尾中的某个固定词组"/>
+                    
+                
+                    <ComboBox ItemsSource="{Binding RuleKinds}" SelectedItem="{Binding RuleKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch"/>
+                    
+                
+                    <ComboBox ItemsSource="{Binding RuleScopes}" SelectedItem="{Binding RuleScope}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch"/>
+                    
+                
+                    <ComboBox ItemsSource="{Binding RuleStrengths}" SelectedItem="{Binding RuleStrength}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch"/>
+                    
+                
+                    <TextBox Text="{Binding RulePattern}" MaxLength="2000" PlaceholderText="匹配文本（普通文字，不使用正则）"/>
+                    
+                
+                    <CheckBox Content="匹配时忽略标点、空白与换行" IsChecked="{Binding RuleIgnoreSeparators}"/>
+                    
+                
+                    <TextBox Text="{Binding RuleExceptions}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" PlaceholderText="禁止文本的例外，每行一条；例外需完整覆盖命中片段"/>
+                    
+                
+                    <TextBox Text="{Binding RuleSource}" PlaceholderText="规则来源"/>
+                    
+                
+                    <CheckBox Content="启用此规则（保存版本后生效）" IsChecked="{Binding RuleEnabled}"/>
+                    
+                
+                    <WrapPanel>
+                      
+                  
+                      <Button Content="保存规则版本" Command="{Binding SaveRuleVersionCommand}" Margin="0,0,6,6"/>
+                      
+                  
+                      <Button Content="检查当前章正文" Command="{Binding CheckLocalRulesCommand}"/>
+                      
+                
+                    </WrapPanel>
+                    
+                
+                    <TextBlock Text="{Binding LocalRuleStatus}" TextWrapping="Wrap"/>
+                    
+                
+                    <ComboBox ItemsSource="{Binding RuleFindings}" SelectedItem="{Binding SelectedFinding}" HorizontalAlignment="Stretch"/>
+                    
+                
+                    <Button Content="选中正文命中位置" Command="{Binding LocateRuleFindingCommand}"/>
+                    
+              
+                  </StackPanel>
+                  
+            
+                </Expander>
+                
+            
+                <Expander Header="本章提纲与修订" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="8">
+                    
+            
+                    <TextBox Text="{Binding ChapterOutline}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="150" PlaceholderText="目标、冲突、事件与承接"/>
+                    
+            
+                    <TextBox Text="{Binding RevisionSummary}" PlaceholderText="本章摘要（随提交的修订保存）"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="提交工作稿" Command="{Binding CommitDraftCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="人工定稿本章" Command="{Binding FinalizeChapterCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="放弃本轮工作稿" Command="{Binding DiscardWorkingCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="回退本章及后续定稿" Command="{Binding RollbackFormalCommand}" Margin="0,0,6,6"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <Expander x:Name="RevisionReviewExpander" Header="历史对比、影响清单与连续定稿" HorizontalAlignment="Stretch">
+                      
+              
+                      <StackPanel Spacing="8">
+                        
+                
+                        <TextBlock Text="{Binding ImpactReport}" TextWrapping="Wrap"/>
+                        
+                
+                        <Button Content="读取本章修订历史" Command="{Binding RefreshRevisionsCommand}"/>
+                        
+                
+                        <ComboBox ItemsSource="{Binding RevisionChoices}" SelectedItem="{Binding SelectedRevision}" HorizontalAlignment="Stretch"/>
+                        
+                
+                        <TextBox Text="{Binding RevisionDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="250"/>
+                        
+                
+                        <TextBlock Text="连续定稿起始章 / 结束章（从 1 开始）"/>
+                        
+                
+                        <NumericUpDown Value="{Binding FinalizeFirstChapter}" Minimum="1" Maximum="10000"/>
+                        
+                
+                        <NumericUpDown Value="{Binding FinalizeLastChapter}" Minimum="1" Maximum="10000"/>
+                        
+                
+                        <CheckBox Content="我已逐章审阅上述连续范围" IsChecked="{Binding ConfirmFinalizeRange}"/>
+                        
+                
+                        <Button Content="明确将整个范围定稿" Command="{Binding FinalizeRangeCommand}"/>
+                        
+              
+                      </StackPanel>
+                      
+            
+                    </Expander>
+                    
+            
+                    <TextBlock Text="人工定稿是作者确认；未检查不等于 AI 检查通过。回退和放弃保留正文历史。" TextWrapping="Wrap" FontSize="12"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+          
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+          <TabItem Header="设定">
+            <ScrollViewer HorizontalContentAlignment="Stretch">
+              <StackPanel Spacing="10" Margin="8,12,8,8">
+                <Expander Header="本书规范与模板" HorizontalAlignment="Stretch">
+                  
+          
+                  <StackPanel Spacing="10">
+                    
+            
+                    <TextBlock Text="{Binding TemplateSource}" TextWrapping="Wrap"/>
+                    
+            
+                    <ComboBox ItemsSource="{Binding TemplateChoices}" SelectedItem="{Binding SelectedTemplateChoice}" HorizontalAlignment="Stretch"/>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <CheckBox Content="世界观" IsChecked="{Binding UseWorld}" Margin="0,0,12,0"/>
+                      
+              
+                      <CheckBox Content="文风" IsChecked="{Binding UseStyle}" Margin="0,0,12,0"/>
+                      
+              
+                      <CheckBox Content="方法" IsChecked="{Binding UseMethods}" Margin="0,0,12,0"/>
+                      
+              
+                      <CheckBox Content="规则" IsChecked="{Binding UseRules}"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <WrapPanel>
+                      
+              
+                      <Button Content="刷新模板" Command="{Binding RefreshTemplatesCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="按此模板新建作品" Command="{Binding NewFromTemplateCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="预览采用差异" Command="{Binding PreviewTemplateCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="采用此版本" Command="{Binding ApplyTemplateCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="本书规范另存模板" Command="{Binding SaveAsTemplateCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="导出所选模板" Command="{Binding ExportTemplateFileCommand}" Margin="0,0,6,6"/>
+                      
+              
+                      <Button Content="导入独立模板" Command="{Binding ImportTemplateFileCommand}" Margin="0,0,6,6"/>
+                      
+            
+                    </WrapPanel>
+                    
+            
+                    <TextBox Text="{Binding TemplateDifference}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="220"/>
+                    
+            
+                    <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+                      
+            
+                      <TextBlock Text="本书世界观与设定" FontWeight="SemiBold"/>
+                      
+            
+                      <TextBox Text="{Binding ProfileWorld}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200"/>
+                      
+            
+                      <TextBlock Text="本书文风" FontWeight="SemiBold"/>
+                      
+            
+                      <TextBox Text="{Binding ProfileStyle}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180"/>
+                      
+            
+                      <TextBlock Text="本书写作方法" FontWeight="SemiBold"/>
+                      
+            
+                      <TextBox Text="{Binding ProfileMethods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180"/>
+                      
+            
+                      <TextBlock Text="本书长期规则原文" FontWeight="SemiBold"/>
+                      
+            
+                      <TextBox Text="{Binding ProfileRules}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180"/>
+                      
+            
+                    </StackPanel>
+                    
+            
+                    <Expander Header="采用材料提炼结果" HorizontalAlignment="Stretch">
+                      
+              
+                      <StackPanel Spacing="6">
+                        
+                
+                        <Button Content="刷新已提炼材料" Command="{Binding RefreshBookMaterialsCommand}"/>
+                        
+                
+                        <ComboBox ItemsSource="{Binding BookMaterials}" SelectedItem="{Binding SelectedBookMaterial}" HorizontalAlignment="Stretch"/>
+                        
+                
+                        <Button Content="只采用到本书规范" Command="{Binding AdoptBookMaterialCommand}"/>
+                        
+              
+                      </StackPanel>
+                      
+            
+                    </Expander>
+                    
+          
+                  </StackPanel>
+                  
+        
+                </Expander>
+                
+        
+                <Expander x:Name="StoryExpander" Header="故事实体与上下文" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="8">
+                    
+              
+                    <ComboBox ItemsSource="{Binding StoryEntities}" SelectedItem="{Binding SelectedStoryEntity}" IsEnabled="{Binding CanSelectEntity}" HorizontalAlignment="Stretch"/>
+                    
+              
+                    <Button Content="新实体" Command="{Binding NewStoryEntityCommand}"/>
+                    
+              
+                    <StackPanel IsEnabled="{Binding CanEdit}" Spacing="6">
+                      
+                
+                      <ComboBox ItemsSource="{Binding EntityKinds}" SelectedItem="{Binding EntityKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch"/>
+                      
+                
+                      <TextBox x:Name="EntityNameEditor" Text="{Binding EntityName}" PlaceholderText="人物 / 地点 / 物品名称" MaxLength="100"/>
+                      
+                
+                      <TextBox Text="{Binding EntityAliases}" PlaceholderText="别名，每行一个" AcceptsReturn="True" MinHeight="55" MaxHeight="120" TextWrapping="Wrap"/>
+                      
+                
+                      <TextBox Text="{Binding EntityDescription}" PlaceholderText="作者设定，不代表已发生事实" AcceptsReturn="True" MinHeight="55" MaxHeight="150" TextWrapping="Wrap" MaxLength="10000"/>
+                      
+                
+                      <TextBox Text="{Binding EntityLockedField}" PlaceholderText="锁定状态字段，例如 出生地" MaxLength="100"/>
+                      
+                
+                      <TextBox Text="{Binding EntityLockedValue}" PlaceholderText="锁定值；留空字段和值可取消该项" MaxLength="2000"/>
+                      
+              
+                    </StackPanel>
+                    
+              
+                    <Button Content="保存实体登记" Command="{Binding SaveStoryEntityCommand}"/>
+                    
+              
+                    <Button Content="放弃实体表单草案" Command="{Binding DiscardEntityDraftCommand}"/>
+                    
+              
+                    <TextBox Text="{Binding ContextQuery}" PlaceholderText="检索人物或关键词（可选）" MaxLength="1000" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <CheckBox IsChecked="{Binding ContextUseWorking}" IsEnabled="{Binding CanEdit}">
+                      <TextBlock Text="包含本轮有效工作稿" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    
+              
+                    <TextBlock Text="上下文容量（UTF-8 字节，非 token）" TextWrapping="Wrap"/>
+                    
+              
+                    <NumericUpDown Value="{Binding ContextMaximumBytes}" Minimum="100" Maximum="500000" Increment="1000" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <Button Content="预览上下文（不调用模型）" Command="{Binding PreviewStoryContextCommand}"/>
+                    
+              
+                    <TextBlock Text="{Binding StoryContextStatus}" TextWrapping="Wrap"/>
+                    
+              
+                    <TextBox Text="{Binding StoryContextText}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+          
+                <Expander Header="本书模型连接" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="6">
+                    
+              
+                    <TextBlock Text="{Binding BookConnectionStatus}" TextWrapping="Wrap"/>
+                    
+              
+                    <ComboBox ItemsSource="{Binding ConnectionChoices}" SelectedItem="{Binding SelectedBookConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <Button Content="刷新连接" Command="{Binding RefreshConnectionsCommand}"/>
+                    
+              
+                    <Button Content="明确绑定此配置" Command="{Binding BindConnectionCommand}"/>
+                    
+              
+                    <Button Content="解除本书绑定" Command="{Binding UnbindConnectionCommand}"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+          
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+          <TabItem Header="项目">
+            <ScrollViewer HorizontalContentAlignment="Stretch">
+              <StackPanel Spacing="10" Margin="8,12,8,8">
+                <StackPanel Spacing="8" IsEnabled="{Binding CanSwitch}">
+                  <TextBlock Text="书名"/>
+                  <TextBox Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="为故事取一个名字"/>
+                  <TextBlock Text="创意与方向"/>
+                  <TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="180" PlaceholderText="主角、世界、核心冲突，以及希望写出的感觉。"/>
+                </StackPanel>
+                <Expander Header="备份与正文导出" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="8">
+                    
+              
+                    <Button Content="一致性备份本书" Command="{Binding BackupProjectCommand}"/>
+                    
+              
+                    <Button Content="从备份恢复到新文件" Command="{Binding RestoreBackupCommand}"/>
+                    
+              
+                    <ComboBox ItemsSource="{Binding ExportVersions}" SelectedItem="{Binding ExportVersion}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <ComboBox ItemsSource="{Binding ExportFormats}" SelectedItem="{Binding ExportFormat}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <TextBlock Text="起始章 / 结束章（从 1 开始）" TextWrapping="Wrap"/>
+                    
+              
+                    <NumericUpDown Value="{Binding ExportFirstChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <NumericUpDown Value="{Binding ExportLastChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}"/>
+                    
+              
+                    <Button Content="预览选定稿与检查结果" Command="{Binding PreviewExportCommand}"/>
+                    
+              
+                    <TextBox Text="{Binding ExportReport}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="220"/>
+                    
+              
+                    <CheckBox IsChecked="{Binding AcknowledgeExportWarnings}">
+                      <TextBlock Text="已阅读提示，按所选版本导出" TextWrapping="Wrap"/>
+                    </CheckBox>
+                    
+              
+                    <Button Content="写入新文件" Command="{Binding WriteExportCommand}"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+          
+                <Expander Header="最近项目" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="6">
+                    
+              
+                    <ComboBox ItemsSource="{Binding RecentProjects}" SelectedItem="{Binding SelectedRecent}" HorizontalAlignment="Stretch"/>
+                    
+              
+                    <Button Content="打开所选项目" Command="{Binding OpenRecentCommand}"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+          
+                <Expander Header="恢复副本" HorizontalAlignment="Stretch">
+                  
+            
+                  <StackPanel Spacing="6">
+                    
+              
+                    <ComboBox ItemsSource="{Binding Recoveries}" SelectedItem="{Binding SelectedRecovery}" HorizontalAlignment="Stretch"/>
+                    
+              
+                    <Button Content="恢复为新项目" Command="{Binding RestoreRecoveryCommand}"/>
+                    
+              
+                    <Button Content="刷新列表" Command="{Binding RefreshLibraryCommand}"/>
+                    
+            
+                  </StackPanel>
+                  
+          
+                </Expander>
+                
+        
+              </StackPanel>
+            </ScrollViewer>
+          </TabItem>
+        </TabControl>
+      </Border>
     </Grid>
+    
+
+    <ScrollViewer Grid.Row="2" MaxHeight="120" HorizontalContentAlignment="Stretch">
+      <StackPanel Spacing="4">
+        <TextBlock Text="{Binding RevisionStatus}" TextWrapping="Wrap" FontSize="12" IsVisible="{Binding HasProject}"/>
+        <TextBlock Text="{Binding ActivityStatus}" TextWrapping="Wrap" FontSize="12"/>
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+        <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Opacity="0.65" FontSize="12"/>
+      </StackPanel>
     </ScrollViewer>
-    <StackPanel Grid.Row="2" Spacing="5">
-      <TextBlock Text="{Binding RevisionStatus}" TextWrapping="Wrap" FontSize="12" IsVisible="{Binding HasProject}" />
-      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontWeight="SemiBold" />
-      <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Opacity="0.65" FontSize="12" />
-    </StackPanel>
+    
+
   </Grid>
 </UserControl>

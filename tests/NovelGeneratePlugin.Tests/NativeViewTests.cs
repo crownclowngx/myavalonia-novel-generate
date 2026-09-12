@@ -106,7 +106,7 @@ public sealed class NativeViewTests
             {
                 window.Show(); await document.InitializeAsync(new NewDocumentActivation("实体测试"), default);
                 workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
-                view.FindControl<Expander>("StoryExpander")!.IsExpanded = true; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                view.FindControl<TabControl>("InspectorTabs")!.SelectedIndex = 2; view.FindControl<Expander>("StoryExpander")!.IsExpanded = true; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
                 var editor = view.FindControl<TextBox>("EntityNameEditor")!; editor.BringIntoView(); editor.Focus(); window.KeyTextInput("林舟"); Assert.Equal("林舟", document.EntityName);
                 document.EntityAliases = "阿舟"; await document.SaveStoryEntityCommand.ExecuteAsync(null); await document.PreviewStoryContextCommand.ExecuteAsync(null);
                 Assert.Contains("当前上下文", document.StoryContextStatus); Assert.Single(workspace.Store.Read(document.ProjectPath).Project.Story.Entities);
@@ -268,6 +268,30 @@ public sealed class NativeViewTests
                 document.RefreshRevisionsCommand.Execute(null); document.SelectedRevision = Assert.Single(document.RevisionChoices); Assert.Equal("正文相同。", document.RevisionDifference);
                 document.FinalizeFirstChapter = 1; document.FinalizeLastChapter = 1; document.ConfirmFinalizeRange = true; await document.FinalizeRangeCommand.ExecuteAsync(null);
                 Assert.NotNull(workspace.Store.Read(document.ProjectPath).Project.Revisions.Head(book.Chapters[0].Id).FormalId);
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
+    [Fact]
+    public async Task 窄窗高缩放切换侧栏再回正文保留长文本和选区()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await using var document = workspace.CreateDocument();
+            var view = new MainView { DataContext = document }; var window = new Window { Width = 800, Height = 700, Content = view };
+            try
+            {
+                window.Show(); window.SetRenderScaling(1.5); await document.InitializeAsync(new NewDocumentActivation("窄窗"), default); workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
+                document.ChapterText = string.Concat(Enumerable.Repeat("雾港的夜雨落在信封上。\n", 2000)); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var editor = view.FindControl<TextBox>("ChapterEditor")!; editor.SelectionStart = 2; editor.SelectionEnd = 5;
+                var toggle = view.FindControl<Avalonia.Controls.Primitives.ToggleButton>("InspectorToggle")!; Assert.True(toggle.IsVisible); toggle.IsChecked = true;
+                view.FindControl<TabControl>("InspectorTabs")!.SelectedIndex = 1; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.True(view.FindControl<Border>("InspectorPanel")!.IsVisible); Assert.False(view.FindControl<Grid>("ManuscriptPanel")!.IsVisible);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS"); if (!string.IsNullOrWhiteSpace(output)) { Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "narrow-inspector-150.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default); }
+                toggle.IsChecked = false; Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Assert.True(editor.Bounds.Height > 200); Assert.Equal(2, editor.SelectionStart); Assert.Equal(5, editor.SelectionEnd);
+                await document.SaveCommand.ExecuteAsync(null); Assert.Equal(document.ChapterText, workspace.Store.Read(document.ProjectPath).Project.Chapters[0].Text);
             }
             finally { window.Close(); }
             return true;
