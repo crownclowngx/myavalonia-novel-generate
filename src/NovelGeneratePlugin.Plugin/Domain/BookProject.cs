@@ -10,6 +10,9 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
     public WritingProfile Profile { get; init; } = WritingProfile.Empty;
     public TemplateAdoption? AdoptedTemplate { get; init; }
     public ConnectionBinding? Connection { get; init; }
+    public WritingRuleSet Rules { get; init; } = WritingRuleSet.Empty;
+    public RuleDraft RuleEditor { get; init; } = RuleDraft.Empty;
+    public ImmutableArray<LocalRuleCheck> RuleChecks { get; init; } = [];
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
     public static BookProject Create(string title, string idea = "")
     {
@@ -38,6 +41,16 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
         Revisions.Validate(this);
         if (Profile is null) throw new InvalidDataException("本书规范不能为空。");
         Profile.Validate();
+        if (Rules is null || RuleEditor is null || RuleChecks.IsDefault) throw new InvalidDataException("规则、草案或检查记录无效。");
+        Rules.Validate(this);
+        if (RuleEditor.Original is null || RuleEditor.Interpretation is null || RuleEditor.Pattern is null || RuleEditor.ExceptionsText is null || RuleEditor.Source is null ||
+            !Enum.IsDefined(RuleEditor.Kind) || !Enum.IsDefined(RuleEditor.Scope) || !Enum.IsDefined(RuleEditor.Strength)) throw new InvalidDataException("规则草案无效。");
+        if (RuleChecks.Any(c => c is null || !Chapters.Any(ch => ch.Id == c.ChapterId) || c.TextHash is null || c.RulesStamp is null || c.Findings.IsDefault || c.Conflicts.IsDefault))
+            throw new InvalidDataException("本地检查记录无效。");
+        if (RuleChecks.Any(c => c.GuidanceCount < 0 || c.Findings.Any(f => f is null || f.RuleId == Guid.Empty || f.RuleVersion < 1 || !Enum.IsDefined(f.Strength) ||
+            f.Start < -1 || f.Length < 0 || f.Start == -1 && f.Length != 0 || f.Message is null || f.Evidence is null) ||
+            c.Conflicts.Any(f => f is null || f.FirstRuleId == Guid.Empty || f.SecondRuleId == Guid.Empty || f.Message is null)))
+            throw new InvalidDataException("本地检查的命中证据无效。");
         if (Connection is { } binding && (binding.ConnectionId == Guid.Empty || binding.Version < 1 || binding.Name is null))
             throw new InvalidDataException("本书连接绑定无效。");
         if (AdoptedTemplate is { } adopted)
@@ -54,6 +67,8 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
         var copy = this with
         {
             Revisions = RevisionLedger.Empty,
+            Rules = Rules with { Items = Rules.Items.Select(r => r.Scope == WritingRuleScope.Volume ? r with { ScopeId = volumes[r.ScopeId!.Value].Id } : r).ToImmutableArray() },
+            RuleChecks = [],
             Id = Guid.NewGuid(),
             Volumes = Volumes.Select(v => volumes[v.Id]).ToImmutableArray(),
             Chapters = Chapters.Select(c => c with { Id = Guid.NewGuid(), VolumeId = volumes[c.VolumeId].Id }).ToImmutableArray()

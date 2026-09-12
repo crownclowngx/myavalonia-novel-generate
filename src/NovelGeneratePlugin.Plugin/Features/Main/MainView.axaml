@@ -1,5 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.Main.MainView" x:DataType="local:MainDocument">
+  <UserControl.Resources>
+    <local:WritingRuleLabelConverter x:Key="RuleLabel" />
+    <DataTemplate x:Key="RuleChoice"><TextBlock Text="{ReflectionBinding Converter={StaticResource RuleLabel}}" /></DataTemplate>
+  </UserControl.Resources>
   <Grid RowDefinitions="Auto,*,Auto" Margin="20" RowSpacing="14">
     <StackPanel Spacing="10">
       <TextBlock Text="网络小说创作工作台" FontSize="25" FontWeight="SemiBold" />
@@ -77,6 +81,30 @@
             <TextBox Text="{Binding ProfileMethods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
             <TextBlock Text="本书长期规则原文" FontWeight="SemiBold" />
             <TextBox Text="{Binding ProfileRules}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
+            <Expander Header="规则管理与本地检查" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <ComboBox ItemsSource="{Binding WritingRules}" SelectedItem="{Binding SelectedWritingRule}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSelectRule}" />
+                <Button Content="新规则" Command="{Binding NewRuleCommand}" />
+                <Button Content="放弃规则草案" Command="{Binding DiscardRuleDraftCommand}" />
+                <TextBox Text="{Binding RuleOriginal}" MaxLength="10000" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="150" PlaceholderText="规则原文" />
+                <TextBox Text="{Binding RuleInterpretation}" PlaceholderText="执行解释，例如禁止总结式结尾中的某个固定词组" />
+                <ComboBox ItemsSource="{Binding RuleKinds}" SelectedItem="{Binding RuleKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
+                <ComboBox ItemsSource="{Binding RuleScopes}" SelectedItem="{Binding RuleScope}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
+                <ComboBox ItemsSource="{Binding RuleStrengths}" SelectedItem="{Binding RuleStrength}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding RulePattern}" MaxLength="2000" PlaceholderText="匹配文本（普通文字，不使用正则）" />
+                <CheckBox Content="匹配时忽略标点、空白与换行" IsChecked="{Binding RuleIgnoreSeparators}" />
+                <TextBox Text="{Binding RuleExceptions}" AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="120" PlaceholderText="禁止文本的例外，每行一条；例外需完整覆盖命中片段" />
+                <TextBox Text="{Binding RuleSource}" PlaceholderText="规则来源" />
+                <CheckBox Content="启用此规则（保存版本后生效）" IsChecked="{Binding RuleEnabled}" />
+                <WrapPanel>
+                  <Button Content="保存规则版本" Command="{Binding SaveRuleVersionCommand}" Margin="0,0,6,6" />
+                  <Button Content="检查当前章正文" Command="{Binding CheckLocalRulesCommand}" />
+                </WrapPanel>
+                <TextBlock Text="{Binding LocalRuleStatus}" TextWrapping="Wrap" />
+                <ComboBox ItemsSource="{Binding RuleFindings}" SelectedItem="{Binding SelectedFinding}" HorizontalAlignment="Stretch" />
+                <Button Content="选中正文命中位置" Command="{Binding LocateRuleFindingCommand}" />
+              </StackPanel>
+            </Expander>
             </StackPanel>
           </StackPanel>
         </Expander>
@@ -97,6 +125,7 @@
             </StackPanel>
           </Expander>
           <TextBox x:Name="ChapterEditor" Grid.Row="2" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64"
+                   SelectionStart="{Binding EditorSelectionStart}" SelectionEnd="{Binding EditorSelectionEnd}"
                    PlaceholderText="在这里开始正文。输入后会自动保存；也可以点击“保存本书”。" />
           <TextBlock Grid.Row="3" Text="{Binding WordCount}" Opacity="0.65" HorizontalAlignment="Right" />
         </Grid>

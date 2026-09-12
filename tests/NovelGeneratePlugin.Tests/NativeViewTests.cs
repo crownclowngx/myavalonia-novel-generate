@@ -125,6 +125,11 @@ public sealed class NativeViewTests
             Assert.Contains("阿宁", editor.Text); Assert.DoesNotContain("第二章的秘密", editor.Text);
             await document.SaveCommand.ExecuteAsync(null);
             Assert.Contains("阿宁", workspace.Store.Read(document.ProjectPath).Project.Chapters[0].Text);
+            document.RuleOriginal = "原生定位测试"; document.RulePattern = "阿宁";
+            await document.SaveRuleVersionCommand.ExecuteAsync(null); await document.CheckLocalRulesCommand.ExecuteAsync(null);
+            document.SelectedFinding = Assert.Single(document.RuleFindings); document.LocateRuleFindingCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("阿宁", editor.Text![editor.SelectionStart..editor.SelectionEnd]);
             var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
             if (!string.IsNullOrWhiteSpace(output))
             {

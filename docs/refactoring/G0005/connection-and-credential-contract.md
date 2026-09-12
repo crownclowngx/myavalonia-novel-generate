@@ -43,3 +43,5 @@ Codex 的非交互入口参见 [官方说明](https://learn.chatgpt.com/docs/non
 尚未实现连接远程检测或小说请求。Key 测试全部使用虚构值与隔离目录；没有真实 DeepSeek 调用。
 本阶段预设还不是远端能力证明；G0008 必须显式处理各协议支持范围，不能悄悄忽略预算、用途和参数。
 真实 Host 的 Tool 隐藏与卸载待联调；Standalone 的两个 Tool 页仅验证插件对象图与局部关闭逻辑。
+
+G0006 当前作品 schema 为 5，规则新增字段和证据语义见 [G0006 契约](../G0006/writing-rule-contract.md)。
