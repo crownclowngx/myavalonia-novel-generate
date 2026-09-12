@@ -7,6 +7,8 @@ public sealed record Volume(Guid Id, string Title);
 /// <summary>本书的当前编辑快照；保存它不代表定稿或 AI 检查通过。</summary>
 public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableArray<Volume> Volumes, ImmutableArray<Chapter> Chapters)
 {
+    public WritingProfile Profile { get; init; } = WritingProfile.Empty;
+    public TemplateAdoption? AdoptedTemplate { get; init; }
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
     public static BookProject Create(string title, string idea = "")
     {
@@ -33,6 +35,15 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
                 throw new InvalidDataException("章节身份、归属或内容无效。");
         if (Revisions is null) throw new InvalidDataException("修订状态不能为空。");
         Revisions.Validate(this);
+        if (Profile is null) throw new InvalidDataException("本书规范不能为空。");
+        Profile.Validate();
+        if (AdoptedTemplate is { } adopted)
+        {
+            if (adopted.TemplateId == Guid.Empty || adopted.VersionId == Guid.Empty || adopted.VersionNumber < 1 || adopted.Name is null || adopted.SourceContent is null ||
+                adopted.Dimensions == ProfileDimensions.None || (adopted.Dimensions & ~ProfileDimensions.All) != 0)
+                throw new InvalidDataException("模板采用来源无效。");
+            adopted.SourceContent.Validate();
+        }
     }
     public BookProject CopyAsNew()
     {

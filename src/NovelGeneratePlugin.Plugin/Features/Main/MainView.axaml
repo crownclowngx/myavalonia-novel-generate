@@ -33,7 +33,7 @@
           </Expander>
         </StackPanel>
       </Grid>
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanSwitch}">
           <TextBlock Text="书名" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="输入书名" />
@@ -41,8 +41,38 @@
         <Expander Grid.Row="1" Header="本书创意与方向" IsExpanded="True" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSwitch}">
           <TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="150" PlaceholderText="主角、世界背景、核心冲突，以及希望写出的感觉。" />
         </Expander>
-        <TextBlock Grid.Row="2" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
-        <Grid Grid.Row="3" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
+        <Expander Grid.Row="2" Header="本书规范与模板" HorizontalAlignment="Stretch" IsEnabled="{Binding CanSwitch}">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding TemplateSource}" TextWrapping="Wrap" />
+            <ComboBox ItemsSource="{Binding TemplateChoices}" SelectedItem="{Binding SelectedTemplateChoice}" HorizontalAlignment="Stretch" />
+            <WrapPanel>
+              <CheckBox Content="世界观" IsChecked="{Binding UseWorld}" Margin="0,0,12,0" />
+              <CheckBox Content="文风" IsChecked="{Binding UseStyle}" Margin="0,0,12,0" />
+              <CheckBox Content="方法" IsChecked="{Binding UseMethods}" Margin="0,0,12,0" />
+              <CheckBox Content="规则" IsChecked="{Binding UseRules}" />
+            </WrapPanel>
+            <WrapPanel>
+              <Button Content="刷新模板" Command="{Binding RefreshTemplatesCommand}" Margin="0,0,6,6" />
+              <Button Content="按此模板新建作品" Command="{Binding NewFromTemplateCommand}" Margin="0,0,6,6" />
+              <Button Content="预览采用差异" Command="{Binding PreviewTemplateCommand}" Margin="0,0,6,6" />
+              <Button Content="采用此版本" Command="{Binding ApplyTemplateCommand}" Margin="0,0,6,6" />
+              <Button Content="本书规范另存模板" Command="{Binding SaveAsTemplateCommand}" Margin="0,0,6,6" />
+            </WrapPanel>
+            <TextBox Text="{Binding TemplateDifference}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="220" />
+            <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+            <TextBlock Text="本书世界观与设定" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ProfileWorld}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200" />
+            <TextBlock Text="本书文风" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ProfileStyle}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
+            <TextBlock Text="本书写作方法" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ProfileMethods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
+            <TextBlock Text="本书长期规则原文" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ProfileRules}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="180" />
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+        <TextBlock Grid.Row="3" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
+        <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
           <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
           <Expander Grid.Row="1" Header="本章提纲与修订" HorizontalAlignment="Stretch">
             <StackPanel Spacing="8">

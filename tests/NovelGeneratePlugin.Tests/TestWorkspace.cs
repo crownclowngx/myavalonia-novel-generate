@@ -1,6 +1,7 @@
 using Avalonia.Platform.Storage;
 using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Application.Projects;
+using NovelGeneratePlugin.Application.Templates;
 using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 namespace NovelGeneratePlugin.Tests;
@@ -13,6 +14,7 @@ public sealed class TestWorkspace : IAsyncDisposable
     public ProjectStore Store { get; } = new();
     public CatalogStore Catalog { get; }
     public RecoveryStore Recovery { get; }
+    public TemplateLibrary Templates { get; }
     public ProjectSessions Sessions { get; }
     public TestWindowInteraction Interaction { get; } = new();
     public TestWorkspace()
@@ -20,10 +22,11 @@ public sealed class TestWorkspace : IAsyncDisposable
         Directory.CreateDirectory(Root);
         Paths = new WorkspacePaths(Path.Combine(Root, "user-data"));
         Catalog = new CatalogStore(Paths); Recovery = new RecoveryStore(Paths);
+        Templates = new TemplateLibrary(new TemplateStore(Paths));
         Sessions = new ProjectSessions(Store, Catalog, Recovery, new FileProjectLeaseProvider());
     }
     public string ProjectPath(string name = "作品") => Path.Combine(Root, name + ".noveldb");
-    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction);
+    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction, Templates);
     public async ValueTask DisposeAsync()
     {
         await Sessions.DisposeAsync();

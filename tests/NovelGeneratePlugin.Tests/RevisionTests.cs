@@ -214,7 +214,7 @@ public sealed class RevisionTests
         var migrated = workspace.Store.Read(workspace.ProjectPath());
         Assert.Equal(project.Id, migrated.Project.Id); Assert.Equal(project.Chapters[0].Text, migrated.Project.Chapters[0].Text);
         Assert.Empty(migrated.Project.Revisions.History);
-        var backup = Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v2-*.noveldb"));
+        var backup = Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v" + ProjectStore.SchemaVersion + "-*.noveldb"));
         using var source = ProjectStore.Connect(backup, SqliteOpenMode.ReadOnly);
         using var check = source.CreateCommand(); check.CommandText = "PRAGMA user_version";
         Assert.Equal(1L, check.ExecuteScalar());

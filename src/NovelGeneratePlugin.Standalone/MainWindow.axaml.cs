@@ -4,6 +4,7 @@ using MyAvaloniaManagement.PluginSdk;
 using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Plugin;
 using NovelGeneratePlugin.Features.Main;
+using NovelGeneratePlugin.Features;
 namespace NovelGeneratePlugin.Standalone;
 
 public sealed partial class MainWindow : Window
@@ -15,6 +16,9 @@ public sealed partial class MainWindow : Window
     private Task _initialization = Task.CompletedTask;
     private bool _mayClose;
     private bool _isClosing;
+    private readonly List<(TabItem Tab, IClosePreparation Model)> _toolClosers = [];
+    private readonly TabControl _tabs = new();
+    private TabItem? _documentTab;
     public MainWindow()
     {
         InitializeComponent();
@@ -27,7 +31,17 @@ public sealed partial class MainWindow : Window
         _document = (IPluginDocument)_scope.ServiceProvider.GetRequiredService(entry.Model);
         var view = (Control)_scope.ServiceProvider.GetRequiredService(entry.View);
         view.DataContext = _document;
-        PreviewHost.Content = view;
+        _documentTab = new TabItem { Header = entry.Descriptor.DisplayName, Content = view };
+        var tabs = new List<TabItem> { _documentTab };
+        foreach (var tool in registration.Tools)
+        {
+            var model = _services.GetRequiredService(tool.Model);
+            var toolView = (Control)_services.GetRequiredService(tool.View); toolView.DataContext = model;
+            var tab = new TabItem { Header = tool.Descriptor.DisplayName, Content = toolView }; tabs.Add(tab);
+            if (model is IClosePreparation closer) _toolClosers.Add((tab, closer));
+        }
+        _tabs.ItemsSource = tabs; _tabs.SelectedIndex = 0;
+        PreviewHost.Content = _tabs;
         Opened += (_, _) => _initialization = InitializeDocumentAsync();
         Closing += OnClosing;
     }
@@ -49,7 +63,9 @@ public sealed partial class MainWindow : Window
         try
         {
             await _initialization;
-            if (_document is MainDocument novel && !await novel.SaveBeforeCloseAsync()) return;
+            foreach (var tool in _toolClosers)
+                if (!await tool.Model.SaveBeforeCloseAsync()) { _tabs.SelectedItem = tool.Tab; Title = "未关闭：模板草案尚未可靠保存"; return; }
+            if (_document is IClosePreparation novel && !await novel.SaveBeforeCloseAsync()) { _tabs.SelectedItem = _documentTab; return; }
             await _scope.DisposeAsync();
             if (_services is not null) await _services.DisposeAsync();
             _services = null;

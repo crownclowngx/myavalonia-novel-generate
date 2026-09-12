@@ -12,8 +12,8 @@ namespace NovelGeneratePlugin.Features.Main;
 public sealed record ChapterItem(Guid Id, string Label) { public override string ToString() => Label; }
 
 /// <summary>一本书一个 Document；窗口只通过公开文件选择端口接触宿主。</summary>
-public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction)
-    : ObservableObject, IPluginDocument, IAsyncDisposable
+public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates)
+    : ObservableObject, IPluginDocument, IAsyncDisposable, IClosePreparation
 {
     private ProjectSession? _session;
     private readonly CancellationTokenSource _closing = new();
@@ -61,7 +61,10 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
         CommitDraftCommand.NotifyCanExecuteChanged(); FinalizeChapterCommand.NotifyCanExecuteChanged();
         DiscardWorkingCommand.NotifyCanExecuteChanged(); RollbackFormalCommand.NotifyCanExecuteChanged();
-        NewProjectCommand.NotifyCanExecuteChanged(); OpenProjectCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged();
+        RefreshTemplatesCommand.NotifyCanExecuteChanged(); PreviewTemplateCommand.NotifyCanExecuteChanged();
+        ApplyTemplateCommand.NotifyCanExecuteChanged(); SaveAsTemplateCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(CanApplyTemplate));
+        NewProjectCommand.NotifyCanExecuteChanged(); NewFromTemplateCommand.NotifyCanExecuteChanged(); OpenProjectCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged();
         AddChapterCommand.NotifyCanExecuteChanged(); AddVolumeCommand.NotifyCanExecuteChanged();
         OpenRecentCommand.NotifyCanExecuteChanged(); RestoreRecoveryCommand.NotifyCanExecuteChanged(); RefreshLibraryCommand.NotifyCanExecuteChanged();
     }
@@ -167,13 +170,22 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         RevisionSummary = ""; UpdateRevisionStatus(); Notice = "本章及后续正式指针与本轮工作稿已撤销；正文历史和编辑缓冲保留。";
     });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
-    private Task NewProject() => RunAsync(async () =>
+    private Task NewProject() => RunAsync(() => CreateProjectAsync(false));
+    [RelayCommand(CanExecute = nameof(CanSwitch))]
+    private Task NewFromTemplate() => RunAsync(() => CreateProjectAsync(true));
+    private async Task CreateProjectAsync(bool useTemplate)
     {
+        var project = BookProject.Create(string.IsNullOrWhiteSpace(BookTitle) ? "未命名小说" : BookTitle, Idea);
+        // 模板初始化在创建文件前完成；失败不会留下一本缺少所选规范的半成品作品。
+        if (useTemplate)
+        {
+            var choice = SelectedTemplateChoice ?? throw new InvalidOperationException("请先选择一个已保存的模板版本。");
+            project = await templates.AdoptAsync(project, choice, SelectedDimensions);
+        }
         var path = await interaction.PickSaveFileAsync(new FilePickerSaveOptions { Title = "创建小说项目（请选择新文件名）", SuggestedFileName = "新作品.noveldb", DefaultExtension = "noveldb", FileTypeChoices = [ProjectType] }, _closing.Token);
         if (path is null) return;
-        var project = BookProject.Create(string.IsNullOrWhiteSpace(BookTitle) ? "未命名小说" : BookTitle, Idea);
         await SwitchAsync(() => sessions.CreateAsync(path, project, _closing.Token));
-    });
+    }
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task OpenProject() => RunAsync(async () =>
     {
@@ -231,6 +243,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         _loading = true;
         try { BookTitle = next.Current.Title; Idea = next.Current.Idea; ProjectPath = next.Path; HasProject = true; }
         finally { _loading = false; }
+        LoadProfile();
         ReloadChapters(next.Current.Chapters[0].Id);
         Status = next.Status.Message; Notice = next.CatalogWarning ?? "本地编辑可离线使用；保存不等于定稿。"; UpdatePresentation();
         await RefreshListsAsync();
@@ -250,6 +263,8 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     }
     private async Task RefreshListsAsync()
     {
+        try { await RefreshTemplateChoicesAsync(); }
+        catch (Exception exception) { Notice = "模板列表不可用，本书仍可编辑：" + exception.Message; }
         try
         {
             var recent = await Task.Run(catalog.List); RecentProjects.Clear(); foreach (var item in recent) RecentProjects.Add(item);

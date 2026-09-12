@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using NovelGeneratePlugin.Application.Projects;
+using NovelGeneratePlugin.Application.Templates;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 namespace NovelGeneratePlugin.Plugin;
 
@@ -15,6 +16,8 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IRecoveryStore, RecoveryStore>();
         services.AddSingleton<IProjectLeaseProvider, FileProjectLeaseProvider>();
         services.AddSingleton<ProjectSessions>();
+        services.AddSingleton<ITemplateStore, TemplateStore>();
+        services.AddSingleton<TemplateLibrary>();
         return services;
     }
 }

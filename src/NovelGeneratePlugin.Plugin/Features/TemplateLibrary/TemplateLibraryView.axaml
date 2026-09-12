@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:NovelGeneratePlugin.Features.TemplateLibrary" x:Class="NovelGeneratePlugin.Features.TemplateLibrary.TemplateLibraryView" x:DataType="local:TemplateLibraryTool">
+  <Grid Margin="16" RowDefinitions="Auto,*,Auto" RowSpacing="12">
+    <StackPanel Spacing="8">
+      <TextBlock Text="创作模板库" FontSize="24" FontWeight="SemiBold" />
+      <WrapPanel>
+        <Button Content="新草案" Command="{Binding NewDraftCommand}" Margin="0,0,6,6" />
+        <Button Content="保存草案" Command="{Binding SaveDraftCommand}" Margin="0,0,6,6" />
+        <Button Content="保存新版本" Command="{Binding PublishVersionCommand}" Margin="0,0,6,6" />
+        <Button Content="复制" Command="{Binding CopyCommand}" Margin="0,0,6,6" />
+        <Button Content="归档 / 恢复归档" Command="{Binding ToggleArchiveCommand}" Margin="0,0,6,6" />
+        <Button Content="刷新" Command="{Binding RefreshCommand}" Margin="0,0,6,6" />
+      </WrapPanel>
+    </StackPanel>
+    <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch">
+      <StackPanel Spacing="12">
+        <TextBox Text="{Binding Search}" PlaceholderText="按名称或标签搜索" IsEnabled="{Binding CanNavigate}" />
+        <CheckBox Content="显示已归档模板" IsChecked="{Binding ShowArchived}" IsEnabled="{Binding CanNavigate}" />
+        <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanNavigate}" />
+        <TextBlock Text="{Binding VersionStatus}" TextWrapping="Wrap" />
+        <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+          <TextBox x:Name="TemplateNameEditor" Text="{Binding Name}" MaxLength="120" PlaceholderText="模板名称" />
+          <TextBox Text="{Binding Tags}" MaxLength="1500" PlaceholderText="标签，用逗号分隔" />
+          <TextBlock Text="世界观与基础设定" FontWeight="SemiBold" />
+          <TextBox x:Name="TemplateWorldEditor" Text="{Binding World}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="220" />
+          <TextBlock Text="文风规范" FontWeight="SemiBold" />
+          <TextBox Text="{Binding Style}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200" />
+          <TextBlock Text="写作方法" FontWeight="SemiBold" />
+          <TextBox Text="{Binding Methods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200" />
+          <TextBlock Text="长期规则原文" FontWeight="SemiBold" />
+          <TextBox Text="{Binding Rules}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="70" MaxHeight="200" />
+        </StackPanel>
+        <Button Content="放弃草案更改" Command="{Binding ResetDraftCommand}" />
+        <Expander Header="失败恢复草案" HorizontalAlignment="Stretch">
+          <StackPanel Spacing="8">
+            <ComboBox ItemsSource="{Binding Recoveries}" SelectedItem="{Binding SelectedRecovery}" HorizontalAlignment="Stretch" />
+            <Button Content="恢复为独立模板" Command="{Binding RestoreRecoveryCommand}" />
+          </StackPanel>
+        </Expander>
+      </StackPanel>
+    </ScrollViewer>
+    <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />
+  </Grid>
+</UserControl>

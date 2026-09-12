@@ -6,6 +6,7 @@ using Avalonia.Themes.Fluent;
 using Avalonia.Threading;
 using MyAvaloniaManagement.PluginSdk;
 using NovelGeneratePlugin.Features.Main;
+using NovelGeneratePlugin.Features.TemplateLibrary;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(NovelGeneratePlugin.Tests.TestAppBuilder))]
@@ -24,6 +25,40 @@ public sealed class TestApplication : Avalonia.Application
 /// <summary>在真实 Avalonia 控件树上输入中文并切换章节，补充纯 ViewModel 测试无法覆盖的双向绑定风险。</summary>
 public sealed class NativeViewTests
 {
+    [Fact]
+    public async Task 模板原生输入与共享模型在视图重建后保留草案()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace();
+            await using var tool = new TemplateLibraryTool(workspace.Templates);
+            var view = new TemplateLibraryView { DataContext = tool };
+            var window = new Window { Width = 650, Height = 780, Content = view };
+            try
+            {
+                window.Show(); await tool.InitializeAsync(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var editor = view.FindControl<TextBox>("TemplateWorldEditor")!;
+                editor.Focus(); window.KeyTextInput("雨水驱动的城市，记忆只能保存七天。");
+                Assert.Contains("记忆", tool.World); Assert.True(tool.IsDirty);
+                // Hide 生命周期由 Host 控制；此处只验证共享模型跨视图重建保持编辑且真实控件正确重新绑定。
+                view = new TemplateLibraryView { DataContext = tool }; window.Content = view;
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.Equal(tool.World, view.FindControl<TextBox>("TemplateWorldEditor")!.Text);
+                await tool.PublishVersionCommand.ExecuteAsync(null);
+                Assert.Equal(tool.World, Assert.Single((await workspace.Templates.ListAsync()).Single().Versions).Content.World);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    frame.Save(Path.Combine(output, "template-library.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]
