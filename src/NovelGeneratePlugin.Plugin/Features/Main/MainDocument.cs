@@ -63,7 +63,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         NotifyExportCommands();
         NotifyStoryCommands();
         NotifyPlanningCommands();
-        NotifyGenerationCommands();
+        NotifyGenerationCommands(); NotifyEditingCommands();
         NotifyRunCommands();
         RefreshBookMaterialsCommand.NotifyCanExecuteChanged(); AdoptBookMaterialCommand.NotifyCanExecuteChanged();
         NotifyRuleDraft(); DiscardRuleDraftCommand.NotifyCanExecuteChanged(); SaveRuleVersionCommand.NotifyCanExecuteChanged(); CheckLocalRulesCommand.NotifyCanExecuteChanged(); LocateRuleFindingCommand.NotifyCanExecuteChanged();
@@ -96,7 +96,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         _loading = true;
         try { ChapterTitle = chapter.Title; ChapterOutline = chapter.Outline; ChapterText = chapter.Text; RevisionSummary = chapter.Summary; }
         finally { _loading = false; }
-        UpdateRevisionStatus(); LoadPlanning(); ResetGenerationView();
+        UpdateRevisionStatus(); LoadPlanning(); ResetGenerationView(); RefreshRevisions();
     }
     private void CaptureEdit()
     {
@@ -140,6 +140,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     }
     private void UpdateRevisionStatus()
     {
+        UpdateEditingStatus();
         NotifyExportCommands();
         UpdateLocalRuleStatus();
         UpdateStoryContextStatus();
@@ -147,7 +148,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         if (_session is null || SelectedChapter is null) return;
         var ledger = _session.Current.Revisions; var head = ledger.Head(SelectedChapter.Id);
         var working = ledger.Get(head.WorkingId); var formal = ledger.Get(head.FormalId);
-        var check = working?.Check switch { RevisionCheck.Passed => "检查通过", RevisionCheck.Failed => "检查失败", _ => "未检查" };
+        var check = working?.Check switch { RevisionCheck.Passed => EditingRules.IsReviewCurrent(_session.Current, working) ? "检查通过" : "检查已过期", RevisionCheck.Failed => "检查失败", _ => "未检查" };
         RevisionStatus = $"工作稿：{(working is null ? "无" : working.Id.ToString("N")[..8] + " / " + check)}  ·  正式稿：{(formal is null ? "未定稿" : formal.Id.ToString("N")[..8])}";
         if (working is not null && working.TextHash != RevisionRules.Hash(ChapterText)) RevisionStatus += "  ·  编辑稿有未提交修改";
     }

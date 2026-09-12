@@ -5,10 +5,13 @@ namespace NovelGeneratePlugin.Domain;
 public enum ManuscriptVersion { Editing, WorkingView, Formal }
 public enum ManuscriptFormat { Text, Markdown }
 public sealed record ExportSelection(ManuscriptVersion Version, ManuscriptFormat Format, int FirstChapter, int LastChapter);
-public sealed record ExportChapter(Guid ChapterId, Guid? RevisionId, string Title, string Text, LocalRuleCheck Check);
+public sealed record ExportChapter(Guid ChapterId, Guid? RevisionId, string Title, string Text, LocalRuleCheck Check)
+{
+    public string ReviewWarning { get; init; } = "";
+}
 public sealed record PreparedManuscript(BookProject Source, ExportSelection Selection, string Content, ImmutableArray<ExportChapter> Chapters, int WordCount)
 {
-    public bool HasWarnings => Chapters.Any(c => !c.Check.Complete || c.Check.HasHardFailure || c.Check.Findings.Length > 0 || c.Check.GuidanceCount > 0);
+    public bool HasWarnings => Chapters.Any(c => c.ReviewWarning.Length > 0 || !c.Check.Complete || c.Check.HasHardFailure || c.Check.Findings.Length > 0 || c.Check.GuidanceCount > 0);
 }
 /// <summary>导出只读明确选择的版本。工作稿视图优先工作指针、再用正式指针；缺少稿件时拒绝，绝不悄悄换成编辑稿。</summary>
 public static class ManuscriptExport
@@ -35,7 +38,9 @@ public static class ManuscriptExport
             var body = revision?.Text ?? chapter.Text; var title = revision?.Title ?? chapter.Title;
             if (string.IsNullOrWhiteSpace(body)) throw new InvalidOperationException($"{title} 正文为空，请缩小范围或完成正文。");
             var check = RuleEvaluation.Check(book, chapter.Id, revision?.RunId ?? book.Revisions.ActiveRunId, body);
-            chapters.Add(new ExportChapter(chapter.Id, revision?.Id, title, body, check));
+            // 审校提示必须归属于导出的版本，不能把尚未采用的编辑稿修改冒充正式稿失效。
+            var warning = selection.Version == ManuscriptVersion.Editing ? "编辑稿不携带修订审校证明。" : ReviewWarning(book, chapter.Id, revision!, selection.Version);
+            chapters.Add(new ExportChapter(chapter.Id, revision?.Id, title, body, check) { ReviewWarning = warning });
             if (previousVolume != chapter.VolumeId)
             {
                 var volume = book.Volumes.Single(v => v.Id == chapter.VolumeId); previousVolume = volume.Id;
@@ -46,6 +51,18 @@ public static class ManuscriptExport
             text.AppendLine(body).AppendLine(); count += body.EnumerateRunes().Count(r => !Rune.IsWhiteSpace(r));
         }
         return new PreparedManuscript(book, selection, text.ToString(), chapters.ToImmutable(), count);
+    }
+    private static string ReviewWarning(BookProject book, Guid chapterId, ChapterRevision selected, ManuscriptVersion version)
+    {
+        foreach (var chapter in book.Chapters)
+        {
+            var head = book.Revisions.Head(chapter.Id);
+            var revision = book.Revisions.Get(version == ManuscriptVersion.Formal ? head.FormalId : head.WorkingId ?? head.FormalId);
+            if (revision is { Check: RevisionCheck.Passed } && !EditingRules.IsReviewCurrent(book, revision))
+                return chapter.Id == chapterId ? "所选修订的规范或前文已变化，审校需要复核。" : "所选版本的前文审校已过期，请复核依赖章节。";
+            if (chapter.Id == chapterId) break;
+        }
+        return selected.Check != RevisionCheck.Passed ? "所选修订未通过 AI 完整审校。" : "";
     }
     private static string Heading(string text) => text.Replace("\r", " ").Replace("\n", " ").Replace("\\", "\\\\").Replace("#", "\\#").Replace("*", "\\*").Replace("_", "\\_").Replace("[", "\\[").Replace("]", "\\]");
 }

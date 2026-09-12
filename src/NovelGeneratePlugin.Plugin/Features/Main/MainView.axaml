@@ -220,6 +220,16 @@
               <Button Content="恢复本章候选" Command="{Binding RefreshGenerationCommand}" Margin="0,0,8,0" />
               <Button Content="提交通过的候选" Command="{Binding CommitGenerationCommand}" />
             </WrapPanel>
+            <TextBox Text="{Binding RewriteInstruction}" PlaceholderText="选区改写或续写要求" MaxLength="2000" IsEnabled="{Binding CanEdit}" />
+            <WrapPanel>
+              <Button Content="改写正文选区并复核" Command="{Binding RewriteSelectionCommand}" Margin="0,0,8,0" />
+              <Button Content="从正文末尾续写并复核" Command="{Binding ContinueTextCommand}" Margin="0,0,8,0" />
+              <Button Content="仅重新审校当前正文" Command="{Binding ReviewCurrentTextCommand}" Margin="0,0,8,0" />
+              <Button Content="放弃当前候选" Command="{Binding RejectCandidateCommand}" />
+            </WrapPanel>
+            <Expander Header="候选与当前正文差异" HorizontalAlignment="Stretch">
+              <TextBox Text="{Binding CandidateDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
+            </Expander>
             <TextBlock Text="{Binding GenerationStatus}" TextWrapping="Wrap" />
             <ComboBox ItemsSource="{Binding GenerationChoices}" SelectedItem="{Binding SelectedGeneration}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch" />
             <TextBox x:Name="GenerationCandidate" Text="{Binding GenerationText}" SelectionStart="{Binding GenerationSelectionStart}" SelectionEnd="{Binding GenerationSelectionEnd}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="400" />
@@ -267,11 +277,24 @@
               <Button Content="放弃本轮工作稿" Command="{Binding DiscardWorkingCommand}" Margin="0,0,6,6" />
               <Button Content="回退本章及后续定稿" Command="{Binding RollbackFormalCommand}" Margin="0,0,6,6" />
             </WrapPanel>
+            <Expander x:Name="RevisionReviewExpander" Header="历史对比、影响清单与连续定稿" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="8">
+                <TextBlock Text="{Binding ImpactReport}" TextWrapping="Wrap" />
+                <Button Content="读取本章修订历史" Command="{Binding RefreshRevisionsCommand}" />
+                <ComboBox ItemsSource="{Binding RevisionChoices}" SelectedItem="{Binding SelectedRevision}" HorizontalAlignment="Stretch" />
+                <TextBox Text="{Binding RevisionDifference}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="250" />
+                <TextBlock Text="连续定稿起始章 / 结束章（从 1 开始）" />
+                <NumericUpDown Value="{Binding FinalizeFirstChapter}" Minimum="1" Maximum="10000" />
+                <NumericUpDown Value="{Binding FinalizeLastChapter}" Minimum="1" Maximum="10000" />
+                <CheckBox Content="我已逐章审阅上述连续范围" IsChecked="{Binding ConfirmFinalizeRange}" />
+                <Button Content="明确将整个范围定稿" Command="{Binding FinalizeRangeCommand}" />
+              </StackPanel>
+            </Expander>
             <TextBlock Text="人工定稿是作者确认；未检查不等于 AI 检查通过。回退和放弃保留正文历史。" TextWrapping="Wrap" FontSize="12" />
             </StackPanel>
           </Expander>
           <TextBox x:Name="ChapterEditor" Grid.Row="2" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64"
-                   SelectionStart="{Binding EditorSelectionStart}" SelectionEnd="{Binding EditorSelectionEnd}"
+                   SelectionStart="{Binding EditorSelectionStart, Mode=TwoWay}" SelectionEnd="{Binding EditorSelectionEnd, Mode=TwoWay}"
                    PlaceholderText="在这里开始正文。输入后会自动保存；也可以点击“保存本书”。" />
           <TextBlock Grid.Row="3" Text="{Binding WordCount}" Opacity="0.65" HorizontalAlignment="Right" />
         </Grid>

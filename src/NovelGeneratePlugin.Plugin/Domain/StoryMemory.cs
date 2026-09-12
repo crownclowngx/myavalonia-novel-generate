@@ -115,6 +115,7 @@ public static class StoryMemory
         Rules = RuleEvaluation.Stamp(book, chapterId, runId),
         Run = runId,
         Revision = RevisionRules.ContextStamp(book, chapterId, useWorking),
+        OwnHead = book.Revisions.Head(chapterId),
         Working = useWorking,
         book.Revisions.ActiveRunId
     }));

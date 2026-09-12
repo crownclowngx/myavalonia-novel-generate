@@ -42,10 +42,11 @@ public sealed partial class MainDocument
     {
         if (_disposed || _session?.Id != work.BookId || SelectedChapter?.Id != work.ChapterId) return;
         if (_currentGeneration?.Id == work.Id && _currentGeneration.UpdateSequence > work.UpdateSequence) return;
-        _currentGeneration = work; GenerationText = work.Text; GenerationStatus = $"{work.Message} 本地 {work.Characters} 字（目标 {work.TargetCharacters}，±20%）。";
+        _currentGeneration = work; GenerationText = work.Text; GenerationStatus = $"{work.SourceDescription} · {work.Message} 本地 {work.Characters} 字（目标 {work.TargetCharacters}，±20%）。";
         GenerationReport = string.Join('\n', work.Issues.Select(i => $"{i.Severity switch { ReviewSeverity.Hard => "硬失败", ReviewSeverity.Uncertain => "待核实", _ => "建议" }} · {i.Message}\n证据：{i.Evidence}"));
         GenerationIssues.Clear(); foreach (var issue in work.Issues) GenerationIssues.Add(new(issue));
         if (work.Review is { } review) GenerationReport = "摘要：" + review.Summary + "\n" + GenerationReport;
+        CandidateDifference = EditingRules.Difference(ChapterText, work.Text).Describe();
         NotifyGenerationCommands();
     }
     [RelayCommand(CanExecute = nameof(CanEdit))]

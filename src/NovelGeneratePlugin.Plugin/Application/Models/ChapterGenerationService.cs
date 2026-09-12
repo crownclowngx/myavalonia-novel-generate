@@ -19,16 +19,36 @@ public interface IChapterWorkStore
 public sealed class ChapterGenerationService(ConnectionService connections, ModelRequestService requests, IChapterWorkStore store)
 {
     public Task<IReadOnlyList<ChapterWork>> RecentAsync(Guid bookId, Guid chapterId) => Task.Run(() => store.Recent(bookId, chapterId));
-    public async Task<ChapterWork> GenerateAsync(BookProject book, Guid chapterId, Guid runId, int targetCharacters, int maximumRepairs,
+    public Task<ChapterWork> GenerateAsync(BookProject book, Guid chapterId, Guid runId, int targetCharacters, int maximumRepairs,
         RequestBudget budget, IProgress<ChapterWork>? progress, CancellationToken cancellationToken)
+        => ExecuteAsync(book, chapterId, runId, targetCharacters, maximumRepairs, budget, progress, cancellationToken, false, null);
+
+    /// <summary>手写稿复核复用同一套四维审校、摘要和事实提取，不额外生成正文，也不自动修改作者文字。</summary>
+    public Task<ChapterWork> ReviewTextAsync(BookProject book, Guid chapterId, Guid runId, int targetCharacters,
+        RequestBudget budget, IProgress<ChapterWork>? progress, CancellationToken cancellationToken)
+        => ExecuteAsync(book, chapterId, runId, targetCharacters, 0, budget, progress, cancellationToken, true, null);
+
+    /// <summary>选区改写只让模型返回替换文字，本地拼接选区外正文；完整复核可以拒绝候选，但不能擅自扩大改写范围。</summary>
+    public Task<ChapterWork> RewriteAsync(BookProject book, Guid chapterId, Guid runId, int targetCharacters, SelectionEdit edit,
+        RequestBudget budget, IProgress<ChapterWork>? progress, CancellationToken cancellationToken)
+        => ExecuteAsync(book, chapterId, runId, targetCharacters, 0, budget, progress, cancellationToken, false, edit);
+
+    private async Task<ChapterWork> ExecuteAsync(BookProject book, Guid chapterId, Guid runId, int targetCharacters, int maximumRepairs,
+        RequestBudget budget, IProgress<ChapterWork>? progress, CancellationToken cancellationToken, bool reviewOnly, SelectionEdit? edit)
     {
         ChapterGenerationRules.Preflight(book, chapterId, runId); cancellationToken.ThrowIfCancellationRequested();
         var context = new StoryContextBuilder().Build(book, chapterId, runId, true);
-        var drafting = await connections.FreezeAsync(book, ModelTask.Drafting).ConfigureAwait(false);
+        var drafting = reviewOnly ? null : await connections.FreezeAsync(book, ModelTask.Drafting).ConfigureAwait(false);
         var checking = await connections.FreezeAsync(book, ModelTask.Checking).ConfigureAwait(false);
         var chapter = book.Chapters.Single(c => c.Id == chapterId);
         var work = new ChapterWork(Guid.NewGuid(), book.Id, chapterId, runId, context.Stamp, RevisionRules.Hash(chapter.Text), targetCharacters,
             maximumRepairs, ChapterWorkState.Drafting, "", null, [], [], [], "正在生成候选正文，不修改作者编辑稿。");
+        work = work with { SourceDescription = reviewOnly ? "手写稿重新审校" : edit is null ? "整章生成" : edit.Append ? "正文末尾续写" : $"选区改写：{edit.Start + 1} 起，共 {edit.Length} 字符" };
+        if (edit is not null)
+        {
+            EditingRules.ReplaceSelection(chapter.Text, edit.Start, edit.Length, "", edit.Append);
+            if (string.IsNullOrWhiteSpace(edit.Instruction) || edit.Instruction.Length > 2000) throw new InvalidOperationException("请填写 1–2000 字符的改写要求。");
+        }
         work.Validate();
         void Save()
         {
@@ -41,11 +61,27 @@ public sealed class ChapterGenerationService(ConnectionService connections, Mode
         var input = context.Render() + "\n本书写作方法原文：\n" + book.Profile.Methods + "\n本书文风要求：\n" + book.Profile.Style;
         try
         {
-            var response = await requests.GenerateAsync(new(Guid.NewGuid(), drafting,
-                $"根据章纲写一章中文小说正文，目标 {targetCharacters} 个非空白字符，允许 ±20%。只输出完整正文，不输出分析或代码围栏。严格遵守章纲、锁定状态和来源规则。",
-                input, false), budget, new WorkTextProgress(text => { work = work with { Text = text }; Save(); }), cancellationToken).ConfigureAwait(false);
-            work = work with { Text = response.Text }; cancellationToken.ThrowIfCancellationRequested();
-            if (response.Completion != ModelCompletion.Complete) { work = work with { State = ChapterWorkState.NeedsAttention, Message = "正文被截断，候选保留，未开始审校或提交。" }; Save(); return work; }
+            if (reviewOnly) work = work with { Text = chapter.Text };
+            else if (edit is not null)
+            {
+                var replacement = new SelectionReplacementContract();
+                var response = await requests.GenerateAsync(new(Guid.NewGuid(), drafting!,
+                    "按作者要求只返回 Replacement 替换文字，不复述选区外正文。续写仅追加新段落。遵守本书全部规范、事实与章纲。只返回契约 JSON。",
+                    input + "\n当前完整正文：\n" + chapter.Text + "\n选定原文：\n" + chapter.Text.Substring(edit.Start, edit.Length) +
+                    "\n操作：" + (edit.Append ? "末尾续写" : "选区改写") + "\n作者要求：\n" + edit.Instruction, true)
+                { Contract = replacement, AllowJsonWrapperRepair = true }, budget, null, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (response.Completion != ModelCompletion.Complete) throw new InvalidDataException("改写截断，未采用任何替换。");
+                work = work with { Text = EditingRules.ReplaceSelection(chapter.Text, edit.Start, edit.Length, replacement.Parse(response.Text).Replacement, edit.Append) };
+            }
+            else
+            {
+                var response = await requests.GenerateAsync(new(Guid.NewGuid(), drafting!,
+                    $"根据章纲写一章中文小说正文，目标 {targetCharacters} 个非空白字符，允许 ±20%。只输出完整正文，不输出分析或代码围栏。严格遵守章纲、锁定状态和来源规则。",
+                    input, false), budget, new WorkTextProgress(text => { work = work with { Text = text }; Save(); }), cancellationToken).ConfigureAwait(false);
+                work = work with { Text = response.Text }; cancellationToken.ThrowIfCancellationRequested();
+                if (response.Completion != ModelCompletion.Complete) { work = work with { State = ChapterWorkState.NeedsAttention, Message = "正文被截断，候选保留，未开始审校或提交。" }; Save(); return work; }
+            }
             for (var repair = 0; ; repair++)
             {
                 work = work with { State = ChapterWorkState.Reviewing, Message = "正在检查规则、事实、剧情方法与文风。" }; Save();
@@ -63,7 +99,7 @@ public sealed class ChapterGenerationService(ConnectionService connections, Mode
                 if (work.State == ChapterWorkState.Ready || repair >= maximumRepairs) return work;
                 work = work with { State = ChapterWorkState.Repairing, Message = $"第 {repair + 1} 次局部修正，之后重新执行全部检查。" }; Save();
                 var patches = new ChapterPatchContract();
-                var repaired = await requests.GenerateAsync(new(Guid.NewGuid(), drafting,
+                var repaired = await requests.GenerateAsync(new(Guid.NewGuid(), drafting!,
                     "仅为列出的阻塞问题返回局部替换片段。OldText 必须是正文中唯一的逐字原文；NewText 是替换文字。不能更改章纲或锁定剧情，不能全篇改写，累计修改最多正文的 30%。只返回 JSON。",
                     input + "\n正文：\n" + work.Text + "\n问题：\n" + JsonSerializer.Serialize(work.Issues), true)
                 { Contract = patches, AllowJsonWrapperRepair = true }, budget, null, cancellationToken).ConfigureAwait(false);

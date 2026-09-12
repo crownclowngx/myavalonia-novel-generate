@@ -40,6 +40,7 @@ public sealed partial class MainDocument
         foreach (var chapter in prepared.Chapters)
         {
             var check = chapter.Check;
+            if (chapter.ReviewWarning.Length > 0) report.AppendLine(chapter.Title + "：" + chapter.ReviewWarning);
             report.AppendLine($"{chapter.Title}：命中 {check.Findings.Length}，冲突 {check.Conflicts.Length}，语义待检 {check.GuidanceCount}，{(check.Complete ? "本地检测完成" : "检测未完成")}。");
             foreach (var finding in check.Findings.Take(20)) report.AppendLine($"  {finding.Message}，位置 {finding.Start + 1}：{finding.Evidence[..Math.Min(finding.Evidence.Length, 120)]}");
         }

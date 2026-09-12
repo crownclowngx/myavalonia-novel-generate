@@ -17,11 +17,18 @@ public sealed record FactDelta(string Key, string? ExpectedValue, string? NewVal
 }
 public sealed record ChapterRevision(Guid Id, Guid ChapterId, Guid? ParentId, Guid RunId, Guid OperationId,
     string Title, string Text, string TextHash, string Summary, ImmutableArray<FactDelta> Facts,
-    RevisionCheck Check, string ContextStamp, DateTimeOffset CreatedAt);
+    RevisionCheck Check, string ContextStamp, DateTimeOffset CreatedAt)
+{
+    /// <summary>全报告的规范指纹，零事实章节也必须能识别审校过期；旧修订为空时保留历史但要求复核。</summary>
+    public string? ReviewPolicyStamp { get; init; }
+}
 public sealed record ChapterHead(Guid ChapterId, Guid? WorkingId, Guid? FormalId);
 public sealed record DraftSubmission(Guid ProjectId, Guid ChapterId, Guid? ExpectedWorkingId, Guid? ExpectedFormalId,
     string ExpectedTextHash, string ExpectedContextStamp, string Text, string Summary,
-    ImmutableArray<FactDelta> Facts, RevisionCheck Check, Guid RunId, Guid OperationId);
+    ImmutableArray<FactDelta> Facts, RevisionCheck Check, Guid RunId, Guid OperationId)
+{
+    public string? ReviewPolicyStamp { get; init; }
+}
 
 /// <summary>
 /// 修订内容只追加，工作/正式状态由指针表达。状态转换不修改历史正文，也不把编辑保存误作人工定稿。
@@ -160,7 +167,7 @@ public static class RevisionRules
         if (existing is not null)
         {
             if (existing.ChapterId != submission.ChapterId || existing.Text != submission.Text || existing.Summary != submission.Summary ||
-                existing.RunId != submission.RunId || existing.Check != submission.Check || !existing.Facts.SequenceEqual(submission.Facts) ||
+                existing.RunId != submission.RunId || existing.Check != submission.Check || existing.ReviewPolicyStamp != submission.ReviewPolicyStamp || !existing.Facts.SequenceEqual(submission.Facts) ||
                 existing.ContextStamp != submission.ExpectedContextStamp || existing.TextHash != submission.ExpectedTextHash)
                 throw new InvalidOperationException("同一操作身份不能提交不同内容。");
             return ledger;
@@ -174,6 +181,8 @@ public static class RevisionRules
         if (head.FormalId is not null) throw new InvalidOperationException("本章已经定稿，请先回退本章及后续正式稿。");
         if (project.Chapters.SkipWhile(c => c.Id != chapter.Id).Skip(1).Any(c => ledger.Head(c.Id).WorkingId is not null))
             throw new InvalidOperationException("后续章已有工作稿，请先放弃本轮工作稿后再重写前文。");
+        if (submission.Check == RevisionCheck.Passed && submission.ReviewPolicyStamp != StoryMemory.PolicyStamp(project, chapter.Id, submission.RunId))
+            throw new InvalidOperationException("审校规范已过期，请重新检查本章。");
         var memory = MemoryBefore(project, chapter.Id, true);
         if (submission.Facts.IsDefault) throw new InvalidOperationException("事实增量集合无效。");
         foreach (var fact in submission.Facts)
@@ -184,7 +193,8 @@ public static class RevisionRules
             StoryMemory.ValidateAcceptedFact(project, chapter.Id, submission.RunId, submission.Text, fact);
         }
         var revision = new ChapterRevision(Guid.NewGuid(), chapter.Id, head.WorkingId ?? head.FormalId, submission.RunId, submission.OperationId,
-            chapter.Title, submission.Text, Hash(submission.Text), submission.Summary, submission.Facts, submission.Check, submission.ExpectedContextStamp, DateTimeOffset.UtcNow);
+            chapter.Title, submission.Text, Hash(submission.Text), submission.Summary, submission.Facts, submission.Check, submission.ExpectedContextStamp, DateTimeOffset.UtcNow)
+        { ReviewPolicyStamp = submission.ReviewPolicyStamp };
         var result = (ledger with { History = ledger.History.Add(revision), ActiveRunId = submission.RunId }).WithHead(head with { WorkingId = revision.Id });
         result.Validate(project); return result;
     }
@@ -196,6 +206,7 @@ public static class RevisionRules
         if (!authorConfirmed) throw new InvalidOperationException("定稿需要作者主动确认。");
         if (Hash(project.Chapters.Single(c => c.Id == chapterId).Text) != revision.TextHash)
             throw new InvalidOperationException("编辑稿已变化，请重新提交工作稿后再定稿。");
+        if (revision.Check == RevisionCheck.Passed && !EditingRules.IsReviewCurrent(project, revision)) throw new InvalidOperationException("审校规范或前文已过期，请重新检查后定稿。");
         if (revision.Check == RevisionCheck.Failed) throw new InvalidOperationException("检查失败的修订不能定稿，请先修正并重新提交。");
         if (Before(project, chapterId).Any(c => ledger.Head(c.Id).FormalId is null)) throw new InvalidOperationException("请按顺序定稿前面的章节。");
         if (revision.ContextStamp != ContextStamp(project, chapterId)) throw new InvalidOperationException("工作稿引用的前文已过期。");
@@ -229,6 +240,7 @@ public static class RevisionRules
                 ? r with
                 {
                     ContextStamp = ContextStamp(copy, r.ChapterId),
+                    ReviewPolicyStamp = old.ReviewPolicyStamp == StoryMemory.PolicyStamp(source, old.ChapterId, old.RunId) ? StoryMemory.PolicyStamp(copy, r.ChapterId, r.RunId) : old.ReviewPolicyStamp,
                     Facts = r.Facts.Select(f => f.EntityId is not null && f.PolicyStamp == StoryMemory.PolicyStamp(source, old.ChapterId, old.RunId)
                         ? f with { PolicyStamp = StoryMemory.PolicyStamp(copy, r.ChapterId, r.RunId) } : f).ToImmutableArray()
                 } : r;

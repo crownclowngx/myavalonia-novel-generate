@@ -88,7 +88,7 @@ public sealed class ArtifactTests
         book = WritingRuleSet.Commit(book, RuleDraft.Empty with { Original = "不要总结式结尾", Pattern = "总而言之" }, chapter.Id);
         var editing = await workspace.Artifacts.PrepareAsync(book, new ExportSelection(ManuscriptVersion.Editing, ManuscriptFormat.Text, 1, 1));
         var formal = await workspace.Artifacts.PrepareAsync(book, new ExportSelection(ManuscriptVersion.Formal, ManuscriptFormat.Text, 1, 1));
-        Assert.False(editing.HasWarnings); Assert.True(formal.HasWarnings); Assert.Single(formal.Chapters[0].Check.Findings);
+        Assert.False(editing.Chapters[0].Check.HasHardFailure); Assert.True(editing.HasWarnings); Assert.NotEmpty(editing.Chapters[0].ReviewWarning); Assert.True(formal.HasWarnings); Assert.Single(formal.Chapters[0].Check.Findings);
     }
     [Fact]
     public async Task 章节范围格式与非空白字数在实际UTF8文件正确()

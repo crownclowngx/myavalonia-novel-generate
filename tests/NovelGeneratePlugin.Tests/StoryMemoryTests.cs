@@ -21,7 +21,8 @@ public sealed class StoryMemoryTests
     {
         var chapter = book.Chapters[index]; var head = book.Revisions.Head(chapter.Id);
         var submission = new DraftSubmission(book.Id, chapter.Id, head.WorkingId, head.FormalId, RevisionRules.Hash(chapter.Text), RevisionRules.ContextStamp(book, chapter.Id),
-            chapter.Text, chapter.Summary, facts.IsDefault ? [] : facts, RevisionCheck.Passed, run, Guid.NewGuid());
+            chapter.Text, chapter.Summary, facts.IsDefault ? [] : facts, RevisionCheck.Passed, run, Guid.NewGuid())
+        { ReviewPolicyStamp = StoryMemory.PolicyStamp(book, chapter.Id, run) };
         return book with { Revisions = RevisionRules.CommitWorking(book, submission) };
     }
     private static StoryFactCandidate Candidate(BookProject book, StoryContext context, string text) => new(book.Id, context.ChapterId, book.Story.Entities[0].Id,

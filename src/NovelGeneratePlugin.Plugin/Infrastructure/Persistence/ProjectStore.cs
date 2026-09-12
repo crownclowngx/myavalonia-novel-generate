@@ -8,7 +8,7 @@ namespace NovelGeneratePlugin.Infrastructure.Persistence;
 /// <summary>作品聚合在一笔事务中替换；版本比较阻止外部变化被旧快照覆盖。</summary>
 public sealed class ProjectStore : IProjectStore
 {
-    public const int SchemaVersion = 8;
+    public const int SchemaVersion = 9;
     private const int ApplicationId = 0x4E4F564C;
     public static SqliteConnection Connect(string path, SqliteOpenMode mode = SqliteOpenMode.ReadWrite)
     {
@@ -47,7 +47,7 @@ public sealed class ProjectStore : IProjectStore
         {
             var version = ReadSchema(connection);
             if (version == SchemaVersion) return ReadSnapshot(connection);
-            if (version is not (1 or 2 or 3 or 4 or 5 or 6 or 7)) throw new NotSupportedException("项目格式版本不受支持，未进行迁移或写入。");
+            if (version is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8)) throw new NotSupportedException("项目格式版本不受支持，未进行迁移或写入。");
             ReadSnapshot(connection); // 先验证旧数据；损坏项目不能被包装为成功迁移。
         }
         MigrateKnownFormat(path);
@@ -69,7 +69,7 @@ public sealed class ProjectStore : IProjectStore
     {
         using var source = Connect(path);
         var expectedSchema = ReadSchema(source);
-        if (expectedSchema is not (1 or 2 or 3 or 4 or 5 or 6 or 7)) throw new InvalidOperationException("迁移前项目版本已变化，请重新打开。");
+        if (expectedSchema is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8)) throw new InvalidOperationException("迁移前项目版本已变化，请重新打开。");
         var backupPath = path + ".before-v" + SchemaVersion + "-" + Guid.NewGuid().ToString("N") + ".noveldb";
         // SQLite 在线备份包含已提交的 WAL，不能只复制活动主文件。
         using (var backup = Connect(backupPath, SqliteOpenMode.ReadWriteCreate)) source.BackupDatabase(backup);

@@ -22,6 +22,7 @@ public sealed record ChapterWork(Guid Id, Guid BookId, Guid ChapterId, Guid RunI
     ImmutableArray<ChapterIssue> Issues, ImmutableArray<FactDelta> Facts, ImmutableArray<ChapterAttempt> Attempts, string Message)
 {
     public long UpdateSequence { get; init; }
+    public string SourceDescription { get; init; } = "整章生成";
     public int Characters => Text.EnumerateRunes().Count(r => !Rune.IsWhiteSpace(r));
     public void Validate()
     {
@@ -47,6 +48,7 @@ public static class ChapterGenerationRules
         {
             var head = book.Revisions.Head(previous.Id); var revision = book.Revisions.Get(head.WorkingId ?? head.FormalId)!;
             if (head.WorkingId is not null && revision.Check != RevisionCheck.Passed) throw new InvalidOperationException("前文工作稿尚未通过必要检查，不能自动续写。");
+            if (revision.Check == RevisionCheck.Passed && !EditingRules.IsReviewCurrent(book, revision)) throw new InvalidOperationException("前文审校已过期，请先复核前文。");
             if (RevisionRules.Hash(previous.Text) != revision.TextHash) throw new InvalidOperationException("前文存在未提交编辑，请先处理后再续写。");
             if (head.WorkingId is not null)
                 foreach (var fact in revision.Facts) StoryMemory.ValidateAcceptedFact(book, previous.Id, revision.RunId, revision.Text, fact);
@@ -132,7 +134,8 @@ public static class ChapterGenerationRules
         if (RevisionRules.Hash(chapter.Text) != work.OriginalTextHash) throw new InvalidOperationException("作者编辑稿已变化。");
         var updated = book with { Chapters = book.Chapters.Replace(chapter, chapter with { Text = work.Text, Summary = work.Review.Summary }) };
         var submission = new DraftSubmission(book.Id, chapter.Id, head.WorkingId, head.FormalId, RevisionRules.Hash(work.Text), RevisionRules.ContextStamp(book, chapter.Id),
-            work.Text, work.Review.Summary, work.Facts, RevisionCheck.Passed, work.RunId, work.Id);
+            work.Text, work.Review.Summary, work.Facts, RevisionCheck.Passed, work.RunId, work.Id)
+        { ReviewPolicyStamp = StoryMemory.PolicyStamp(updated, chapter.Id, work.RunId) };
         return updated with { Revisions = RevisionRules.CommitWorking(updated, submission) };
     }
 }
