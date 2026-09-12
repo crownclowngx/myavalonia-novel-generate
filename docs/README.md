@@ -1,5 +1,7 @@
 # NovelGeneratePlugin 开发快速开始
 
+面向作者的入口：[HTML 用户说明书](product/novel-workbench-user-manual.html) · [说明书 Markdown 原文](product/novel-workbench-user-manual.md)。五种使用场景含操作路径、填写示例、实际截图、完成标志与问题排查；文档维护方式见[说明书维护记录](product/user-manual-maintenance.md)。
+
 本解决方案用于开发 `myavalonia.plugin.novel.generate` Managed Plugin。它把真实插件、独立 Avalonia 开发窗口和
 自动化测试放在同一个解决方案中，使界面与业务代码既能快速预览，也能由 MyAvaloniaManagement Host
 按正式插件协议加载。

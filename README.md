@@ -1,5 +1,7 @@
 # NovelGeneratePlugin
 
+普通用户请先读 [HTML 用户说明书](docs/product/novel-workbench-user-manual.html)：按从空白创作、参考文风、旧稿续写、手工设定、生成调优五条路线讲解，配六张实际界面截图；支持离线阅读、图片放大与打印。
+
 产品规划见 [网络小说创作工作台产品需求文档](docs/product/novel-generation-product-requirements.md)，包含用户场景、
 功能流程、首版范围与验收标准。当前已开始实施，阶段进度见下方实施档案。
 
