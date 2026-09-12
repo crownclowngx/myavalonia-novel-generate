@@ -120,8 +120,8 @@ public sealed class NovelReportTests
         var markdown = NovelReportMarkdown.Format(report); Assert.DoesNotContain("<script>", markdown); Assert.Contains("&lt;script&gt;", markdown); Assert.Contains("\\[执行\\]", markdown);
     }
 
-    private sealed record Context(NovelAnalysisRunService Runner, NovelAnalysisReportService Reports, AnalysisRun Run, AnalysisRunStore Store, string InputPath);
-    private static async Task<Context> Setup(TestWorkspace workspace, ITextModel model, int chapters = 3)
+    internal sealed record Context(NovelAnalysisRunService Runner, NovelAnalysisReportService Reports, AnalysisRun Run, AnalysisRunStore Store, string InputPath);
+    internal static async Task<Context> Setup(TestWorkspace workspace, ITextModel model, int chapters = 3)
     {
         var input = Path.Combine(workspace.Root, "报告样本.txt"); await File.WriteAllTextAsync(input, string.Concat(Enumerable.Range(1, chapters).Select(i => $"第{i}章\n林远来到雾港，走进城门。\n")));
         var sourceStore = new ReferenceSourceStore(workspace.Paths); var store = new AnalysisRunStore(workspace.Paths);
@@ -132,7 +132,7 @@ public sealed class NovelReportTests
         return new(runner, new(sourceStore, store), run, store, input);
     }
 
-    private sealed class Router : ITextModel
+    internal sealed class Router : ITextModel
     {
         public List<TextModelRequest> Requests { get; } = [];
         public AnalysisRunControl? PauseOnDimension { get; set; }

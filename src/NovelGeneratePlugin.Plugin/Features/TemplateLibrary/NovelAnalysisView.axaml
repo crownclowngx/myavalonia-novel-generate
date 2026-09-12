@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:NovelGeneratePlugin.Features.TemplateLibrary" x:Class="NovelGeneratePlugin.Features.TemplateLibrary.NovelAnalysisView" x:DataType="local:NovelAnalysisPanel">
+ <Grid RowDefinitions="Auto,*,Auto" Height="860" RowSpacing="10" MinWidth="240">
+  <TextBlock Text="完整 TXT → 六个专题 → 综合结论。结果与创作项目独立保存。" TextWrapping="Wrap" />
+  <TabControl Grid.Row="1" x:Name="AnalysisTabs">
+   <TabItem Header="导入">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+     <StackPanel Spacing="8" Margin="0,10,8,8">
+      <Button Content="选择小说 TXT" Command="{Binding ChooseFileCommand}" />
+      <TextBox x:Name="AnalysisFilePath" Text="{Binding FilePath}" PlaceholderText="本机 TXT 路径" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="文本编码" />
+      <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding EncodingName}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch" />
+      <TextBlock Text="每个提取单元的最大正文字符数" TextWrapping="Wrap" />
+      <NumericUpDown x:Name="AnalysisChunkSize" Value="{Binding ChunkCharacters}" Minimum="200" Maximum="12000" Increment="500" IsEnabled="{Binding CanEdit}" />
+      <WrapPanel>
+       <Button Content="预览全文" Command="{Binding PreviewCommand}" Margin="0,0,6,6" />
+       <Button Content="确认导入" Command="{Binding ImportCommand}" Margin="0,0,6,6" />
+      </WrapPanel>
+      <TextBlock Text="{Binding PreviewSummary}" TextWrapping="Wrap" />
+      <ComboBox x:Name="AnalysisSectionSelector" ItemsSource="{Binding Sections}" SelectedItem="{Binding SelectedSection}" HorizontalAlignment="Stretch" />
+      <TextBox Text="{Binding PreviewText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="200" MaxHeight="350" />
+     </StackPanel>
+    </ScrollViewer>
+   </TabItem>
+   <TabItem Header="运行">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+     <StackPanel Spacing="8" Margin="0,10,8,8">
+      <WrapPanel>
+       <Button Content="刷新书目和连接" Command="{Binding RefreshCommand}" Margin="0,0,6,6" />
+       <Button Content="更多书目" Command="{Binding MoreBooksCommand}" IsVisible="{Binding HasMoreBooks}" Margin="0,0,6,6" />
+      </WrapPanel>
+      <ComboBox x:Name="AnalysisBookSelector" ItemsSource="{Binding Books}" SelectedItem="{Binding SelectedBook}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <Button Content="读取该书的分析记录" Command="{Binding LoadBookCommand}" />
+      <TextBlock Text="模型连接（使用连接中的检查预设）" TextWrapping="Wrap" />
+      <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="全过程请求上限（包含失败与重试）" TextWrapping="Wrap" />
+      <NumericUpDown Value="{Binding MaximumRequests}" Minimum="1" Maximum="1000" Increment="10" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="全过程 token 上限" />
+      <NumericUpDown Value="{Binding MaximumTokens}" Minimum="1" Maximum="1000000000" Increment="100000" IsEnabled="{Binding CanEdit}" />
+      <Button Content="开始新的全文分析" Command="{Binding StartCommand}" />
+      <TextBlock Text="已保存运行" FontWeight="SemiBold" />
+      <ComboBox x:Name="AnalysisRunSelector" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <WrapPanel>
+       <Button Content="读取进度" Command="{Binding ReadRunCommand}" Margin="0,0,6,6" />
+       <Button Content="暂停" Command="{Binding PauseCommand}" Margin="0,0,6,6" />
+       <Button Content="取消" Command="{Binding CancelCommand}" Margin="0,0,6,6" />
+      </WrapPanel>
+      <TextBlock x:Name="AnalysisProgress" Text="{Binding ProgressSummary}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding UsageSummary}" TextWrapping="Wrap" />
+      <Expander Header="节点明细" HorizontalAlignment="Stretch"><ListBox ItemsSource="{Binding Nodes}" Height="180" /></Expander>
+      <Expander Header="恢复与失败复核" HorizontalAlignment="Stretch">
+       <StackPanel Spacing="8">
+        <Button Content="查看当前失败候选" Command="{Binding ReviewCandidateCommand}" />
+        <TextBox Text="{Binding CandidateText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="250" />
+        <CheckBox Content="我已复核失败候选与已知/未知费用，确认继续计入总预算" IsChecked="{Binding AcknowledgeCosts}" />
+        <TextBox Text="{Binding ReviewGuidance}" MaxLength="2000" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" PlaceholderText="重试补充约束（可选），只影响失败节点" />
+        <WrapPanel>
+         <Button Content="继续运行" Command="{Binding ResumeCommand}" Margin="0,0,6,6" />
+         <Button Content="复核采纳已有候选" Command="{Binding AdoptCandidateCommand}" Margin="0,0,6,6" />
+         <Button Content="按当前连接和切分新建修订" Command="{Binding ReviseCommand}" Margin="0,0,6,6" />
+        </WrapPanel>
+        <TextBlock Text="修订继承累计预算；有效旧结果按依赖复用。采纳仅在当前契约通过且用量已知时可用，不发出新请求。" TextWrapping="Wrap" />
+       </StackPanel>
+      </Expander>
+     </StackPanel>
+    </ScrollViewer>
+   </TabItem>
+   <TabItem Header="报告">
+    <Grid RowDefinitions="Auto,*" RowSpacing="10" Margin="0,10,0,0">
+     <Button Content="读取所选运行的报告" Command="{Binding ReadReportCommand}" />
+     <local:NovelReportView Grid.Row="1" DataContext="{Binding Report}" />
+    </Grid>
+   </TabItem>
+  </TabControl>
+  <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />
+ </Grid>
+</UserControl>

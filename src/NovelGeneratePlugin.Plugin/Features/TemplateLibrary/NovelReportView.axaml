@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:NovelGeneratePlugin.Features.TemplateLibrary" x:Class="NovelGeneratePlugin.Features.TemplateLibrary.NovelReportView" x:DataType="local:NovelReportReader">
+ <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+  <StackPanel Spacing="8" Margin="0,0,8,8">
+   <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+   <ComboBox x:Name="AnalysisTopicSelector" ItemsSource="{Binding Topics}" SelectedItem="{Binding SelectedTopic}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanRead}" />
+   <TextBox x:Name="AnalysisReportText" Text="{Binding TopicText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="220" MaxHeight="450" />
+   <TextBlock Text="按结论中的 F 编号选择依据" />
+   <ComboBox x:Name="AnalysisEvidenceSelector" ItemsSource="{Binding Evidence}" SelectedItem="{Binding SelectedEvidence}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanRead}" />
+   <Button Content="定位这条原文依据" Command="{Binding LocateCommand}" />
+   <TextBlock Text="{Binding SourceLocation}" TextWrapping="Wrap" />
+   <TextBox x:Name="AnalysisSourceExcerpt" Text="{Binding SourceText}" SelectionStart="{Binding SelectionStart}" SelectionEnd="{Binding SelectionEnd}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="350" />
+   <Button Content="导出 Markdown 报告" Command="{Binding ExportCommand}" />
+   <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />
+  </StackPanel>
+ </ScrollViewer>
+</UserControl>

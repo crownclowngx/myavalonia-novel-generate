@@ -29,11 +29,24 @@ using NovelGeneratePlugin.Features.ModelConnections;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 using NovelGeneratePlugin.Plugin;
 using System.Reflection;
+using NovelGeneratePlugin.Application.Analysis;
+using NovelGeneratePlugin.Infrastructure.Import;
 [assembly: AvaloniaTestApplication(typeof(ProbeApp))]
 var session = HeadlessUnitTestSession.GetOrStartForAssembly(Assembly.GetExecutingAssembly());
 await session.Dispatch<bool>(async () =>
 {
     var root = Path.GetFullPath(Environment.GetEnvironmentVariable("NOVEL_HOST_PROBE_OUTPUT") ?? Path.Combine(AppContext.BaseDirectory, "probe-data-" + Guid.NewGuid().ToString("N"))); Directory.CreateDirectory(root);
+    // 可选读取已完成的真实分析，在线备份到本次隔离目录；不复制连接目录或任何凭据。
+    var analysisSample = Environment.GetEnvironmentVariable("NOVEL_ANALYSIS_SAMPLE_ROOT");
+    if (!string.IsNullOrWhiteSpace(analysisSample))
+    {
+        Directory.CreateDirectory(Path.Combine(root, "novel"));
+        foreach (var name in new[] { "reference-analysis.db", "reference-runs.db", "model-requests.db" })
+        {
+            using var input = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + Path.Combine(analysisSample, name) + ";Mode=ReadOnly;Pooling=False"); input.Open();
+            using var output = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + Path.Combine(root, "novel", name) + ";Pooling=False"); output.Open(); input.BackupDatabase(output);
+        }
+    }
     using var diagnostics = HostDiagnosticSession.Start(root); var builder = new PluginRegistryBuilder(); using var owners = new PluginProviderOwner(); var scopes = new DocumentScopeRegistry();
     var picker = new ProbePicker(); var model = new BlockingModel(); var services = new ServiceCollection(); services.AddApplicationServices(builder, owners, scopes); services.AddViewModels(); services.AddSingleton(diagnostics); services.AddSingleton<IHostDiagnosticSink>(diagnostics); services.AddSingleton<IPluginWindowInteraction>(picker);
     var catalog = PluginModuleCatalog.CreateForTests([(PluginIds.Plugin, (IPluginModule)new IsolatedModule(new WorkspacePaths(Path.Combine(root, "novel")), model))]); services.AddSingleton(catalog);
@@ -64,6 +77,26 @@ await session.Dispatch<bool>(async () =>
         await model.Started.Task;
         tabs.ItemsSource = new[] { new TabItem { Header = "乙书", Content = viewB } }; dockA.Dispose(); await a.DisposeAsync(); await generating; Check(model.Stopped, "Host close drains in-flight model"); Check(b.CanEdit, "close one preserves other"); Check(ReferenceEquals(tool1.Model, activator.ActivateTool(PluginIds.Templates).Model), "close preserves shared tool");
         using var reopened = activator.ActivateDocument(PluginIds.MainDocument); var c = (MainDocument)reopened.Model; await c.InitializeAsync(new NewDocumentActivation("重开"), default); picker.Next = Path.Combine(root, "甲书.noveldb"); await ((IWorkbenchDocumentCommandTarget)c).ExecuteAsync(NovelCommands.Open, default); Check(c.ChapterText.Contains("真实 Host Provider"), "reopen persisted text"); await c.DisposeAsync();
+        var analysis = ((TemplateLibraryTool)tool1.Model).Analysis!; Check(analysis is not null, "analysis in existing template tool");
+        if (!string.IsNullOrWhiteSpace(analysisSample))
+        {
+            await analysis!.RefreshCommand.ExecuteAsync(null); await analysis.ReadReportCommand.ExecuteAsync(null);
+            Check(analysis.Report.Topics.Count == 7, "actual paid report offline through Host service graph");
+            await analysis.Report.LocateCommand.ExecuteAsync(null); Check(analysis.Report.SelectionEnd > analysis.Report.SelectionStart, "actual source evidence located");
+            picker.Next = Path.Combine(root, "host-analysis-report.md"); await analysis.Report.ExportCommand.ExecuteAsync(null); Check(File.Exists(picker.Next), "report export via Host picker port");
+            var analysisView = new NovelAnalysisView { DataContext = analysis }; window.Content = analysisView; analysisView.FindControl<TabControl>("AnalysisTabs")!.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+            using var reportFrame = window.CaptureRenderedFrame(); reportFrame!.Save(Path.Combine(root, "host-analysis-report.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+        }
+        // 创建全新的小型来源，使共享连接的挂起请求不命中已有真实结果缓存；从 View 隐藏和文档关闭一路验证到插件 Shutdown。
+        var analysisInput = Path.Combine(root, "Host分析关闭样本.txt"); await File.WriteAllTextAsync(analysisInput, "第1章\n林远来到雾港，走进城门。\n");
+        analysis!.FilePath = analysisInput; await analysis.PreviewCommand.ExecuteAsync(null); await analysis.ImportCommand.ExecuteAsync(null);
+        analysis.SelectedConnection = analysis.Connections.Single(); model.Reset(); await analysis.StartCommand.ExecuteAsync(null); await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var activity = (NovelAnalysisActivity)owners.GetRequiredService(PluginIds.Plugin, typeof(NovelAnalysisActivity)); var analysisRun = analysis.SelectedRun!.Run.Id;
+        window.Content = tabs; await b.DisposeAsync(); Check(activity.IsActive(analysisRun), "hide tool and close creative document preserve analysis");
+        await hostLifecycle.ShutdownAllAsync(); Check(model.Stopped && !activity.IsActive(analysisRun), "Host shutdown drains independent analysis");
+        var storedRun = ((NovelAnalysisRunService)owners.GetRequiredService(PluginIds.Plugin, typeof(NovelAnalysisRunService))).Read(analysisRun);
+        Check(storedRun.State == AnalysisRunState.Cancelled, "analysis cancellation checkpoint survives Host shutdown");
     }
     finally { window.Close(); }
     await hostLifecycle.ShutdownAllAsync(); scopes.CloseAll();
@@ -75,4 +108,4 @@ sealed class IsolatedModule(WorkspacePaths paths, ITextModel model) : IPluginMod
 sealed class ProbePicker : IPluginWindowInteraction { public string? Next { get; set; } public Task<IReadOnlyList<string>> PickOpenFilesAsync(FilePickerOpenOptions options, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<string>>(Next is null ? [] : [Next]); public Task<string?> PickSaveFileAsync(FilePickerSaveOptions options, CancellationToken cancellationToken = default) => Task.FromResult(Next); public Task<bool> TrySetClipboardTextAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult(false); }
 
 // 替身挂起直到取消，不发起网络；验证 Host 的同步 Dispose 能通过插件 Shutdown 正确排空异步任务。
-sealed class BlockingModel : ITextModel { public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public bool Stopped { get; private set; } public async Task<TextModelResponse> GenerateAsync(TextModelRequest request, IProgress<string>? progress, CancellationToken cancellationToken) { Started.TrySetResult(); try { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); throw new InvalidOperationException(); } finally { Stopped = true; } } }
+sealed class BlockingModel : ITextModel { public TaskCompletionSource Started { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously); public bool Stopped { get; private set; } public void Reset() { Started = new(TaskCreationOptions.RunContinuationsAsynchronously); Stopped = false; } public async Task<TextModelResponse> GenerateAsync(TextModelRequest request, IProgress<string>? progress, CancellationToken cancellationToken) { Started.TrySetResult(); try { await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken); throw new InvalidOperationException(); } finally { Stopped = true; } } }

@@ -14,6 +14,9 @@
     </StackPanel>
     <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="12">
+        <Expander Header="整本小说分析" HorizontalAlignment="Stretch" IsVisible="{Binding HasAnalysis}">
+          <local:NovelAnalysisView DataContext="{Binding Analysis}" />
+        </Expander>
         <Expander Header="材料提炼与文风校准" HorizontalAlignment="Stretch" IsVisible="{Binding HasCalibration}">
           <local:MaterialCalibrationView DataContext="{Binding Calibration}" />
         </Expander>

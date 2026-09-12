@@ -52,6 +52,11 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IAnalysisNodePreparer, NovelAnalysisNodePreparer>();
         services.AddSingleton<NovelAnalysisRunService>();
         services.AddSingleton<NovelAnalysisReportService>();
+        services.AddSingleton<NovelAnalysisActivity>();
+        services.AddSingleton<NovelAnalysisCandidateService>();
+        services.AddSingleton<IAnalysisReportWriter, AnalysisReportWriter>();
+        services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.NovelReportReader>();
+        services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.NovelAnalysisPanel>();
         services.AddSingleton<MaterialCalibrationService>();
         services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.MaterialCalibrationPanel>();
         return services;
