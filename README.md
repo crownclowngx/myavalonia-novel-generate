@@ -9,6 +9,9 @@
 后续开发按 [G0001–G0028 实施总计划](docs/implementation-plan.md)推进；首个可用版本对应 G0001–G0016。
 阶段状态和归档规则见 [G 编号实施档案](docs/refactoring/README.md)。G0001–G0015 已完成本地实现：可编辑和保存小说项目、恢复失败副本、提交工作稿、人工定稿及回退修订、管理模板、本书独立规范、模型连接、本地规则检查与备份/导出。已接入模型协议与单句连接检测；已有实体/别名、有效前文检索和上下文预览，现支持分层规划、近期章纲、方法事件和自动/协作采用；已支持单章生成、审校、有限修正和工作稿提交；已支持 3–5 章连续工作稿、共享预算、暂停取消和中断恢复；已接入短材料方法化、文风校准及本书/模板采用；已接入改稿、手写复核、差异、影响清单与连续范围定稿；工作区与宿主命令已整合，完整产品验收继续推进。
 
+G0016 工程验收与真实三章样稿已完成；P1 产品验收仍待作者质量签收与完整桌面交互。
+入口：[使用说明](docs/usage-guide.md) · [验收结果](docs/refactoring/G0016/result.md) · [真实样稿](docs/refactoring/G0016/samples/rain-letter-working-draft.md)。
+
 这是由 `myavalonia-plugin` 创建的 Managed Plugin 解决方案。真实交付物是
 `src/NovelGeneratePlugin.Plugin`；`Standalone` 只负责快速预览同一份 View、ViewModel 与业务代码。
 
@@ -19,7 +22,6 @@
 dotnet restore
 dotnet build
 dotnet run --project src/NovelGeneratePlugin.Standalone
-dotnet msbuild src/NovelGeneratePlugin.Plugin/NovelGeneratePlugin.Plugin.csproj -t:BuildManagedPluginPackage -p:Configuration=Release
 ```
 
 要在真实 Host 中调试，请显式提供 Host 的 `Controls` 目录：

@@ -23,6 +23,7 @@ public sealed class CompositionTests
         new NovelGeneratePluginModule().Configure(registration);
         Assert.Equal(PluginIds.MainDocument, Assert.Single(registration.Documents).Descriptor.DocumentTypeId);
         Assert.Equal(7, registration.Commands.Count); Assert.Equal(7, registration.Menus.Count);
+        Assert.All(registration.Menus, m => Assert.StartsWith(PluginIds.Plugin.Value + ".command-placement.", m.PlacementId.Value));
         Assert.All(registration.CommandTargets, c => Assert.Equal(PluginIds.MainDocument, c.Target));
         Assert.All(registration.Commands, c => Assert.Contains(NovelCommands.All, n => n.Id == c.CommandId));
         Assert.Equal(typeof(NovelGeneratePlugin.Application.Projects.PluginCloseCoordinator), Assert.Single(registration.Lifecycles));

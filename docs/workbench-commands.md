@@ -6,12 +6,11 @@ Host 菜单、快捷键或后续 Command Palette 投影。Command 不是 Avaloni
 
 ## 当前实现
 
-G0001 已删除 `ApplyWorkbenchMessage` 演示命令、菜单贡献及相应身份。当前登记一个小说 Document、两个共享 Tool 及一个 Lifecycle，
-不声明 Workbench Command 或全局快捷键。新建、打开、保存和导出已作为本书局部命令实现；G0015 再按真实
-高频动作接入工作台路由。普通 Document 的项目保存不能假定由 Host Ctrl+S 或 JSON 信封完成。
+G0015 已登记七项小说 Document 命令：打开、开始、暂停、取消、生成本章、人工定稿和导出预览。菜单 PlacementId 必须使用插件前缀加 `.command-placement.`，真实 Host 会严格拒绝错误所有者身份。
+不贡献新全局快捷键；选区操作仍为局部命令。普通小说项目保存不能假定由 Host Ctrl+S 信封完成。
 
-后续注册只保存稳定身份、展示元数据和目标 DocumentTypeId；状态与执行属于活动 Document 实例。
-执行必须可等待，首先观察取消；状态变化仅通知受影响命令，不在注册阶段保存实例或回调。
+详见[实际交互与命令契约](refactoring/G0015/interaction-and-command-contract.md)和[Host 组合验证](refactoring/G0016/host-integration.md)。
+注册只保存身份、显示元数据与目标类型；调用可等待，外部取消传给任务，关闭后拒绝重入。
 
 ## 适配既有局部命令
 
@@ -34,4 +33,4 @@ Host Executor 在真实工作尚未完成时误报成功。
 - 最终 ZIP 由真实 Host 在独立 ALC 中加载，SDK 仍来自 Default ALC。
 
 Standalone 只承载同一份 `MainDocument` 和 View，不模拟 Host 的 Catalog、活动 Document 路由或菜单投影。
-这些行为必须用正式 ZIP 和真实 Host 验收。
+当前阶段用 Debug 暂存与真实 Host 组合验证；完整桌面操作待补，正式 ZIP/发布门禁留到明确发布任务。

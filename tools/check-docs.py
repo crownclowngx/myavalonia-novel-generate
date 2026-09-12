@@ -2,6 +2,7 @@
 from pathlib import Path
 from urllib.parse import unquote
 import re
+import hashlib
 root = Path(__file__).resolve().parents[1]
 errors = []
 count = 0
@@ -23,6 +24,12 @@ for file in [root / 'README.md', *sorted((root / 'docs').rglob('*.md'))]:
                 anchors.add(re.sub(r'[^\w\- ]', '', heading.lower()).replace(' ', '-'))
             if anchor not in anchors:
                 errors.append(f'{file.relative_to(root)}: missing anchor {target}')
+source = root / 'docs/product/novel-generation-product-requirements.md'
+rendered = source.with_suffix('.html').read_text(encoding='utf-8')
+expected = hashlib.sha256(source.read_text(encoding='utf-8-sig').encode('utf-8')).hexdigest()
+if f'name="source-sha256" content="{expected}"' not in rendered:
+    errors.append('产品 HTML 未与 Markdown 同步，请运行 python docs/product/render-product-html.py')
 if errors:
     raise SystemExit('\n'.join(errors))
 print(f'Markdown local links passed: {count}')
+print('Product Markdown/HTML source hash passed')

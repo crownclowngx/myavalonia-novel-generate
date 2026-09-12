@@ -23,7 +23,7 @@ public sealed class NovelGeneratePluginModule : IPluginModule
         {
             registration.AddDocumentCommand(new CommandDescriptor(command, label, "对当前小说工作区执行：" + label), PluginIds.MainDocument);
             registration.AddMenuCommandContribution(new MenuCommandContributionDescriptor(
-                new(command.Value.Replace(".command.", ".menu.")), command, WorkbenchMenuLocations.ToolsShared,
+                new(command.Value.Replace(".command.", ".command-placement.menu.")), command, WorkbenchMenuLocations.ToolsShared,
                 group: "novel", order: NovelCommands.All.ToList().FindIndex(c => c.Id == command) * 10,
                 targetUnavailableBehavior: MenuCommandTargetUnavailableBehavior.Hide));
         }

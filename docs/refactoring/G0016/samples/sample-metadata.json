@@ -1,0 +1,48 @@
+{
+  "sourceCommit": "af373c3",
+  "schemaVersion": 9,
+  "model": "gpt-6-astra",
+  "cliVersion": "0.153.4",
+  "reasoningEffort": "low",
+  "outputLimit": 8192,
+  "scope": {
+    "chapters": 3,
+    "targetCharacters": 500,
+    "maximumRepairsPerChapter": 1,
+    "maximumRequests": 12,
+    "maximumTokens": 400000
+  },
+  "result": "Completed",
+  "requests": 6,
+  "inputTokens": 85665,
+  "outputTokens": 4522,
+  "unknownUsageRequests": 0,
+  "formalRevisions": 0,
+  "chapters": [
+    {
+      "title": "雨中的旧门",
+      "nonWhitespaceCharacters": 487,
+      "facts": 5,
+      "review": "Passed"
+    },
+    {
+      "title": "抽屉里的年月",
+      "nonWhitespaceCharacters": 498,
+      "facts": 7,
+      "review": "Passed"
+    },
+    {
+      "title": "回信",
+      "nonWhitespaceCharacters": 477,
+      "facts": 8,
+      "review": "Passed"
+    }
+  ],
+  "sha256": {
+    "input.json": "d7682a0254f321ea91f7a93c677173e97195107afeb6929836e1c8ee7c331417",
+    "book.json": "0a0fc9f3db22288596a8b1424ea5f6e47e6777091c837c5b83ae987b82ad5d0a",
+    "requests.json": "1c3bebe2423a7e01cf3c13e9c9e7a09d440f0388e1252ab39369cae401b34ff3",
+    "run.json": "2171264a2bf43dd3cb5302f19529c1ec04f0f25505e76e38001e0e4200fb3ada",
+    "三章工作稿.md": "902b744a58719e69eaab5049056e915d3473ffc305426fd6e6aabede335cdc80"
+  }
+}
