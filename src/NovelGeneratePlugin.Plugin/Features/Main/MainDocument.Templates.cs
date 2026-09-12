@@ -43,7 +43,7 @@ public sealed partial class MainDocument
     {
         if (_loading || _session is null || _closing.IsCancellationRequested) return;
         _session.Update(_session.Current with { Profile = new WritingProfile(ProfileWorld, ProfileStyle, ProfileMethods, ProfileRules) });
-        ClearTemplatePreview();
+        ClearTemplatePreview(); UpdateStoryContextStatus();
     }
     private void LoadProfile()
     {

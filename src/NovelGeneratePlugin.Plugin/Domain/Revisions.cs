@@ -4,7 +4,17 @@ using System.Text;
 namespace NovelGeneratePlugin.Domain;
 
 public enum RevisionCheck { NotChecked, Passed, Failed }
-public sealed record FactDelta(string Key, string? ExpectedValue, string? NewValue);
+public sealed record FactDelta(string Key, string? ExpectedValue, string? NewValue)
+{
+    public Guid? EntityId { get; init; }
+    public StoryFactKind? Kind { get; init; }
+    public string? Field { get; init; }
+    public string? Evidence { get; init; }
+    public string? PolicyStamp { get; init; }
+    public string? ValidatedTextHash { get; init; }
+    public Guid? ValidatedRunId { get; init; }
+    public Guid? RelatedEntityId { get; init; }
+}
 public sealed record ChapterRevision(Guid Id, Guid ChapterId, Guid? ParentId, Guid RunId, Guid OperationId,
     string Title, string Text, string TextHash, string Summary, ImmutableArray<FactDelta> Facts,
     RevisionCheck Check, string ContextStamp, DateTimeOffset CreatedAt);
@@ -44,7 +54,22 @@ public sealed record RevisionLedger(ImmutableArray<ChapterRevision> History, Imm
                 throw new InvalidDataException("修订父节点必须是同章已有修订。");
             var keys = new HashSet<string>(StringComparer.Ordinal);
             foreach (var fact in revision.Facts)
+            {
                 if (fact is null || string.IsNullOrWhiteSpace(fact.Key) || !keys.Add(fact.Key)) throw new InvalidDataException("事实键无效或重复。");
+                if (fact.EntityId is Guid entity)
+                {
+                    if (project.Story is null || !project.Story.Entities.Any(e => e.Id == entity) || fact.Kind is null || !Enum.IsDefined(fact.Kind.Value) ||
+                        string.IsNullOrWhiteSpace(fact.Field) || fact.Key != StoryMemory.FactKey(entity, fact.Kind.Value, fact.Field, fact.RelatedEntityId) ||
+                        string.IsNullOrWhiteSpace(fact.Evidence) || !revision.Text.Contains(fact.Evidence, StringComparison.Ordinal) ||
+                        string.IsNullOrWhiteSpace(fact.PolicyStamp) || fact.ValidatedTextHash != revision.TextHash || fact.ValidatedRunId != revision.RunId)
+                        throw new InvalidDataException("类型化事实的实体、字段或正文证据无效。");
+                    if (fact.RelatedEntityId is Guid related && !project.Story.Entities.Any(e => e.Id == related) ||
+                        fact.Kind is StoryFactKind.Relationship or StoryFactKind.Possession && fact.RelatedEntityId is null)
+                        throw new InvalidDataException("关系事实缺少有效的关联实体。");
+                }
+                else if (fact.Kind is not null || fact.Field is not null || fact.Evidence is not null || fact.PolicyStamp is not null || fact.ValidatedTextHash is not null || fact.ValidatedRunId is not null || fact.RelatedEntityId is not null)
+                    throw new InvalidDataException("事实元数据缺少实体身份。");
+            }
         }
         var headed = new HashSet<Guid>();
         foreach (var head in Heads)
@@ -156,6 +181,7 @@ public static class RevisionRules
             if (fact is null || string.IsNullOrWhiteSpace(fact.Key)) throw new InvalidDataException("事实键不能为空。");
             memory.TryGetValue(fact.Key, out var old);
             if (old != fact.ExpectedValue) throw new InvalidOperationException("事实旧值与有效前文不一致：" + fact.Key);
+            StoryMemory.ValidateAcceptedFact(project, chapter.Id, submission.RunId, submission.Text, fact);
         }
         var revision = new ChapterRevision(Guid.NewGuid(), chapter.Id, head.WorkingId ?? head.FormalId, submission.RunId, submission.OperationId,
             chapter.Title, submission.Text, Hash(submission.Text), submission.Summary, submission.Facts, submission.Check, submission.ExpectedContextStamp, DateTimeOffset.UtcNow);
@@ -173,6 +199,7 @@ public static class RevisionRules
         if (revision.Check == RevisionCheck.Failed) throw new InvalidOperationException("检查失败的修订不能定稿，请先修正并重新提交。");
         if (Before(project, chapterId).Any(c => ledger.Head(c.Id).FormalId is null)) throw new InvalidOperationException("请按顺序定稿前面的章节。");
         if (revision.ContextStamp != ContextStamp(project, chapterId)) throw new InvalidOperationException("工作稿引用的前文已过期。");
+        foreach (var fact in revision.Facts) StoryMemory.ValidateAcceptedFact(project, chapterId, revision.RunId, revision.Text, fact);
         var result = ledger.WithHead(head with { WorkingId = null, FormalId = revision.Id });
         if (!result.Heads.Any(h => h.WorkingId is not null)) result = result with { ActiveRunId = null };
         result.Validate(project); return result;
@@ -189,6 +216,7 @@ public static class RevisionRules
             ChapterId = chapters[r.ChapterId],
             ParentId = r.ParentId is Guid parent ? revisions[parent] : null,
             RunId = runs[r.RunId],
+            Facts = r.Facts.Select(f => f.EntityId is null ? f : f with { ValidatedRunId = runs[r.RunId] }).ToImmutableArray(),
             OperationId = Guid.NewGuid()
         }).ToImmutableArray();
         var heads = source.Revisions.Heads.Select(h => new ChapterHead(chapters[h.ChapterId],
@@ -198,7 +226,12 @@ public static class RevisionRules
         {
             var old = source.Revisions.History[i]; var head = source.Revisions.Head(old.ChapterId);
             return (head.WorkingId == old.Id || head.FormalId == old.Id) && old.ContextStamp == ContextStamp(source, old.ChapterId)
-                ? r with { ContextStamp = ContextStamp(copy, r.ChapterId) } : r;
+                ? r with
+                {
+                    ContextStamp = ContextStamp(copy, r.ChapterId),
+                    Facts = r.Facts.Select(f => f.EntityId is not null && f.PolicyStamp == StoryMemory.PolicyStamp(source, old.ChapterId, old.RunId)
+                        ? f with { PolicyStamp = StoryMemory.PolicyStamp(copy, r.ChapterId, r.RunId) } : f).ToImmutableArray()
+                } : r;
         }).ToImmutableArray();
         copy = copy with { Revisions = copy.Revisions with { History = history } };
         copy.Validate(); return copy;

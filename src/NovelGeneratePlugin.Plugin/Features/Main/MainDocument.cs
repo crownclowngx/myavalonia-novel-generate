@@ -61,6 +61,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     private void NotifyCommands()
     {
         NotifyExportCommands();
+        NotifyStoryCommands();
         NotifyRuleDraft(); DiscardRuleDraftCommand.NotifyCanExecuteChanged(); SaveRuleVersionCommand.NotifyCanExecuteChanged(); CheckLocalRulesCommand.NotifyCanExecuteChanged(); LocateRuleFindingCommand.NotifyCanExecuteChanged();
         RefreshConnectionsCommand.NotifyCanExecuteChanged(); BindConnectionCommand.NotifyCanExecuteChanged(); UnbindConnectionCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
@@ -137,6 +138,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         NotifyExportCommands();
         UpdateLocalRuleStatus();
+        UpdateStoryContextStatus();
         if (_session is null || SelectedChapter is null) return;
         var ledger = _session.Current.Revisions; var head = ledger.Head(SelectedChapter.Id);
         var working = ledger.Get(head.WorkingId); var formal = ledger.Get(head.FormalId);
@@ -254,6 +256,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         try { BookTitle = next.Current.Title; Idea = next.Current.Idea; ProjectPath = next.Path; HasProject = true; }
         finally { _loading = false; }
         LoadProfile();
+        LoadStory();
         LoadRules();
         ReloadChapters(next.Current.Chapters[0].Id);
         Status = next.Status.Message; Notice = next.CatalogWarning ?? "本地编辑可离线使用；保存不等于定稿。"; UpdatePresentation();

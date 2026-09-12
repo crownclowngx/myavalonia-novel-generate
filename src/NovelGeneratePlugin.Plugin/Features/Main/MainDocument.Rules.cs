@@ -110,7 +110,7 @@ public sealed partial class MainDocument
     private Task SaveRuleVersion() => RunAsync(async () =>
     {
         var updated = WritingRuleSet.Commit(_session!.Current, CaptureRuleDraft(), SelectedChapter!.Id);
-        _session.Update(updated); var result = await _session.SaveAsync(); Status = result.Message; LoadRules();
+        _session.Update(updated); var result = await _session.SaveAsync(); Status = result.Message; LoadRules(); UpdateStoryContextStatus();
         Notice = "规则版本已更新；尚未用于模型请求，本地检查也不等于语义审校。";
     });
     [RelayCommand(CanExecute = nameof(CanEdit))]

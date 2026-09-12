@@ -46,6 +46,29 @@
               <Button Content="解除本书绑定" Command="{Binding UnbindConnectionCommand}" />
             </StackPanel>
           </Expander>
+          <Expander x:Name="StoryExpander" Header="故事实体与上下文" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="8">
+              <ComboBox ItemsSource="{Binding StoryEntities}" SelectedItem="{Binding SelectedStoryEntity}" IsEnabled="{Binding CanSelectEntity}" HorizontalAlignment="Stretch" />
+              <Button Content="新实体" Command="{Binding NewStoryEntityCommand}" />
+              <StackPanel IsEnabled="{Binding CanEdit}" Spacing="6">
+                <ComboBox ItemsSource="{Binding EntityKinds}" SelectedItem="{Binding EntityKind}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" />
+                <TextBox x:Name="EntityNameEditor" Text="{Binding EntityName}" PlaceholderText="人物 / 地点 / 物品名称" MaxLength="100" />
+                <TextBox Text="{Binding EntityAliases}" PlaceholderText="别名，每行一个" AcceptsReturn="True" MinHeight="55" MaxHeight="120" TextWrapping="Wrap" />
+                <TextBox Text="{Binding EntityDescription}" PlaceholderText="作者设定，不代表已发生事实" AcceptsReturn="True" MinHeight="55" MaxHeight="150" TextWrapping="Wrap" MaxLength="10000" />
+                <TextBox Text="{Binding EntityLockedField}" PlaceholderText="锁定状态字段，例如 出生地" MaxLength="100" />
+                <TextBox Text="{Binding EntityLockedValue}" PlaceholderText="锁定值；留空字段和值可取消该项" MaxLength="2000" />
+              </StackPanel>
+              <Button Content="保存实体登记" Command="{Binding SaveStoryEntityCommand}" />
+              <Button Content="放弃实体表单草案" Command="{Binding DiscardEntityDraftCommand}" />
+              <TextBox Text="{Binding ContextQuery}" PlaceholderText="检索人物或关键词（可选）" MaxLength="1000" IsEnabled="{Binding CanEdit}" />
+              <CheckBox IsChecked="{Binding ContextUseWorking}" IsEnabled="{Binding CanEdit}"><TextBlock Text="包含本轮有效工作稿" TextWrapping="Wrap" /></CheckBox>
+              <TextBlock Text="上下文容量（UTF-8 字节，非 token）" TextWrapping="Wrap" />
+              <NumericUpDown Value="{Binding ContextMaximumBytes}" Minimum="100" Maximum="500000" Increment="1000" IsEnabled="{Binding CanEdit}" />
+              <Button Content="预览上下文（不调用模型）" Command="{Binding PreviewStoryContextCommand}" />
+              <TextBlock Text="{Binding StoryContextStatus}" TextWrapping="Wrap" />
+              <TextBox Text="{Binding StoryContextText}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" />
+            </StackPanel>
+          </Expander>
           <Expander Header="最近项目" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
               <ComboBox ItemsSource="{Binding RecentProjects}" SelectedItem="{Binding SelectedRecent}" HorizontalAlignment="Stretch" />

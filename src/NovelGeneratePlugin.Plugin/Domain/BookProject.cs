@@ -14,6 +14,7 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
     public RuleDraft RuleEditor { get; init; } = RuleDraft.Empty;
     public ImmutableArray<LocalRuleCheck> RuleChecks { get; init; } = [];
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
+    public StoryCatalog Story { get; init; } = StoryCatalog.Empty;
     public static BookProject Create(string title, string idea = "")
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("新建作品需要书名。", nameof(title));
@@ -37,6 +38,8 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
             if (chapter is null || chapter.Id == Guid.Empty || !ids.Add(chapter.Id) ||
                 !Volumes.Any(v => v.Id == chapter.VolumeId) || chapter.Title is null || chapter.Title.Length > 200 || chapter.Text is null || chapter.Outline is null || chapter.Summary is null)
                 throw new InvalidDataException("章节身份、归属或内容无效。");
+        if (Story is null) throw new InvalidDataException("故事实体目录不能为空。");
+        Story.Validate();
         if (Revisions is null) throw new InvalidDataException("修订状态不能为空。");
         Revisions.Validate(this);
         if (Profile is null) throw new InvalidDataException("本书规范不能为空。");

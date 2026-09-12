@@ -93,6 +93,34 @@ public sealed class NativeViewTests
             return true;
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task 原生故事实体输入和上下文预览可用()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await using var document = workspace.CreateDocument();
+            var view = new MainView { DataContext = document }; var window = new Window { Width = 1200, Height = 900, Content = view };
+            try
+            {
+                window.Show(); await document.InitializeAsync(new NewDocumentActivation("实体测试"), default);
+                workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
+                view.FindControl<Expander>("StoryExpander")!.IsExpanded = true; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var editor = view.FindControl<TextBox>("EntityNameEditor")!; editor.BringIntoView(); editor.Focus(); window.KeyTextInput("林舟"); Assert.Equal("林舟", document.EntityName);
+                document.EntityAliases = "阿舟"; await document.SaveStoryEntityCommand.ExecuteAsync(null); await document.PreviewStoryContextCommand.ExecuteAsync(null);
+                Assert.Contains("当前上下文", document.StoryContextStatus); Assert.Single(workspace.Store.Read(document.ProjectPath).Project.Story.Entities);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "story-context.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]

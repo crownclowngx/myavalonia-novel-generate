@@ -19,6 +19,10 @@ public sealed class ProductOptionLabelConverter : IValueConverter
         ManuscriptVersion.Editing => "编辑稿",
         ManuscriptVersion.WorkingView => "工作稿视图",
         ManuscriptVersion.Formal => "正式稿",
+        StoryEntityKind.Person => "人物",
+        StoryEntityKind.Place => "地点",
+        StoryEntityKind.Item => "物品",
+        StoryEntityKind.Organization => "组织",
         ManuscriptFormat.Text => "TXT 文本",
         ManuscriptFormat.Markdown => "Markdown",
         _ => "未选择"
