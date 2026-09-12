@@ -4,6 +4,7 @@ namespace NovelGeneratePlugin.Domain.Analysis;
 
 public enum AnalysisDimension { World, Characters, Goals, Plot, Style, Theme }
 public enum AnalysisStatementKind { Explicit, Inferred, Uncertain }
+public enum NarrativeSource { Narration, CharacterClaim, Rumor, Dream, Recollection, Plan, Unknown }
 
 /// <summary>
 /// 证据携带来源版本、精确区间及原文，重复出现的句子也能定位到模型选用的那一处。
@@ -25,10 +26,15 @@ public sealed record AnalysisEvidence(Guid SourceId, string TextHash, SourceRang
 public sealed record AnalysisFinding(Guid Id, AnalysisDimension Dimension, string Subject, string Statement,
     AnalysisStatementKind Kind, ImmutableArray<AnalysisEvidence> Evidence)
 {
+    public ImmutableArray<string> RelatedSubjects { get; init; } = [];
+    public string TimeHint { get; init; } = "";
+    public NarrativeSource Narration { get; init; } = NarrativeSource.Unknown;
     public void Validate(SourceSnapshot source, SourceRange? allowed = null)
     {
         if (Id == Guid.Empty || !Enum.IsDefined(Dimension) || !Enum.IsDefined(Kind) || string.IsNullOrWhiteSpace(Subject) || Subject.Length > 200 ||
-            string.IsNullOrWhiteSpace(Statement) || Statement.Length > 4000 || Evidence.IsDefaultOrEmpty || Evidence.Length > 8)
+            string.IsNullOrWhiteSpace(Statement) || Statement.Length > 4000 || Evidence.IsDefaultOrEmpty || Evidence.Length > 8 ||
+            RelatedSubjects.IsDefault || RelatedSubjects.Length > 10 || RelatedSubjects.Any(s => string.IsNullOrWhiteSpace(s) || s.Length > 200) ||
+            TimeHint is null || TimeHint.Length > 500 || !Enum.IsDefined(Narration))
             throw new InvalidDataException("分析结论缺少维度、判断类型或有界证据。");
         foreach (var evidence in Evidence)
         {
@@ -43,3 +49,8 @@ public sealed record AnalysisFinding(Guid Id, AnalysisDimension Dimension, strin
 /// 此处只固定结果结构，节点调度与专题汇总分别由后续应用服务负责。
 /// </summary>
 public sealed record AnalysisSection(AnalysisDimension Dimension, string Summary, ImmutableArray<AnalysisFinding> Findings);
+
+public sealed record ReferenceMention(Guid Id, string Name, StoryEntityKind Kind, ImmutableArray<string> Aliases, string Description, ImmutableArray<AnalysisEvidence> Evidence);
+public sealed record DimensionGap(AnalysisDimension Dimension, string Reason);
+public sealed record ChunkAnalysisResult(Guid OperationId, Guid ChunkId, Guid SourceId, string InputStamp, string Summary,
+    ImmutableArray<ReferenceMention> Entities, ImmutableArray<AnalysisFinding> Findings, ImmutableArray<DimensionGap> Gaps);

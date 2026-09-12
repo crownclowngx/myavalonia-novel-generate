@@ -84,7 +84,9 @@ public sealed class DeepSeekTextModel(ConnectionService connections, HttpClient 
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException) { throw Protocol(); }
         finally { progress?.Report(text.ToString()); }
-        if (!done || finish is not ("stop" or "length") || text.Length == 0) throw Protocol();
+        // 思考可能耗尽整个输出额度，此时合法 length 事件没有可见正文。
+        // 仍返回截断及服务端用量，让上层明确增加额度或调整思考设置；不能把已知用量丢成协议失败。
+        if (!done || finish is not ("stop" or "length") || finish == "stop" && text.Length == 0) throw Protocol();
         return new(text.ToString(), finish == "length" ? ModelCompletion.Truncated : ModelCompletion.Complete, usage);
     }
     internal static long? ReadCount(JsonElement value, string name)

@@ -72,9 +72,12 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
         {
             var response = await model.GenerateAsync(request, sink, deadline.Token).ConfigureAwait(false);
             sink.Report(response.Text);
-            if (!Enum.IsDefined(response.Completion) || string.IsNullOrWhiteSpace(response.Text)) throw new ModelRequestException(ModelFailure.Protocol, "模型未返回有效正文。");
             if (response.Usage.InputTokens is < 0 || response.Usage.OutputTokens is < 0) throw new ModelRequestException(ModelFailure.Protocol, "模型用量计数无效。");
             entry = entry with { Usage = response.Usage };
+            // 先保存已获得的用量，再验证业务正文；思考耗尽预算的空截断仍是有成本的已知截断。
+            if (!Enum.IsDefined(response.Completion) || response.Text is null ||
+                response.Completion == ModelCompletion.Complete && string.IsNullOrWhiteSpace(response.Text))
+                throw new ModelRequestException(ModelFailure.Protocol, "模型未返回有效正文。");
             if (response.Completion == ModelCompletion.Complete && request.JsonOutput)
             {
                 if (request.AllowJsonWrapperRepair) response = response with { Text = RepairJsonWrapper(response.Text) };

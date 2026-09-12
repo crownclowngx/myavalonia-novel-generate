@@ -47,6 +47,7 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IReferenceSourceStore, ReferenceSourceStore>();
         services.AddSingleton<ITextSourceReader, TxtSourceReader>();
         services.AddSingleton<NovelImportService>();
+        services.AddSingleton<NovelChunkAnalysisService>();
         services.AddSingleton<MaterialCalibrationService>();
         services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.MaterialCalibrationPanel>();
         return services;

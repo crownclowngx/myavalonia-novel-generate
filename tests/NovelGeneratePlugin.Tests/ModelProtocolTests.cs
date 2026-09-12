@@ -23,6 +23,29 @@ public sealed class ModelProtocolTests
     private sealed class Capture : IProgress<string> { public string Text { get; private set; } = ""; public void Report(string value) => Text = value; }
 
     [Fact]
+    public async Task 思考耗尽额度导致空正文时保留截断和已知用量()
+    {
+        var result = await DeepSeekTextModel.ReadEventsAsync(new StringReader(Event("", "length") + Usage + Done), null, default);
+        Assert.Equal(ModelCompletion.Truncated, result.Completion);
+        Assert.Empty(result.Text); Assert.Equal(new ModelUsage(23, 7), result.Usage);
+        await using var workspace = new TestWorkspace(); var budget = Budget();
+        var service = new ModelRequestService(new ScriptedTextModel(_ => result), new ModelRequestStore(workspace.Paths));
+        var response = await service.GenerateAsync(Request(true), budget, null, default);
+        Assert.Equal(ModelCompletion.Truncated, response.Completion);
+        var entry = Assert.Single(service.List(budget.Id));
+        Assert.Equal(RequestState.Truncated, entry.State); Assert.Equal(result.Usage, entry.Usage);
+    }
+
+    [Fact]
+    public async Task 已获得用量的空完成正文被拒绝时仍保留费用()
+    {
+        await using var workspace = new TestWorkspace(); var budget = Budget();
+        var service = new ModelRequestService(new ScriptedTextModel(_ => new("", ModelCompletion.Complete, new(23, 7))), new ModelRequestStore(workspace.Paths));
+        await Assert.ThrowsAsync<ModelRequestException>(() => service.GenerateAsync(Request(), budget, null, default));
+        Assert.Equal(new ModelUsage(23, 7), Assert.Single(service.List(budget.Id)).Usage);
+    }
+
+    [Fact]
     public async Task SSE跨中文网络字节块空事件与推理分离()
     {
         var payload = ": keepalive\r\n\r\ndata: \r\n\r\n" +
