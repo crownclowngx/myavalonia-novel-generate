@@ -12,15 +12,26 @@ using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Infrastructure.Models;
 
 // 显式开发工具，不纳入普通测试或生产包。输入与输出必须由调用者给出；本工具的 import/benchmark 不访问网络。
-if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract"))
+if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate"))
     throw new ArgumentException("用法：AnalysisProbe <import|benchmark|chunk> <TXT路径或-> <新的输出目录>；chunk 从标准输入读取本次密钥");
 var output = Path.GetFullPath(args[2]);
-var resuming = args[0] is "retry-extract" or "revise-extract";
+var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate";
 if (!resuming && (Directory.Exists(output) || File.Exists(output))) throw new InvalidOperationException("输出目录必须尚不存在，避免覆盖已有验证资料。");
 if (resuming && !File.Exists(Path.Combine(output, "run-id.txt"))) throw new InvalidOperationException("恢复目录缺少运行身份。");
 Directory.CreateDirectory(output);
 var input = args[1];
-if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract")
+if (args[0] == "validate-extract")
+{
+    var paths = new WorkspacePaths(output); var run = new AnalysisRunStore(paths).Read(Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt"))));
+    var node = run.Nodes.First(n => n.State != AnalysisNodeState.Completed); var source = new ReferenceSourceStore(paths).Read(run.BookId) with { Chunks = run.Chunks };
+    var savedResults = run.Nodes.Where(n => n.State == AnalysisNodeState.Completed).ToDictionary(n => n.Key, n => new AnalysisRunStore(paths).ReadResult(run.Id, n.Key)!);
+    var prepared = new NovelAnalysisNodePreparer().Prepare(run, source, node, savedResults);
+    var entry = new ModelRequestStore(paths).List(run.Budget.Id).Single(e => e.Id == node.OperationId);
+    try { using var json = JsonDocument.Parse(ModelRequestService.RepairJsonWrapper(entry.PartialText)); prepared.Request.Contract!.Validate(json.RootElement); Console.WriteLine("VALID"); }
+    catch (Exception error) { Console.WriteLine(error); }
+    return;
+}
+if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "integrate")
 {
     // 密钥通过标准输入传入，既不出现在进程命令行，也不写入配置文件。普通 import/benchmark 不读取凭据。
     var secret = await Console.In.ReadLineAsync() ?? throw new InvalidOperationException("标准输入缺少本次密钥。");
@@ -57,7 +68,7 @@ if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-
         if (preview is not null) store.Import(preview.Import);
         using var client = DeepSeekTextModel.CreateClient();
         var requests = new ModelRequestService(new DeepSeekTextModel(connections, client), new ModelRequestStore(paths));
-        if (args[0] is "extract" or "retry-extract" or "revise-extract")
+        if (args[0] is "extract" or "retry-extract" or "revise-extract" or "integrate")
         {
             var runs = new AnalysisRunStore(paths);
             var runner = new NovelAnalysisRunService(store, runs, connections, requests, new NovelAnalysisNodePreparer());
@@ -65,12 +76,19 @@ if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-
             var run = resuming ? runs.Read(Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt")))) :
                 await runner.CreateAsync(preview!.Import.Book.Id, binding, 74, 2799138, new(32, 1200000), default);
             if (args[0] == "revise-extract") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id);
+            if (args[0] == "integrate") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id, target: AnalysisTarget.Integration);
             if (resuming) run = runner.Resume(run.Id, true, run.Budget.MaximumRequests, run.Budget.MaximumTokens);
             await File.WriteAllTextAsync(Path.Combine(output, "run-id.txt"), run.Id.ToString());
             try
             {
                 var finished = await runner.ExecuteAsync(run.Id, new(), new RunProgress(), default);
                 await File.WriteAllTextAsync(Path.Combine(output, "extraction-results.json"), JsonSerializer.Serialize(runner.ReadExtractions(run.Id), new JsonSerializerOptions { WriteIndented = true }));
+                if (finished.State == AnalysisRunState.IntegrationCompleted)
+                {
+                    var integrated = runner.ReadIntegrated(run.Id);
+                    await File.WriteAllTextAsync(Path.Combine(output, "integration-results.json"), JsonSerializer.Serialize(integrated, new JsonSerializerOptions { WriteIndented = true }));
+                    Console.WriteLine(JsonSerializer.Serialize(new { Identities = integrated.Identities.Length, Observations = integrated.Observations.Length, UnintegratedFacts = integrated.UnintegratedFacts.Length }));
+                }
                 Console.WriteLine(JsonSerializer.Serialize(new { finished.Id, State = finished.State.ToString(), finished.Message, Chunks = finished.Chunks.Length, Completed = finished.Nodes.Count(n => n.State == AnalysisNodeState.Completed) }));
             }
             finally

@@ -5,7 +5,8 @@ using NovelGeneratePlugin.Domain.Analysis;
 
 namespace NovelGeneratePlugin.Application.Analysis;
 
-public enum AnalysisRunState { Queued, Running, Paused, NeedsAttention, ExtractionCompleted, Completed, Cancelled }
+public enum AnalysisRunState { Queued, Running, Paused, NeedsAttention, ExtractionCompleted, Completed, Cancelled, IntegrationCompleted }
+public enum AnalysisTarget { Extraction, Integration }
 public enum AnalysisNodeKind { Extraction, Integration, Summary, Dimension, Synthesis }
 public enum AnalysisNodeState { Pending, Running, Completed }
 
@@ -14,6 +15,8 @@ public sealed record AnalysisNode(string Key, AnalysisNodeKind Kind, Guid? Chunk
     Guid OperationId, string InputStamp, AnalysisNodeState State)
 {
     public string ExtractionPromptVersion { get; init; } = "v2";
+    public AnalysisDimension? Dimension { get; init; }
+    public ImmutableArray<int> Selection { get; init; } = [];
 }
 public sealed record AnalysisStageReserve(int Requests, long Tokens);
 public sealed record AnalysisNodeResult(string Key, string InputStamp, string Json, string Hash);
@@ -27,6 +30,7 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
     AnalysisRunState State, string Message, long Version, DateTimeOffset UpdatedAt)
 {
     public ImmutableArray<AnalysisChunk> Chunks { get; init; } = [];
+    public AnalysisTarget Target { get; init; }
     public void Validate()
     {
         Connection.Connection.Validate(); Connection.Preset.Validate();
@@ -34,7 +38,7 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
             Connection.BookId != BookId || Connection.Task != ModelTask.Checking || Connection.Preset != Connection.Connection.Settings.Preset(Connection.Task) ||
             Budget.Id == Guid.Empty || Budget.MaximumRequests is < 1 or > 1000 || Budget.MaximumTokens < 1 || ReportReserve.Requests < 0 || ReportReserve.Tokens < 0 ||
             ReportReserve.Requests >= Budget.MaximumRequests || ReportReserve.Tokens >= Budget.MaximumTokens || Version < 1 ||
-            !Enum.IsDefined(State) || Message is null || Message.Length > 2000 || Nodes.IsDefaultOrEmpty || Nodes.Length > 1000 ||
+            !Enum.IsDefined(State) || !Enum.IsDefined(Target) || Message is null || Message.Length > 2000 || Nodes.IsDefaultOrEmpty || Nodes.Length > 1000 ||
             Chunks.IsDefaultOrEmpty || Chunks.Length != Nodes.Count(n => n.Kind == AnalysisNodeKind.Extraction) || Chunks.Select(c => c.Id).Distinct().Count() != Chunks.Length)
             throw new InvalidDataException("分析运行身份、预算或状态无效。");
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -44,12 +48,15 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
             if (node is null || string.IsNullOrWhiteSpace(node.Key) || node.Key.Length > 100 || !Enum.IsDefined(node.Kind) || !Enum.IsDefined(node.State) ||
                 node.Dependencies.IsDefault || node.Dependencies.Any(key => !seen.Contains(key)) || !seen.Add(node.Key) ||
                 node.OperationId == Guid.Empty || !operations.Add(node.OperationId) || node.InputStamp is null ||
-                node.State != AnalysisNodeState.Pending && node.InputStamp.Length != 64 ||
+                node.State != AnalysisNodeState.Pending && node.InputStamp.Length != 64 || node.Selection.IsDefault || node.Selection.Length > 60 ||
+                node.Selection.Any(id => id < 1) || node.Selection.Distinct().Count() != node.Selection.Length || node.Dimension is { } dimension && !Enum.IsDefined(dimension) ||
+                node.Kind == AnalysisNodeKind.Integration && node.Selection.IsEmpty ||
                 node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3")))
                 throw new InvalidDataException("分析节点身份、依赖顺序或输入指纹无效。");
         }
         if (State == AnalysisRunState.Completed && Nodes.Any(n => n.State != AnalysisNodeState.Completed) ||
-            State == AnalysisRunState.ExtractionCompleted && Nodes.Any(n => n.Kind == AnalysisNodeKind.Extraction && n.State != AnalysisNodeState.Completed))
+            State == AnalysisRunState.ExtractionCompleted && Nodes.Any(n => n.Kind == AnalysisNodeKind.Extraction && n.State != AnalysisNodeState.Completed) ||
+            State == AnalysisRunState.IntegrationCompleted && Nodes.Any(n => n.State != AnalysisNodeState.Completed))
             throw new InvalidDataException("未完成节点不能声明分析完成。");
     }
 }

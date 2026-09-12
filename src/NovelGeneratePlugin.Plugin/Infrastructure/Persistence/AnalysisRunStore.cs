@@ -89,12 +89,15 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
         command.CommandText = "SELECT snapshot FROM runs WHERE id=$id"; command.Parameters.AddWithValue("$id", run.Id.ToString());
         var previous = Parse(command.ExecuteScalar() as string ?? throw new FileNotFoundException("分析运行不存在。"));
         if (previous.SourceHash != run.SourceHash || previous.Connection != run.Connection || previous.ReportReserve != run.ReportReserve || !previous.Chunks.SequenceEqual(run.Chunks) || previous.Budget.Id != run.Budget.Id ||
-            run.Budget.MaximumRequests < previous.Budget.MaximumRequests || run.Budget.MaximumTokens < previous.Budget.MaximumTokens || previous.Nodes.Length != run.Nodes.Length)
+            previous.Target != run.Target || run.Budget.MaximumRequests < previous.Budget.MaximumRequests || run.Budget.MaximumTokens < previous.Budget.MaximumTokens || previous.Nodes.Length > run.Nodes.Length)
             throw new InvalidDataException("不能改写运行的来源、冻结配置、节点计划或降低预算。");
-        for (var i = 0; i < run.Nodes.Length; i++)
+        if (run.Nodes.Length > previous.Nodes.Length && (previous.Nodes.Any(n => n.State != AnalysisNodeState.Completed) || run.Nodes.Skip(previous.Nodes.Length).Any(n => n.State != AnalysisNodeState.Pending)))
+            throw new InvalidDataException("只能在完整阶段边界追加尚未执行的依赖节点。");
+        for (var i = 0; i < previous.Nodes.Length; i++)
         {
             var old = previous.Nodes[i]; var next = run.Nodes[i];
-            if (old.Key != next.Key || old.Kind != next.Kind || old.ChunkId != next.ChunkId || old.ExtractionPromptVersion != next.ExtractionPromptVersion || !old.Dependencies.SequenceEqual(next.Dependencies) ||
+            if (old.Key != next.Key || old.Kind != next.Kind || old.ChunkId != next.ChunkId || old.ExtractionPromptVersion != next.ExtractionPromptVersion ||
+                old.Dimension != next.Dimension || !old.Selection.SequenceEqual(next.Selection) || !old.Dependencies.SequenceEqual(next.Dependencies) ||
                 old.State == AnalysisNodeState.Completed && CanonicalJson.Hash(old) != CanonicalJson.Hash(next) ||
                 old.State != AnalysisNodeState.Completed && next.State == AnalysisNodeState.Completed && result?.Key != next.Key)
                 throw new InvalidDataException("已完成结果不能覆盖；新完成状态必须和对应结果一起提交。");

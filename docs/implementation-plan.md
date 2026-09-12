@@ -163,7 +163,7 @@ G0016 后可继续 P2，也可按实际需求启动 G0021 等扩展。数字较�
 
 ### 3.4 新增整本小说分析专项（G0029–G0036）
 
-2026-09-12 用户确认新增目标并授权按阶段实施：导入一本 TXT，自动分析完整正文，综合背景世界观、人物关系、角色目标与任务、故事结构、文风和主题，得到有原文依据的报告。详细方案、工作项和验收见[整本小说分析可行性与实施计划](novel-analysis-feasibility-plan.md)。G0029–G0032 已完成，后续按依赖推进。
+2026-09-12 用户确认新增目标并授权按阶段实施：导入一本 TXT，自动分析完整正文，综合背景世界观、人物关系、角色目标与任务、故事结构、文风和主题，得到有原文依据的报告。详细方案、工作项和验收见[整本小说分析可行性与实施计划](novel-analysis-feasibility-plan.md)。G0029–G0033 已完成，后续按依赖推进。
 
 原 G0001–G0028 编号保留；新增阶段不要求先执行编号更小的所有选做分支。G0016 已有工程证据按实际范围复核，尚未完成的创作签收不阻止独立分析模块开发；分析产品自身的真实 Host 与质量验收仍由 G0036 完成。
 
@@ -173,12 +173,12 @@ G0016 后可继续 P2，也可按实际需求启动 G0021 等扩展。数字较�
 | [G0030](novel-analysis-feasibility-plan.md#g0030) | TXT 全文导入、分章与稳定定位 | 阶段已验收，见[结果](refactoring/G0030/result.md) |
 | [G0031](novel-analysis-feasibility-plan.md#g0031) | 分块多维 AI 提取与证据验证 | 阶段已验收，见[结果](refactoring/G0031/result.md) |
 | [G0032](novel-analysis-feasibility-plan.md#g0032) | 全文运行、预算与中断恢复 | 工程已验收，见[结果](refactoring/G0032/result.md) |
-| [G0033](novel-analysis-feasibility-plan.md#g0033) | 跨章人物、规则、事件与任务整合 | 待实施 |
+| [G0033](novel-analysis-feasibility-plan.md#g0033) | 跨章人物、规则、事件与任务整合 | 工程已验收，见[结果](refactoring/G0033/result.md) |
 | [G0034](novel-analysis-feasibility-plan.md#g0034) | 分层专题分析与综合报告 | 待实施 |
 | [G0035](novel-analysis-feasibility-plan.md#g0035) | 原生工作流、报告阅读与导出 | 待实施 |
 | [G0036](novel-analysis-feasibility-plan.md#g0036) | 全文实测、质量与最终目标验收 | 待实施 |
 
-专项按 G0029 → G0036 推进，当前 4/8 阶段、20/40 工作项。阶段状态与里程碑在[进度主表](novel-analysis-feasibility-plan.md#progress)持续维护；G0036 通过才表示本次分析目标达到，模板初始化与正式发行分别保持 G0021、G0028 的独立出口。
+专项按 G0029 → G0036 推进，当前 5/8 阶段、25/40 工作项。阶段状态与里程碑在[进度主表](novel-analysis-feasibility-plan.md#progress)持续维护；G0036 通过才表示本次分析目标达到，模板初始化与正式发行分别保持 G0021、G0028 的独立出口。
 
 ## 4. P0：可靠的本地创作基础
 
