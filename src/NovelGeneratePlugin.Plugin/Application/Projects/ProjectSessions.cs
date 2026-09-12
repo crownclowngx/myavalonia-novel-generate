@@ -2,7 +2,7 @@ using NovelGeneratePlugin.Domain;
 namespace NovelGeneratePlugin.Application.Projects;
 
 /// <summary>私有根服务只拥有会话及租约，不引用 Document 或 View。</summary>
-public sealed class ProjectSessions(IProjectStore store, IProjectCatalog catalog, IRecoveryStore recovery, IProjectLeaseProvider leases) : IAsyncDisposable
+public sealed class ProjectSessions(IProjectStore store, IProjectCatalog catalog, IRecoveryStore recovery, IProjectLeaseProvider leases) : IAsyncDisposable, IDisposable
 {
     private readonly SemaphoreSlim _openGate = new(1);
     private readonly Dictionary<Guid, ProjectSession> _sessions = [];
@@ -44,6 +44,8 @@ public sealed class ProjectSessions(IProjectStore store, IProjectCatalog catalog
         finally { _openGate.Release(); }
     }
     private void Release(ProjectSession session) { lock (_sessions) _sessions.Remove(session.Id); }
+    // 根会话的异步方法不捕获 UI 上下文；正常 Host 路径已由 Shutdown 排空，此同步适配仅作容器兜底。
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
     public async ValueTask DisposeAsync()
     {
         await _openGate.WaitAsync().ConfigureAwait(false);

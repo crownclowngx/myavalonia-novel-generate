@@ -5,6 +5,8 @@ using NovelGeneratePlugin.Application.Templates;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 using NovelGeneratePlugin.Application.Connections;
 using NovelGeneratePlugin.Infrastructure.Credentials;
+using NovelGeneratePlugin.Application.Export;
+using NovelGeneratePlugin.Infrastructure.Export;
 namespace NovelGeneratePlugin.Plugin;
 
 public static class NovelGeneratePluginServices
@@ -23,6 +25,8 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IConnectionStore, ConnectionStore>();
         services.AddSingleton<ICredentialVault, UserCredentialVault>();
         services.AddSingleton<ConnectionService>();
+        services.AddSingleton<IArtifactFiles, ArtifactFiles>();
+        services.AddSingleton<ArtifactService>();
         return services;
     }
 }

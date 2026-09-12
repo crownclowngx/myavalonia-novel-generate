@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.Main.MainView" x:DataType="local:MainDocument">
   <UserControl.Resources>
-    <local:WritingRuleLabelConverter x:Key="RuleLabel" />
+    <local:ProductOptionLabelConverter x:Key="RuleLabel" />
     <DataTemplate x:Key="RuleChoice"><TextBlock Text="{ReflectionBinding Converter={StaticResource RuleLabel}}" /></DataTemplate>
   </UserControl.Resources>
   <Grid RowDefinitions="Auto,*,Auto" Margin="20" RowSpacing="14">
@@ -22,6 +22,21 @@
         <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8" />
         <ListBox MaxHeight="600" x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
         <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
+          <Expander Header="备份与正文导出" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="8">
+              <Button Content="一致性备份本书" Command="{Binding BackupProjectCommand}" />
+              <Button Content="从备份恢复到新文件" Command="{Binding RestoreBackupCommand}" />
+              <ComboBox ItemsSource="{Binding ExportVersions}" SelectedItem="{Binding ExportVersion}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+              <ComboBox ItemsSource="{Binding ExportFormats}" SelectedItem="{Binding ExportFormat}" ItemTemplate="{StaticResource RuleChoice}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+              <TextBlock Text="起始章 / 结束章（从 1 开始）" TextWrapping="Wrap" />
+              <NumericUpDown Value="{Binding ExportFirstChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}" />
+              <NumericUpDown Value="{Binding ExportLastChapter}" Minimum="1" Maximum="10000" Increment="1" IsEnabled="{Binding CanEdit}" />
+              <Button Content="预览选定稿与检查结果" Command="{Binding PreviewExportCommand}" />
+              <TextBox Text="{Binding ExportReport}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="220" />
+              <CheckBox IsChecked="{Binding AcknowledgeExportWarnings}"><TextBlock Text="已阅读提示，按所选版本导出" TextWrapping="Wrap" /></CheckBox>
+              <Button Content="写入新文件" Command="{Binding WriteExportCommand}" />
+            </StackPanel>
+          </Expander>
           <Expander Header="本书模型连接" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
               <TextBlock Text="{Binding BookConnectionStatus}" TextWrapping="Wrap" />
@@ -70,6 +85,8 @@
               <Button Content="预览采用差异" Command="{Binding PreviewTemplateCommand}" Margin="0,0,6,6" />
               <Button Content="采用此版本" Command="{Binding ApplyTemplateCommand}" Margin="0,0,6,6" />
               <Button Content="本书规范另存模板" Command="{Binding SaveAsTemplateCommand}" Margin="0,0,6,6" />
+              <Button Content="导出所选模板" Command="{Binding ExportTemplateFileCommand}" Margin="0,0,6,6" />
+              <Button Content="导入独立模板" Command="{Binding ImportTemplateFileCommand}" Margin="0,0,6,6" />
             </WrapPanel>
             <TextBox Text="{Binding TemplateDifference}" IsReadOnly="True" TextWrapping="Wrap" MinHeight="60" MaxHeight="220" />
             <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">

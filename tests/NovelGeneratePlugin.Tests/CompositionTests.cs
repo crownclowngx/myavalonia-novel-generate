@@ -23,6 +23,7 @@ public sealed class CompositionTests
         new NovelGeneratePluginModule().Configure(registration);
         Assert.Equal(PluginIds.MainDocument, Assert.Single(registration.Documents).Descriptor.DocumentTypeId);
         Assert.Empty(registration.Commands);
+        Assert.Equal(typeof(NovelGeneratePlugin.Application.Projects.PluginCloseCoordinator), Assert.Single(registration.Lifecycles));
         Assert.Equal(2, registration.Tools.Count);
         Assert.Single(registration.Tools, t => t.Descriptor.ToolTypeId == PluginIds.Templates);
         Assert.Single(registration.Tools, t => t.Descriptor.ToolTypeId == PluginIds.Connections);

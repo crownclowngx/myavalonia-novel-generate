@@ -4,6 +4,7 @@ using NovelGeneratePlugin.Constants;
 using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Features.TemplateLibrary;
 using NovelGeneratePlugin.Features.ModelConnections;
+using NovelGeneratePlugin.Application.Projects;
 namespace NovelGeneratePlugin.Plugin;
 
 public sealed class NovelGeneratePluginModule : IPluginModule
@@ -12,6 +13,7 @@ public sealed class NovelGeneratePluginModule : IPluginModule
     {
         ArgumentNullException.ThrowIfNull(registration);
         registration.Services.AddNovelGeneratePluginServices();
+        registration.UseLifecycle<PluginCloseCoordinator>();
         var asset = CommonIcons.TextCheck;
         var icon = registration.AddIcon("main-document", new VectorIconDefinition(asset.PathData, asset.ViewBoxWidth, asset.ViewBoxHeight));
         // 贡献根只通过 SDK 登记，不在 Services 重复登记；项目正文由插件保存。

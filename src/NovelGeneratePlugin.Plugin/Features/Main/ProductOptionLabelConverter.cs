@@ -3,7 +3,7 @@ using Avalonia.Data.Converters;
 using NovelGeneratePlugin.Domain;
 namespace NovelGeneratePlugin.Features.Main;
 /// <summary>领域枚举保持稳定序列化值，界面使用作者可理解的中文名称。</summary>
-public sealed class WritingRuleLabelConverter : IValueConverter
+public sealed class ProductOptionLabelConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
@@ -16,6 +16,11 @@ public sealed class WritingRuleLabelConverter : IValueConverter
         WritingRuleScope.Run => "当前活动运行",
         WritingRuleStrength.Hard => "硬规则",
         WritingRuleStrength.Advisory => "建议",
+        ManuscriptVersion.Editing => "编辑稿",
+        ManuscriptVersion.WorkingView => "工作稿视图",
+        ManuscriptVersion.Formal => "正式稿",
+        ManuscriptFormat.Text => "TXT 文本",
+        ManuscriptFormat.Markdown => "Markdown",
         _ => "未选择"
     };
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();

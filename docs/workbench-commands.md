@@ -6,8 +6,8 @@ Host 菜单、快捷键或后续 Command Palette 投影。Command 不是 Avaloni
 
 ## 当前实现
 
-G0001 已删除 `ApplyWorkbenchMessage` 演示命令、菜单贡献及相应身份。当前只登记小说 Document，
-不声明 Workbench Command 或全局快捷键。新建、打开和保存将先作为本书局部命令实现；G0015 再按真实
+G0001 已删除 `ApplyWorkbenchMessage` 演示命令、菜单贡献及相应身份。当前登记一个小说 Document、两个共享 Tool 及一个 Lifecycle，
+不声明 Workbench Command 或全局快捷键。新建、打开、保存和导出已作为本书局部命令实现；G0015 再按真实
 高频动作接入工作台路由。普通 Document 的项目保存不能假定由 Host Ctrl+S 或 JSON 信封完成。
 
 后续注册只保存稳定身份、展示元数据和目标 DocumentTypeId；状态与执行属于活动 Document 实例。

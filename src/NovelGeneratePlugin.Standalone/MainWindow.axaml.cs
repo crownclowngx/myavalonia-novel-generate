@@ -5,6 +5,7 @@ using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Plugin;
 using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Features;
+using NovelGeneratePlugin.Application.Projects;
 namespace NovelGeneratePlugin.Standalone;
 
 public sealed partial class MainWindow : Window
@@ -16,6 +17,8 @@ public sealed partial class MainWindow : Window
     private Task _initialization = Task.CompletedTask;
     private bool _mayClose;
     private bool _isClosing;
+    private bool _finalizing;
+    private readonly PluginCloseCoordinator _shutdown;
     private readonly List<(TabItem Tab, IClosePreparation Model)> _toolClosers = [];
     private readonly TabControl _tabs = new();
     private TabItem? _documentTab;
@@ -26,6 +29,7 @@ public sealed partial class MainWindow : Window
         registration.Services.AddSingleton<IPluginWindowInteraction>(new PreviewWindowInteraction(this));
         new NovelGeneratePluginModule().Configure(registration);
         _services = registration.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
+        _shutdown = _services.GetRequiredService<PluginCloseCoordinator>();
         _scope = _services.CreateAsyncScope();
         var entry = registration.Documents.Single();
         _document = (IPluginDocument)_scope.ServiceProvider.GetRequiredService(entry.Model);
@@ -66,7 +70,10 @@ public sealed partial class MainWindow : Window
             foreach (var tool in _toolClosers)
                 if (!await tool.Model.SaveBeforeCloseAsync()) { _tabs.SelectedItem = tool.Tab; Title = "未关闭：工具面板尚有未处理的修改"; return; }
             if (_document is IClosePreparation novel && !await novel.SaveBeforeCloseAsync()) { _tabs.SelectedItem = _documentTab; return; }
+            // 预检查失败仍可编辑；进入 Scope 释放后对象可能已部分释放，不能重新启用一个失效编辑窗口。
+            _finalizing = true;
             await _scope.DisposeAsync();
+            await _shutdown.ShutdownAsync(CancellationToken.None);
             if (_services is not null) await _services.DisposeAsync();
             _services = null;
             PreviewHost.Content = null;
@@ -75,7 +82,7 @@ public sealed partial class MainWindow : Window
             _closing.Dispose();
             Close();
         }
-        catch (Exception exception) { Title = "未关闭：" + exception.Message; }
-        finally { _isClosing = false; PreviewHost.IsEnabled = true; }
+        catch (Exception exception) { Title = (_finalizing ? "关闭收尾失败（可再次关闭；稿件已保存或留有恢复副本）：" : "未关闭：") + exception.Message; }
+        finally { _isClosing = false; PreviewHost.IsEnabled = !_finalizing; }
     }
 }

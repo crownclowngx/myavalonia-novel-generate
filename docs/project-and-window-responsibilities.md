@@ -51,3 +51,9 @@ Standalone 的 `MainWindow` 是开发工作台，不是插件对 Host 暴露的�
 6. **保持包边界干净。** Host 共享的 SDK、Avalonia、Dock 和 `Microsoft.Extensions.*` 不进入插件目录。
 7. **让构建生成事实。** manifest、依赖闭包和正式 ZIP 交给 Build 包，不手工维护或压缩 `bin`。
 8. **逐层验证。** 单元测试、Standalone、干净部署目录、正式 ZIP、真实 Host 五层验证不能互相替代。
+
+## 当前关闭适配
+
+G0007 按目标 Host 的同步 Scope/Provider 释放约定，增加可跟踪的异步关闭和 SDK Shutdown 排空。
+当前有一个普通 Document、两个共享 Tool 和一个 Lifecycle；具体顺序、失败边界及待验项见
+[G0007 关闭适配契约](refactoring/G0007/host-close-adaptation.md)。Standalone 的预检查仍不能代替真实 Host 验收。

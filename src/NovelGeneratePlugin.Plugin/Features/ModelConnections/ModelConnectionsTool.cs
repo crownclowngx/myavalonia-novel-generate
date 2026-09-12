@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NovelGeneratePlugin.Application.Connections;
 using NovelGeneratePlugin.Domain;
+using NovelGeneratePlugin.Application.Projects;
 namespace NovelGeneratePlugin.Features.ModelConnections;
 
 public sealed partial class PresetEditor(string purpose) : ObservableObject
@@ -15,9 +16,12 @@ public sealed partial class PresetEditor(string purpose) : ObservableObject
     public void Load(ModelPreset preset) { Model = preset.Model; MaxOutputTokens = preset.MaxOutputTokens; ReasoningEffort = preset.ReasoningEffort; }
 }
 /// <summary>共享连接表单。密钥是短暂输入字段，保存或显式清空后立即清除，不从服务取回已有 Key。</summary>
-public sealed partial class ModelConnectionsTool : ObservableObject, IClosePreparation, IAsyncDisposable
+public sealed partial class ModelConnectionsTool : ObservableObject, IClosePreparation, IAsyncDisposable, IDisposable
 {
     private readonly ConnectionService _service;
+    private readonly PluginCloseCoordinator _shutdown;
+    private CloseRegistration? _closeRegistration;
+    private CloseRegistration EnsureCloseRegistration() => _closeRegistration ??= _shutdown.Register(CloseCoreAsync, SynchronizationContext.Current);
     private ModelConnection? _current;
     private bool _loading, _disposed, _preparingClose;
     private long _edited, _saved;
@@ -25,9 +29,10 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private Task _operation = Task.CompletedTask;
     private Task? _initialization;
     private Task<bool>? _closeTask;
-    public ModelConnectionsTool(ConnectionService service)
+    public ModelConnectionsTool(ConnectionService service, PluginCloseCoordinator shutdown)
     {
         _service = service;
+        _shutdown = shutdown;
         foreach (var preset in Presets) preset.PropertyChanged += (_, _) => MarkDirty();
     }
     public ObservableCollection<ModelConnection> Connections { get; } = [];
@@ -54,9 +59,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     partial void OnEndpointChanged(string value) => MarkDirty();
     partial void OnCodexExecutableChanged(string value) => MarkDirty();
     partial void OnProviderChanged(ModelProvider value) { MarkDirty(); OnPropertyChanged(nameof(IsApi)); }
-    partial void OnSecretInputChanged(string value) { _secretGeneration++; NotifyCommands(); }
+    partial void OnSecretInputChanged(string value) { if (!_loading && value.Length > 0) EnsureCloseRegistration(); _secretGeneration++; NotifyCommands(); }
     partial void OnIsBusyChanged(bool value) => NotifyCommands();
-    private void MarkDirty() { if (!_loading) { _edited++; Status = "配置有未保存更改。端点变更后需重新配置密钥。"; NotifyCommands(); } }
+    private void MarkDirty() { if (!_loading) { EnsureCloseRegistration(); _edited++; Status = "配置有未保存更改。端点变更后需重新配置密钥。"; NotifyCommands(); } }
     private void NotifyCommands()
     {
         OnPropertyChanged(nameof(IsDirty)); OnPropertyChanged(nameof(CanManage)); OnPropertyChanged(nameof(CanNavigate)); OnPropertyChanged(nameof(CanUseSaved));
@@ -138,8 +143,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private Task SaveSecret() => RunAsync(async () =>
     {
         var input = SecretInput; var generation = _secretGeneration;
-        try { await _service.SetSecretAsync(ConnectionService.Bind(_current!), input, PersistSecret); Status = "本次提交的密钥已保存。"; }
-        finally { if (_secretGeneration == generation) SecretInput = ""; }
+        await _service.SetSecretAsync(ConnectionService.Bind(_current!), input, PersistSecret);
+        if (_secretGeneration == generation) SecretInput = "";
+        Status = "本次提交的密钥已保存。";
         await UpdateCredentialStatusAsync();
     });
     [RelayCommand(CanExecute = nameof(CanUseSaved))]
@@ -150,7 +156,8 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private Task MakeDefault() => RunAsync(async () => { await _service.SetDefaultAsync(_current!.Id); DefaultStatus = "仅新书默认：" + _current.Settings.Name; });
     [RelayCommand(CanExecute = nameof(CanManage))]
     private Task ClearDefault() => RunAsync(async () => { await _service.SetDefaultAsync(null); DefaultStatus = "新书未设置默认连接"; });
-    private Task RunAsync(Func<Task> operation) => !CanManage ? Task.CompletedTask : _operation = RunCoreAsync(operation);
+    private Task RunAsync(Func<Task> operation)
+    { if (!CanManage) return Task.CompletedTask; EnsureCloseRegistration(); return _operation = RunCoreAsync(operation); }
     private async Task RunCoreAsync(Func<Task> operation)
     {
         IsBusy = true;
@@ -176,7 +183,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         catch (Exception exception) when (exception is not OutOfMemoryException) { Status = "连接配置未保存：" + exception.Message; return false; }
         finally { _preparingClose = false; NotifyCommands(); }
     }
-    public async ValueTask DisposeAsync()
+    public void Dispose() { if (!_disposed) _ = _closeRegistration?.CloseAsync() ?? CloseCoreAsync(); }
+    public ValueTask DisposeAsync() => _disposed ? ValueTask.CompletedTask : new(_closeRegistration?.CloseAsync() ?? CloseCoreAsync());
+    private async Task CloseCoreAsync()
     {
         if (_disposed) return;
         if (!await SaveBeforeCloseAsync()) throw new IOException(Status);

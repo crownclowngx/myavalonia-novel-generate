@@ -13,6 +13,18 @@ namespace NovelGeneratePlugin.Tests;
 public sealed class ConnectionTests
 {
     [Fact]
+    public async Task 密钥写入失败保留输入供重试且不伪装保存成功()
+    {
+        await using var workspace = new TestWorkspace(); var fail = true;
+        var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { if (fail) throw new IOException("注入密钥写入失败"); } };
+        var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault); await service.SaveAsync(null, Api());
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
+        tool.SelectedConnection = Assert.Single(tool.Connections); await tool.SaveBeforeCloseAsync();
+        tool.SecretInput = TestKey; await tool.SaveSecretCommand.ExecuteAsync(null);
+        Assert.Equal(TestKey, tool.SecretInput); Assert.Contains("失败", tool.Status); Assert.False(await tool.SaveBeforeCloseAsync());
+        fail = false; await tool.SaveSecretCommand.ExecuteAsync(null); Assert.Empty(tool.SecretInput); Assert.Contains("会话", tool.CredentialStatus);
+    }
+    [Fact]
     public async Task 旧授权代数的迟到保存和清除不会破坏新版凭据()
     {
         await using var workspace = new TestWorkspace(); var a = await workspace.Connections.SaveAsync(null, Api());
@@ -34,7 +46,7 @@ public sealed class ConnectionTests
         var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
         var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
         var connection = await service.SaveAsync(null, Api());
-        await using var tool = new ModelConnectionsTool(service); await tool.InitializeAsync();
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
         tool.SelectedConnection = Assert.Single(tool.Connections); await tool.SaveBeforeCloseAsync();
         tool.SecretInput = "unit-first-secret"; var saving = tool.SaveSecretCommand.ExecuteAsync(null);
         try { await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SecretInput = "unit-next-secret"; }
@@ -51,7 +63,7 @@ public sealed class ConnectionTests
         var vault = new ControlledVault(workspace.Vault) { BeforeState = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
         var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
         var a = await service.SaveAsync(null, Api("甲")); var b = await service.SaveAsync(null, Api("乙"));
-        await using var tool = new ModelConnectionsTool(service); await tool.InitializeAsync();
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
         tool.SelectedConnection = tool.Connections.Single(c => c.Id == a.Id);
         try
         {
@@ -193,7 +205,7 @@ public sealed class ConnectionTests
     [Fact]
     public async Task 面板保存清空密钥并阻止未处理输入退出()
     {
-        await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections);
+        await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections, workspace.Closing);
         await tool.InitializeAsync(); tool.Provider = ModelProvider.DeepSeek; tool.Endpoint = "https://api.deepseek.com"; tool.Name = "表单连接";
         foreach (var preset in tool.Presets) preset.Model = "deepseek-flash";
         tool.SecretInput = TestKey; await tool.SaveConfigurationCommand.ExecuteAsync(null);

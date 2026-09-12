@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NovelGeneratePlugin.Application.Templates;
 using NovelGeneratePlugin.Domain;
+using NovelGeneratePlugin.Application.Projects;
 namespace NovelGeneratePlugin.Features.TemplateLibrary;
 
 public sealed record TemplateItem(Guid Id, string Name, bool Archived)
@@ -13,8 +14,10 @@ public sealed record TemplateItem(Guid Id, string Name, bool Archived)
 /// 一个共享模板面板，只管理草案表单。库用例由根服务提供，隐藏面板不会销毁草案或改变本书。
 /// 切换模板前要求保存或显式放弃草案；退出时尝试保存，失败草案写入独立恢复文件。
 /// </summary>
-public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLibrary library) : ObservableObject, IAsyncDisposable, IClosePreparation
+public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLibrary library, PluginCloseCoordinator shutdown) : ObservableObject, IAsyncDisposable, IDisposable, IClosePreparation
 {
+    private CloseRegistration? _closeRegistration;
+    private CloseRegistration EnsureCloseRegistration() => _closeRegistration ??= shutdown.Register(CloseCoreAsync, SynchronizationContext.Current);
     private TemplateAsset? _current;
     private IReadOnlyList<TemplateAsset> _all = [];
     private bool _loading, _disposed, _preparingClose;
@@ -53,7 +56,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     partial void OnShowArchivedChanged(bool value) => Filter();
     partial void OnIsBusyChanged(bool value) => NotifyCommands();
     private void MarkDirty()
-    { if (_loading) return; _editGeneration++; _closeSafeGeneration = -1; Status = "草案有未保存修改；保存草案不会改变已保存版本。"; NotifyCommands(); }
+    { if (_loading) return; EnsureCloseRegistration(); _editGeneration++; _closeSafeGeneration = -1; Status = "草案有未保存修改；保存草案不会改变已保存版本。"; NotifyCommands(); }
     private void NotifyCommands()
     {
         OnPropertyChanged(nameof(IsDirty)); OnPropertyChanged(nameof(CanManage)); OnPropertyChanged(nameof(CanNavigate)); OnPropertyChanged(nameof(CanEdit));
@@ -64,7 +67,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     partial void OnSelectedTemplateChanged(TemplateItem? oldValue, TemplateItem? newValue)
     {
         if (_loading) return;
-        if (IsDirty)
+        if (!CanManage || IsDirty)
         {
             _loading = true; try { SelectedTemplate = oldValue; } finally { _loading = false; }
             Status = "请先保存草案，或明确放弃草案更改，再切换模板。"; return;
@@ -158,7 +161,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     private Task RestoreRecovery() => RunAsync(async () =>
     { if (SelectedRecovery is null) return; var restored = await library.RestoreAsCopyAsync(SelectedRecovery.Id); await RefreshCoreAsync(restored.Id); Status = "已恢复为独立模板，原恢复草案保留。"; });
     private Task RunAsync(Func<Task> operation)
-    { if (!CanManage) return Task.CompletedTask; return _operation = RunCoreAsync(operation); }
+    { if (!CanManage) return Task.CompletedTask; EnsureCloseRegistration(); return _operation = RunCoreAsync(operation); }
     private async Task RunCoreAsync(Func<Task> operation)
     {
         IsBusy = true;
@@ -194,7 +197,9 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
         }
         finally { _preparingClose = false; NotifyCommands(); }
     }
-    public async ValueTask DisposeAsync()
+    public void Dispose() { if (!_disposed) _ = _closeRegistration?.CloseAsync() ?? CloseCoreAsync(); }
+    public ValueTask DisposeAsync() => _disposed ? ValueTask.CompletedTask : new(_closeRegistration?.CloseAsync() ?? CloseCoreAsync());
+    private async Task CloseCoreAsync()
     {
         if (_disposed) return;
         if (!await SaveBeforeCloseAsync()) throw new IOException(Status);

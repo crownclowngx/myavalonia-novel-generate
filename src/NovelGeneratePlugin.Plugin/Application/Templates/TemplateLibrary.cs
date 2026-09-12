@@ -54,6 +54,18 @@ public sealed class TemplateLibrary(ITemplateStore store)
         return saved;
     }
     public Task<TemplateAsset> CopyAsync(TemplateAsset source) => CreateAsync(source.Draft with { Name = source.Draft.Name[..Math.Min(source.Draft.Name.Length, 115)] + " 副本" });
+    public Task<TemplateAsset> ImportCopyAsync(TemplateAsset source)
+    {
+        source.Validate();
+        var imported = source with
+        {
+            Id = Guid.NewGuid(),
+            Revision = 0,
+            Archived = false,
+            Versions = System.Collections.Immutable.ImmutableArray.CreateRange(source.Versions.Select(v => v with { Id = Guid.NewGuid() }))
+        };
+        return Task.Run(() => store.Save(imported, null));
+    }
     public async Task<IReadOnlyList<TemplateChoice>> ChoicesAsync()
     {
         var assets = await ListAsync().ConfigureAwait(false);

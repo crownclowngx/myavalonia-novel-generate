@@ -10,6 +10,26 @@ namespace NovelGeneratePlugin.Tests;
 public sealed class TemplateTests
 {
     [Fact]
+    public async Task 发布保存后的清理期间切换不能把版本写到另一模板()
+    {
+        await using var workspace = new TestWorkspace(); using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var a = await workspace.Templates.CreateAsync(Draft("甲")); var b = await workspace.Templates.CreateAsync(Draft("乙"));
+        var store = new ControlledTemplateStore(new TemplateStore(workspace.Paths))
+        { BeforeDeleteRecovery = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
+        await using var tool = new TemplateLibraryTool(new TemplateLibrary(store), workspace.Closing); await tool.InitializeAsync();
+        tool.SelectedTemplate = tool.Templates.Single(t => t.Id == a.Id); tool.World = "甲的新版本";
+        var publishing = tool.PublishVersionCommand.ExecuteAsync(null);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SelectedTemplate = tool.Templates.Single(t => t.Id == b.Id);
+            Assert.Equal(a.Id, tool.SelectedTemplate!.Id);
+        }
+        finally { release.Set(); }
+        await publishing;
+        Assert.Equal("甲的新版本", Assert.Single(store.Read(a.Id).Versions).Content.World); Assert.Empty(store.Read(b.Id).Versions);
+    }
+    [Fact]
     public async Task 从模板创建两书产生新身份且无效采用不创建文件()
     {
         await using var workspace = new TestWorkspace();
@@ -36,7 +56,7 @@ public sealed class TemplateTests
         {
             BeforeSave = _ => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); }
         };
-        await using var tool = new TemplateLibraryTool(new TemplateLibrary(store)); await tool.InitializeAsync(); tool.World = "先保存的 A";
+        await using var tool = new TemplateLibraryTool(new TemplateLibrary(store), workspace.Closing); await tool.InitializeAsync(); tool.World = "先保存的 A";
         var closing = tool.SaveBeforeCloseAsync();
         try
         {
@@ -175,14 +195,14 @@ public sealed class TemplateTests
     public async Task 模板面板的草案保存发布重建和退出落盘可用()
     {
         await using var workspace = new TestWorkspace();
-        var tool = new TemplateLibraryTool(workspace.Templates); await tool.InitializeAsync();
+        var tool = new TemplateLibraryTool(workspace.Templates, workspace.Closing); await tool.InitializeAsync();
         tool.Name = "叙事方法模板"; tool.World = "第一座城市";
         await tool.PublishVersionCommand.ExecuteAsync(null);
         Assert.False(tool.IsDirty); Assert.Contains("1 个", tool.VersionStatus);
         tool.Style = "保存后隐藏面板仍保留这段编辑";
         Assert.True(tool.IsDirty); Assert.False(tool.CanNavigate);
         Assert.True(await tool.SaveBeforeCloseAsync()); await tool.DisposeAsync();
-        await using var reopened = new TemplateLibraryTool(workspace.Templates); await reopened.InitializeAsync();
+        await using var reopened = new TemplateLibraryTool(workspace.Templates, workspace.Closing); await reopened.InitializeAsync();
         reopened.SelectedTemplate = Assert.Single(reopened.Templates);
         Assert.Equal("保存后隐藏面板仍保留这段编辑", reopened.Style);
         var stored = Assert.Single(await workspace.Templates.ListAsync());
@@ -192,7 +212,7 @@ public sealed class TemplateTests
     public async Task 草案保存失败会留下可恢复副本且恢复不覆盖源模板()
     {
         await using var workspace = new TestWorkspace();
-        var tool = new TemplateLibraryTool(workspace.Templates); await tool.InitializeAsync(); tool.Name = "失败恢复";
+        var tool = new TemplateLibraryTool(workspace.Templates, workspace.Closing); await tool.InitializeAsync(); tool.Name = "失败恢复";
         await tool.SaveDraftCommand.ExecuteAsync(null); tool.World = "必须恢复的世界观";
         File.SetAttributes(workspace.Paths.Catalog, FileAttributes.ReadOnly);
         try { Assert.True(await tool.SaveBeforeCloseAsync()); await tool.DisposeAsync(); }
@@ -221,12 +241,13 @@ public sealed class TemplateTests
     private sealed class ControlledTemplateStore(ITemplateStore inner) : ITemplateStore
     {
         public Action<TemplateAsset>? BeforeSave { get; set; }
+        public Action? BeforeDeleteRecovery { get; init; }
         public TemplateAsset Save(TemplateAsset asset, long? expectedRevision) { BeforeSave?.Invoke(asset); return inner.Save(asset, expectedRevision); }
         public IReadOnlyList<TemplateAsset> List() => inner.List();
         public TemplateAsset Read(Guid id) => inner.Read(id);
         public IReadOnlyList<TemplateRecoveryEntry> ListRecovery() => inner.ListRecovery();
         public TemplateDraftRecovery ReadRecovery(Guid id) => inner.ReadRecovery(id);
         public void WriteRecovery(TemplateDraftRecovery recovery) => inner.WriteRecovery(recovery);
-        public void DeleteRecovery(Guid id) => inner.DeleteRecovery(id);
+        public void DeleteRecovery(Guid id) { BeforeDeleteRecovery?.Invoke(); inner.DeleteRecovery(id); }
     }
 }

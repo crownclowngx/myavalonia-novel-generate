@@ -12,9 +12,10 @@ namespace NovelGeneratePlugin.Features.Main;
 public sealed record ChapterItem(Guid Id, string Label) { public override string ToString() => Label; }
 
 /// <summary>一本书一个 Document；窗口只通过公开文件选择端口接触宿主。</summary>
-public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections)
-    : ObservableObject, IPluginDocument, IAsyncDisposable, IClosePreparation
+public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections, NovelGeneratePlugin.Application.Export.ArtifactService artifacts, PluginCloseCoordinator shutdown)
+    : ObservableObject, IPluginDocument, IAsyncDisposable, IDisposable, IClosePreparation
 {
+    private CloseRegistration? _closeRegistration;
     private ProjectSession? _session;
     private readonly CancellationTokenSource _closing = new();
     private SynchronizationContext? _ui;
@@ -50,6 +51,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         ArgumentNullException.ThrowIfNull(activation); ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
         if (activation is not NewDocumentActivation) throw new NotSupportedException("请从小说工作区打开 .noveldb 项目。");
         _ui = SynchronizationContext.Current;
+        EnsureCloseRegistration();
         _presentation = new DocumentPresentationState(string.IsNullOrWhiteSpace(activation.Title) ? "小说创作" : activation.Title);
         PresentationChanged?.Invoke(this, EventArgs.Empty);
         await RefreshListsAsync();
@@ -58,6 +60,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     partial void OnHasProjectChanged(bool value) => NotifyCommands();
     private void NotifyCommands()
     {
+        NotifyExportCommands();
         NotifyRuleDraft(); DiscardRuleDraftCommand.NotifyCanExecuteChanged(); SaveRuleVersionCommand.NotifyCanExecuteChanged(); CheckLocalRulesCommand.NotifyCanExecuteChanged(); LocateRuleFindingCommand.NotifyCanExecuteChanged();
         RefreshConnectionsCommand.NotifyCanExecuteChanged(); BindConnectionCommand.NotifyCanExecuteChanged(); UnbindConnectionCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
@@ -132,6 +135,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     }
     private void UpdateRevisionStatus()
     {
+        NotifyExportCommands();
         UpdateLocalRuleStatus();
         if (_session is null || SelectedChapter is null) return;
         var ledger = _session.Current.Revisions; var head = ledger.Head(SelectedChapter.Id);
@@ -287,6 +291,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     private Task RunAsync(Func<Task> operation)
     {
         if (!CanSwitch) return Task.CompletedTask;
+        EnsureCloseRegistration();
         return _operation = RunCoreAsync(operation);
     }
     private async Task RunCoreAsync(Func<Task> operation)
@@ -309,7 +314,10 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         Status = result.Message;
         return result.Saved || result.RecoveryAvailable;
     }
-    public async ValueTask DisposeAsync()
+    private CloseRegistration EnsureCloseRegistration() => _closeRegistration ??= shutdown.Register(CloseCoreAsync, _ui ?? SynchronizationContext.Current);
+    public void Dispose() { if (!_disposed) _ = _closeRegistration?.CloseAsync() ?? CloseCoreAsync(); }
+    public ValueTask DisposeAsync() => _disposed ? ValueTask.CompletedTask : new(_closeRegistration?.CloseAsync() ?? CloseCoreAsync());
+    private async Task CloseCoreAsync()
     {
         if (_disposed) return;
         _closing.Cancel(); NotifyCommands(); await _operation;

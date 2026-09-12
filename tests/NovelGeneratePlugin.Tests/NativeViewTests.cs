@@ -33,7 +33,7 @@ public sealed class NativeViewTests
         var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
         await session.Dispatch<bool>(async () =>
         {
-            await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections);
+            await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections, workspace.Closing);
             var view = new ModelConnectionsView { DataContext = tool }; var window = new Window { Width = 650, Height = 850, Content = view };
             try
             {
@@ -66,7 +66,7 @@ public sealed class NativeViewTests
         await session.Dispatch<bool>(async () =>
         {
             await using var workspace = new TestWorkspace();
-            await using var tool = new TemplateLibraryTool(workspace.Templates);
+            await using var tool = new TemplateLibraryTool(workspace.Templates, workspace.Closing);
             var view = new TemplateLibraryView { DataContext = tool };
             var window = new Window { Width = 650, Height = 780, Content = view };
             try

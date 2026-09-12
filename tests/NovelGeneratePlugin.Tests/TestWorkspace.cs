@@ -6,6 +6,8 @@ using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 using NovelGeneratePlugin.Application.Connections;
 using NovelGeneratePlugin.Infrastructure.Credentials;
+using NovelGeneratePlugin.Application.Export;
+using NovelGeneratePlugin.Infrastructure.Export;
 namespace NovelGeneratePlugin.Tests;
 
 /// <summary>所有测试文件均在单次创建的随机临时目录，避免读取或写入作者的真实作品。</summary>
@@ -19,7 +21,9 @@ public sealed class TestWorkspace : IAsyncDisposable
     public TemplateLibrary Templates { get; }
     public UserCredentialVault Vault { get; }
     public ConnectionService Connections { get; }
+    public ArtifactService Artifacts { get; }
     public ProjectSessions Sessions { get; }
+    public PluginCloseCoordinator Closing { get; }
     public TestWindowInteraction Interaction { get; } = new();
     public TestWorkspace()
     {
@@ -28,13 +32,15 @@ public sealed class TestWorkspace : IAsyncDisposable
         Catalog = new CatalogStore(Paths); Recovery = new RecoveryStore(Paths);
         Templates = new TemplateLibrary(new TemplateStore(Paths));
         Vault = new UserCredentialVault(Paths); Connections = new ConnectionService(new ConnectionStore(Paths), Vault);
+        Artifacts = new ArtifactService(new ArtifactFiles(Store, new FileProjectLeaseProvider()), Templates);
         Sessions = new ProjectSessions(Store, Catalog, Recovery, new FileProjectLeaseProvider());
+        Closing = new PluginCloseCoordinator(Sessions);
     }
     public string ProjectPath(string name = "作品") => Path.Combine(Root, name + ".noveldb");
-    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction, Templates, Connections);
+    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction, Templates, Connections, Artifacts, Closing);
     public async ValueTask DisposeAsync()
     {
-        await Sessions.DisposeAsync();
+        await Closing.ShutdownAsync(CancellationToken.None);
         Vault.Dispose();
         Directory.Delete(Root, recursive: true);
     }
