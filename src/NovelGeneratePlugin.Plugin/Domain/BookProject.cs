@@ -19,6 +19,7 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
     public StoryCatalog Story { get; init; } = StoryCatalog.Empty;
     public PlanningLedger Planning { get; init; } = PlanningLedger.Empty;
+    public ImmutableArray<MaterialAdoption> MaterialSources { get; init; } = [];
     public static BookProject Create(string title, string idea = "")
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("新建作品需要书名。", nameof(title));
@@ -43,6 +44,8 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
                 !Volumes.Any(v => v.Id == chapter.VolumeId) || chapter.Title is null || chapter.Title.Length > 200 || chapter.Text is null || chapter.Outline is null || chapter.Summary is null)
                 throw new InvalidDataException("章节身份、归属或内容无效。");
         foreach (var chapter in Chapters) { if (chapter.Plan is null) throw new InvalidDataException("章纲不能为空。"); chapter.Plan.Validate(); }
+        if (MaterialSources.IsDefault || MaterialSources.Length > 2000 || MaterialSources.Any(m => m is null || m.MaterialId == Guid.Empty || m.Version < 1 ||
+            new[] { m.Name, m.Source, m.Methods, m.Style, m.Feedback, m.ChosenSample }.Any(t => t is null || t.Length > 30000))) throw new InvalidDataException("材料采用来源无效。");
         if (Planning is null) throw new InvalidDataException("规划记录不能为空。");
         Planning.Validate(this);
         if (Story is null) throw new InvalidDataException("故事实体目录不能为空。");

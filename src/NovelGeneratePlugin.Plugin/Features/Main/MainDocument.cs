@@ -12,7 +12,7 @@ namespace NovelGeneratePlugin.Features.Main;
 public sealed record ChapterItem(Guid Id, string Label) { public override string ToString() => Label; }
 
 /// <summary>一本书一个 Document；窗口只通过公开文件选择端口接触宿主。</summary>
-public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections, NovelGeneratePlugin.Application.Export.ArtifactService artifacts, PluginCloseCoordinator shutdown, NovelGeneratePlugin.Application.Models.PlanningService planning, NovelGeneratePlugin.Application.Models.ChapterGenerationService generation, NovelGeneratePlugin.Application.Models.ContinuousRunService continuous)
+public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections, NovelGeneratePlugin.Application.Export.ArtifactService artifacts, PluginCloseCoordinator shutdown, NovelGeneratePlugin.Application.Models.PlanningService planning, NovelGeneratePlugin.Application.Models.ChapterGenerationService generation, NovelGeneratePlugin.Application.Models.ContinuousRunService continuous, NovelGeneratePlugin.Application.Models.MaterialCalibrationService materials)
     : ObservableObject, IPluginDocument, IAsyncDisposable, IDisposable, IClosePreparation
 {
     private CloseRegistration? _closeRegistration;
@@ -65,6 +65,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         NotifyPlanningCommands();
         NotifyGenerationCommands();
         NotifyRunCommands();
+        RefreshBookMaterialsCommand.NotifyCanExecuteChanged(); AdoptBookMaterialCommand.NotifyCanExecuteChanged();
         NotifyRuleDraft(); DiscardRuleDraftCommand.NotifyCanExecuteChanged(); SaveRuleVersionCommand.NotifyCanExecuteChanged(); CheckLocalRulesCommand.NotifyCanExecuteChanged(); LocateRuleFindingCommand.NotifyCanExecuteChanged();
         RefreshConnectionsCommand.NotifyCanExecuteChanged(); BindConnectionCommand.NotifyCanExecuteChanged(); UnbindConnectionCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));

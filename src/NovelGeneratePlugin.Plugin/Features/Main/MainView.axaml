@@ -146,6 +146,13 @@
               </StackPanel>
             </Expander>
             </StackPanel>
+            <Expander Header="采用材料提炼结果" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="6">
+                <Button Content="刷新已提炼材料" Command="{Binding RefreshBookMaterialsCommand}" />
+                <ComboBox ItemsSource="{Binding BookMaterials}" SelectedItem="{Binding SelectedBookMaterial}" HorizontalAlignment="Stretch" />
+                <Button Content="只采用到本书规范" Command="{Binding AdoptBookMaterialCommand}" />
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </Expander>
         <Expander x:Name="PlanningExpander" Grid.Row="3" Header="分层规划与近期章纲" IsVisible="{Binding HasProject}" HorizontalAlignment="Stretch">

@@ -7,6 +7,8 @@ public sealed class ProductOptionLabelConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
+        MaterialPurpose.Methods => "写作方法",
+        MaterialPurpose.Style => "文风校准",
         WritingRuleKind.ForbiddenText => "禁止文本",
         WritingRuleKind.RequiredText => "必须包含",
         WritingRuleKind.Guidance => "语义指导（待模型检查）",

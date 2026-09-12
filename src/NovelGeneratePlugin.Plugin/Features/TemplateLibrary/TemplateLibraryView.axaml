@@ -14,6 +14,9 @@
     </StackPanel>
     <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="12">
+        <Expander Header="材料提炼与文风校准" HorizontalAlignment="Stretch" IsVisible="{Binding HasCalibration}">
+          <local:MaterialCalibrationView DataContext="{Binding Calibration}" />
+        </Expander>
         <TextBox Text="{Binding Search}" PlaceholderText="按名称或标签搜索" IsEnabled="{Binding CanNavigate}" />
         <CheckBox Content="显示已归档模板" IsChecked="{Binding ShowArchived}" IsEnabled="{Binding CanNavigate}" />
         <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanNavigate}" />

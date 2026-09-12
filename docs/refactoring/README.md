@@ -1,6 +1,6 @@
 # G 编号实施档案与文档治理
 
-日期：2026-09-12。G0001–G0012 已完成本地实现与验证；每阶段验证后独立 Git 提交。
+日期：2026-09-12。G0001–G0013 已完成本地实现与验证；每阶段验证后独立 Git 提交。
 
 总入口为[网络小说创作工作台实施总计划](../implementation-plan.md)，共同工程要求见[质量基线](quality-baseline.md)。沿用其他插件的 G 四位编号及计划/方案/结果三件套；本项目是从模板实现产品，目录名 `refactoring` 仅用于保持现有插件文档习惯。
 
@@ -35,7 +35,7 @@
 | G0010 | 分层规划与章纲 | [计划](G0010/plan.md) / [方案](G0010/implementation.md) / [结果](G0010/result.md) | 本地验证及 Codex 三章规划实测通过 |
 | G0011 | 单章生成检查提交 | [计划](G0011/plan.md) / [方案](G0011/implementation.md) / [结果](G0011/result.md) | 单章本地实现与验证完成，真实样本边界见结果 |
 | G0012 | 连续运行、预算与恢复 | [计划](G0012/plan.md) / [方案](G0012/implementation.md) / [结果](G0012/result.md) | 本地连续运行与中断恢复验证完成 |
-| G0013 | 材料方法化与文风校准 | [计划](../implementation-plan.md#g0013) | 待实施 |
+| G0013 | 材料方法化与文风校准 | [计划](G0013/plan.md) / [方案](G0013/implementation.md) / [结果](G0013/result.md) | 本地材料提炼与采用验证完成，真实样本见结果 |
 | G0014 | 改稿、影响与批量定稿 | [计划](../implementation-plan.md#g0014) | 待实施 |
 | G0015 | 交互与宿主命令 | [计划](../implementation-plan.md#g0015) | 待实施 |
 | G0016 | P1 完整产品验收 | [计划](../implementation-plan.md#g0016) | 待实施 |

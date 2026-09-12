@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:NovelGeneratePlugin.Features.TemplateLibrary"
+ xmlns:options="clr-namespace:NovelGeneratePlugin.Features.Main" x:Class="NovelGeneratePlugin.Features.TemplateLibrary.MaterialCalibrationView" x:DataType="local:MaterialCalibrationPanel">
+ <UserControl.Resources><options:ProductOptionLabelConverter x:Key="OptionLabel" /></UserControl.Resources>
+ <StackPanel Spacing="8">
+  <TextBlock Text="短材料独立分析；隐藏工具不中断任务，关闭作品不取消分析。" TextWrapping="Wrap" />
+  <WrapPanel><Button Content="新材料" Command="{Binding NewMaterialCommand}" Margin="0,0,6,0" /><Button Content="刷新材料和连接" Command="{Binding RefreshMaterialsCommand}" Margin="0,0,6,0" /><Button Content="读取所选材料" Command="{Binding ReadMaterialCommand}" /></WrapPanel>
+  <ComboBox ItemsSource="{Binding Materials}" SelectedItem="{Binding SelectedMaterial}" IsEnabled="{Binding CanNavigate}" HorizontalAlignment="Stretch" />
+  <StackPanel Spacing="6" IsEnabled="{Binding CanEdit}">
+   <TextBox Text="{Binding Name}" MaxLength="120" PlaceholderText="材料名称" />
+   <TextBlock Text="材料用途" TextWrapping="Wrap" />
+   <ComboBox ItemsSource="{Binding Purposes}" SelectedItem="{Binding Purpose}" HorizontalAlignment="Stretch"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{ReflectionBinding Converter={StaticResource OptionLabel}}" /></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+   <TextBox Text="{Binding Source}" MaxLength="2000" PlaceholderText="材料来源" />
+   <TextBox Text="{Binding FilePath}" PlaceholderText="TXT / Markdown 文件路径" />
+   <Button Content="读入短文字文件" Command="{Binding ImportTextCommand}" />
+   <TextBox x:Name="MaterialTextEditor" Text="{Binding Text}" SelectionStart="{Binding SourceSelectionStart}" SelectionEnd="{Binding SourceSelectionEnd}" AcceptsReturn="True" TextWrapping="Wrap" MaxLength="20000" MinHeight="120" MaxHeight="250" PlaceholderText="粘贴课件或文风样文" />
+   <NumericUpDown Value="{Binding AnalyzeCharacters}" Minimum="1" Maximum="12000" Increment="1000" />
+   <TextBlock Text="{Binding Coverage}" TextWrapping="Wrap" />
+   <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" />
+  </StackPanel>
+  <WrapPanel><Button Content="保存材料草案" Command="{Binding SaveMaterialCommand}" Margin="0,0,6,0" /><Button Content="提炼方法或文风" Command="{Binding AnalyzeMaterialCommand}" Margin="0,0,6,0" /><Button Content="取消分析 / 试写" Command="{Binding CancelMaterialCommand}" /></WrapPanel>
+  <ComboBox ItemsSource="{Binding EvidenceChoices}" SelectedItem="{Binding SelectedEvidence}" HorizontalAlignment="Stretch" />
+  <Button Content="定位材料原文证据" Command="{Binding LocateEvidenceCommand}" />
+  <TextBlock Text="{Binding Status}" TextWrapping="Wrap" /><TextBlock Text="{Binding Usage}" TextWrapping="Wrap" />
+  <Expander Header="方法卡、文风维度与原文证据" HorizontalAlignment="Stretch">
+   <StackPanel Spacing="6" IsEnabled="{Binding CanEdit}">
+    <TextBox Text="{Binding Methods}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" PlaceholderText="提炼后的方法，可编辑" />
+    <TextBox Text="{Binding Style}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="100" MaxHeight="300" PlaceholderText="文风维度及正反例，可编辑" />
+   </StackPanel>
+  </Expander>
+  <Expander Header="同剧情对比试写（可跳过）" HorizontalAlignment="Stretch">
+   <StackPanel Spacing="6">
+    <TextBox Text="{Binding Scene}" AcceptsReturn="True" TextWrapping="Wrap" IsEnabled="{Binding CanEdit}" PlaceholderText="试写剧情" />
+    <TextBox Text="{Binding Constraints}" AcceptsReturn="True" TextWrapping="Wrap" IsEnabled="{Binding CanEdit}" PlaceholderText="每行一条共同事实约束" />
+    <Button Content="生成章纲小样与 A/B 试写" Command="{Binding TryStyleCommand}" />
+    <TextBox Text="{Binding TrialPreview}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="400" />
+    <TextBox Text="{Binding ChosenSample}" IsEnabled="{Binding CanEdit}" PlaceholderText="采用 A / B / 跳过，或填写自己的选择" />
+    <TextBox Text="{Binding Feedback}" AcceptsReturn="True" TextWrapping="Wrap" IsEnabled="{Binding CanEdit}" PlaceholderText="作者批注与修改理由" />
+   </StackPanel>
+  </Expander>
+  <Button Content="放弃本地更改并重新读取" Command="{Binding DiscardMaterialEditsCommand}" />
+  <Button Content="保存为独立命名模板 v1" Command="{Binding PublishMaterialTemplateCommand}" />
+  <TextBlock Text="采用到作品：在作品的本书规范区域刷新材料并明确采用；不会同时写入两处。" TextWrapping="Wrap" />
+ </StackPanel>
+</UserControl>

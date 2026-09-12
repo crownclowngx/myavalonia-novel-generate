@@ -41,6 +41,9 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<ChapterGenerationService>();
         services.AddSingleton<IContinuousRunStore, ContinuousRunStore>();
         services.AddSingleton<ContinuousRunService>();
+        services.AddSingleton<IMaterialStore, MaterialStore>();
+        services.AddSingleton<MaterialCalibrationService>();
+        services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.MaterialCalibrationPanel>();
         return services;
     }
 }

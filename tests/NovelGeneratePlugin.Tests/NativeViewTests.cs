@@ -218,6 +218,34 @@ public sealed class NativeViewTests
             return true;
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task 原生材料提炼证据定位及模板本书分别采用()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await MaterialCalibrationTests.MaterialAsync(workspace);
+            var fake = new ScriptedTextModel(_ => ChapterGenerationTests.Response(ChapterGenerationTests.Json(MaterialCalibrationTests.Analysis(Domain.MaterialPurpose.Methods))));
+            var service = new Application.Models.MaterialCalibrationService(new Infrastructure.Persistence.MaterialStore(workspace.Paths), workspace.Connections, new(fake, new Infrastructure.Persistence.ModelRequestStore(workspace.Paths)));
+            await using var panel = new MaterialCalibrationPanel(service, workspace.Connections, workspace.Templates, workspace.Closing);
+            var view = new MaterialCalibrationView { DataContext = panel }; var window = new Window { Width = 700, Height = 1000, Content = new ScrollViewer { Content = view } };
+            try
+            {
+                window.Show(); await panel.InitializeAsync(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var input = view.FindControl<TextBox>("MaterialTextEditor")!; input.Focus(); window.KeyTextInput(MaterialCalibrationTests.SourceText); Assert.Equal(MaterialCalibrationTests.SourceText, panel.Text);
+                panel.SelectedConnection = Assert.Single(panel.Connections); await panel.AnalyzeMaterialCommand.ExecuteAsync(null); Assert.Contains("期待", panel.Methods);
+                panel.SelectedEvidence = Assert.Single(panel.EvidenceChoices); panel.LocateEvidenceCommand.Execute(null); Dispatcher.UIThread.RunJobs(); Assert.Contains("建立期待", input.Text![input.SelectionStart..input.SelectionEnd]);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS"); if (!string.IsNullOrWhiteSpace(output)) { Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "material-calibration.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default); }
+                await panel.PublishMaterialTemplateCommand.ExecuteAsync(null); Assert.Single(await workspace.Templates.ListAsync());
+                await using var document = workspace.CreateDocument(); await document.InitializeAsync(new NewDocumentActivation("材料采用"), default); workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
+                await document.RefreshBookMaterialsCommand.ExecuteAsync(null); document.SelectedBookMaterial = Assert.Single(document.BookMaterials); await document.AdoptBookMaterialCommand.ExecuteAsync(null);
+                Assert.Single(workspace.Store.Read(document.ProjectPath).Project.MaterialSources); Assert.Single(await workspace.Templates.ListAsync());
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]

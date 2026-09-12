@@ -44,7 +44,7 @@ public sealed class TestWorkspace : IAsyncDisposable
     {
         planning ??= new PlanningService(Connections, Models); generation ??= new ChapterGenerationService(Connections, Models, new ChapterWorkStore(Paths));
         continuous ??= new ContinuousRunService(planning, generation, Models, new ChapterWorkStore(Paths), new ContinuousRunStore(Paths));
-        return new(Sessions, Catalog, Recovery, Interaction, Templates, Connections, Artifacts, Closing, planning, generation, continuous);
+        return new(Sessions, Catalog, Recovery, Interaction, Templates, Connections, Artifacts, Closing, planning, generation, continuous, new MaterialCalibrationService(new MaterialStore(Paths), Connections, Models));
     }
     public async ValueTask DisposeAsync()
     {

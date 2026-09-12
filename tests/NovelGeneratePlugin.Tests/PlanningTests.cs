@@ -195,7 +195,7 @@ public sealed class PlanningTests
         }
         var migrated = workspace.Store.Read(workspace.ProjectPath()).Project;
         Assert.Empty(migrated.Planning.History); Assert.Equal(stamp, StoryMemory.PolicyStamp(migrated, migrated.Chapters[0].Id, null));
-        Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v7-*.noveldb"));
+        Assert.Single(Directory.GetFiles(workspace.Root, "*.before-v" + ProjectStore.SchemaVersion + "-*.noveldb"));
         Assert.Throws<InvalidDataException>(() => PlanningRules.RequireReady(migrated, migrated.Chapters[0].Id));
     }
 

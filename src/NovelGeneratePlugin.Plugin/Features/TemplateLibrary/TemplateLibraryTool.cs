@@ -14,8 +14,10 @@ public sealed record TemplateItem(Guid Id, string Name, bool Archived)
 /// 一个共享模板面板，只管理草案表单。库用例由根服务提供，隐藏面板不会销毁草案或改变本书。
 /// 切换模板前要求保存或显式放弃草案；退出时尝试保存，失败草案写入独立恢复文件。
 /// </summary>
-public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLibrary library, PluginCloseCoordinator shutdown) : ObservableObject, IAsyncDisposable, IDisposable, IClosePreparation
+public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLibrary library, PluginCloseCoordinator shutdown, MaterialCalibrationPanel? calibration = null) : ObservableObject, IAsyncDisposable, IDisposable, IClosePreparation
 {
+    public MaterialCalibrationPanel? Calibration => calibration;
+    public bool HasCalibration => calibration is not null;
     private CloseRegistration? _closeRegistration;
     private CloseRegistration EnsureCloseRegistration() => _closeRegistration ??= shutdown.Register(CloseCoreAsync, SynchronizationContext.Current);
     private TemplateAsset? _current;
@@ -45,7 +47,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     public bool CanManage => !IsBusy && !_disposed && !_preparingClose;
     public bool CanNavigate => CanManage && !IsDirty;
     public bool CanEdit => CanManage && _current?.Archived != true;
-    public Task InitializeAsync() => _initialization ??= RunAsync(() => RefreshCoreAsync(null));
+    public Task InitializeAsync() => _initialization ??= RunAsync(async () => { await RefreshCoreAsync(null); if (calibration is not null) await calibration.InitializeAsync(); });
     partial void OnNameChanged(string value) => MarkDirty();
     partial void OnTagsChanged(string value) => MarkDirty();
     partial void OnWorldChanged(string value) => MarkDirty();
@@ -181,6 +183,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
         try
         {
             await _operation;
+            if (calibration is not null && !await calibration.SaveBeforeCloseAsync()) { Status = calibration.Status; return false; }
             if (!IsDirty || _closeSafeGeneration == _editGeneration) return true;
             if (await SaveCoreAsync())
             {
@@ -203,6 +206,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     {
         if (_disposed) return;
         if (!await SaveBeforeCloseAsync()) throw new IOException(Status);
+        if (calibration is not null) await calibration.DisposeAsync();
         _disposed = true; NotifyCommands();
     }
 }

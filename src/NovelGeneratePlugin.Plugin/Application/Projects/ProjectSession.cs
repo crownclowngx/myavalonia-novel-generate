@@ -114,7 +114,7 @@ public sealed class ProjectSession : IAsyncDisposable
                 var recovered = false; var message = "保存失败：" + exception.Message;
                 try
                 {
-                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(7, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
+                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(8, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
                     lock (_sync) _recoveredEditVersion = editVersion;
                     message += "；本次编辑快照已写入恢复副本。";
                 }
