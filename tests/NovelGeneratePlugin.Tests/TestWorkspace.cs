@@ -40,7 +40,12 @@ public sealed class TestWorkspace : IAsyncDisposable
         Closing = new PluginCloseCoordinator(Sessions);
     }
     public string ProjectPath(string name = "作品") => Path.Combine(Root, name + ".noveldb");
-    public MainDocument CreateDocument(PlanningService? planning = null, ChapterGenerationService? generation = null) => new(Sessions, Catalog, Recovery, Interaction, Templates, Connections, Artifacts, Closing, planning ?? new PlanningService(Connections, Models), generation ?? new ChapterGenerationService(Connections, Models, new ChapterWorkStore(Paths)));
+    public MainDocument CreateDocument(PlanningService? planning = null, ChapterGenerationService? generation = null, ContinuousRunService? continuous = null)
+    {
+        planning ??= new PlanningService(Connections, Models); generation ??= new ChapterGenerationService(Connections, Models, new ChapterWorkStore(Paths));
+        continuous ??= new ContinuousRunService(planning, generation, Models, new ChapterWorkStore(Paths), new ContinuousRunStore(Paths));
+        return new(Sessions, Catalog, Recovery, Interaction, Templates, Connections, Artifacts, Closing, planning, generation, continuous);
+    }
     public async ValueTask DisposeAsync()
     {
         await Closing.ShutdownAsync(CancellationToken.None);

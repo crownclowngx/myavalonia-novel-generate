@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
 namespace NovelGeneratePlugin.Application.Models;
@@ -8,6 +9,7 @@ public sealed record RequestBudget(Guid Id, int MaximumRequests, long MaximumTok
 public sealed record ModelRequestEntry(Guid Id, Guid BudgetId, Guid BookId, Guid ConnectionId, long ConnectionVersion,
     string Model, long ReservedTokens, RequestState State, ModelUsage Usage, string PartialText, string? Failure, DateTimeOffset UpdatedAt)
 {
+    public bool RetryAcknowledged { get; init; }
     public long ChargedTokens => Usage.InputTokens is long input && Usage.OutputTokens is long output ? checked(input + output) : ReservedTokens;
     public override string ToString() => $"{UpdatedAt.LocalDateTime:MM-dd HH:mm:ss} · {Model} · {State switch { RequestState.Completed => "完成", RequestState.Truncated => "截断", RequestState.Rejected => "拒绝", RequestState.Uncertain => "结果不确定", _ => "未确认结束" }}";
 }
@@ -15,6 +17,7 @@ public interface IModelRequestStore
 {
     void Reserve(ModelRequestEntry entry, RequestBudget budget);
     void Save(ModelRequestEntry entry);
+    void ReviseBudget(RequestBudget budget, bool acknowledgeUncertain);
     IReadOnlyList<ModelRequestEntry> List(Guid budgetId);
     IReadOnlyList<ModelRequestEntry> Recent(Guid connectionId);
 }
@@ -25,10 +28,22 @@ public interface IModelRequestStore
 /// </summary>
 public sealed class ModelRequestService(ITextModel model, IModelRequestStore store)
 {
+    private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> ConnectionGates = new();
+    public void ReviseBudget(RequestBudget budget, bool acknowledgeUncertain) => store.ReviseBudget(budget, acknowledgeUncertain);
     public IReadOnlyList<ModelRequestEntry> List(Guid budgetId) => store.List(budgetId);
     public Task<IReadOnlyList<ModelRequestEntry>> RecentAsync(Guid connectionId) => Task.Run(() => store.Recent(connectionId));
     public async Task<TextModelResponse> GenerateAsync(TextModelRequest request, RequestBudget budget,
         IProgress<string>? progress, CancellationToken cancellationToken, TimeSpan? timeout = null)
+    {
+        request.Validate();
+        // 同一进程的同一连接默认一个在途请求；排队等待不预留、不计为已发送。不同作品不会并发挤占同一连接。
+        var gate = ConnectionGates.GetOrAdd(request.Configuration.Connection.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { return await GenerateCoreAsync(request, budget, progress, cancellationToken, timeout).ConfigureAwait(false); }
+        finally { gate.Release(); }
+    }
+    private async Task<TextModelResponse> GenerateCoreAsync(TextModelRequest request, RequestBudget budget,
+        IProgress<string>? progress, CancellationToken cancellationToken, TimeSpan? timeout)
     {
         request.Validate(); cancellationToken.ThrowIfCancellationRequested();
         var duration = timeout ?? TimeSpan.FromMinutes(5);

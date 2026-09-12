@@ -190,6 +190,34 @@ public sealed class NativeViewTests
             return true;
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task 原生连续运行三章完成后显示用量并可读取记录()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); var book = await ChapterGenerationTests.BookAsync(workspace); workspace.Store.Create(workspace.ProjectPath(), book);
+            var fake = new ScriptedTextModel(Enumerable.Range(0, 6).Select<int, Func<Application.Models.TextModelRequest, Application.Models.TextModelResponse>>(i => _ => ChapterGenerationTests.Response(i % 2 == 0 ? ChapterGenerationTests.Body : ChapterGenerationTests.Json(ChapterGenerationTests.Review))).ToArray());
+            var requests = new Application.Models.ModelRequestService(fake, new Infrastructure.Persistence.ModelRequestStore(workspace.Paths));
+            var works = new Infrastructure.Persistence.ChapterWorkStore(workspace.Paths); var planning = new Application.Models.PlanningService(workspace.Connections, requests);
+            var generation = new Application.Models.ChapterGenerationService(workspace.Connections, requests, works);
+            var runner = new Application.Models.ContinuousRunService(planning, generation, requests, works, new Infrastructure.Persistence.ContinuousRunStore(workspace.Paths));
+            await using var document = workspace.CreateDocument(planning, generation, runner); var view = new MainView { DataContext = document }; var window = new Window { Width = 1200, Height = 1000, Content = view };
+            try
+            {
+                window.Show(); await document.InitializeAsync(new NewDocumentActivation("连续运行测试"), default); workspace.Interaction.NextPath = workspace.ProjectPath(); await document.OpenProjectCommand.ExecuteAsync(null);
+                document.GenerationTargetCharacters = 100; document.GenerationMaximumRepairs = 0; view.FindControl<Expander>("ContinuousExpander")!.IsExpanded = true;
+                await document.StartContinuousCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.Contains("已完成", document.RunStatus); Assert.Contains("3/3", document.RunStatus); Assert.Contains("请求 6/20", document.RunUsage);
+                Assert.Equal(3, workspace.Store.Read(document.ProjectPath).Project.Revisions.History.Length); await document.LoadContinuousCommand.ExecuteAsync(null); Assert.False(document.CanResumeRun);
+                view.FindControl<Expander>("ContinuousExpander")!.BringIntoView(); var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output)) { Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "continuous-run.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default); }
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]

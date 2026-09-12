@@ -84,7 +84,7 @@
           </Expander>
         </StackPanel>
       </Grid>
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" RowSpacing="10">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" RowSpacing="10">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanSwitch}">
           <TextBlock Text="书名" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="输入书名" />
@@ -221,7 +221,34 @@
             <TextBox Text="{Binding GenerationReport}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="250" />
           </StackPanel>
         </Expander>
-        <Grid Grid.Row="5" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
+        <Expander x:Name="ContinuousExpander" Grid.Row="5" Header="连续创作与运行恢复" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="复用单章区域的字数和修正次数，连续完成后全部保留为工作稿。" TextWrapping="Wrap" />
+            <WrapPanel>
+              <TextBlock Text="章节数" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <NumericUpDown Value="{Binding RunChapterCount}" Minimum="3" Maximum="5" IsEnabled="{Binding CanEdit}" />
+              <TextBlock Text="总请求上限" VerticalAlignment="Center" Margin="8,0" />
+              <NumericUpDown Value="{Binding RunMaximumRequests}" Minimum="1" Maximum="1000" IsEnabled="{Binding CanEdit}" />
+              <TextBlock Text="总 token 上限" VerticalAlignment="Center" Margin="8,0" />
+              <NumericUpDown Value="{Binding RunMaximumTokens}" Minimum="1" Maximum="10000000" Increment="10000" IsEnabled="{Binding CanEdit}" />
+            </WrapPanel>
+            <CheckBox Content="章纲不足时先自动补齐，计入本次预算" IsChecked="{Binding RunPlanIfMissing}" IsEnabled="{Binding CanEdit}" />
+            <WrapPanel>
+              <Button Content="开始连续创作" Command="{Binding StartContinuousCommand}" Margin="0,0,8,0" />
+              <Button Content="完成本章后暂停" Command="{Binding PauseContinuousCommand}" Margin="0,0,8,0" />
+              <Button Content="立即取消请求" Command="{Binding CancelContinuousCommand}" Margin="0,0,8,0" />
+              <Button Content="读取运行记录" Command="{Binding LoadContinuousCommand}" />
+            </WrapPanel>
+            <TextBlock Text="{Binding RunStatus}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding RunUsage}" TextWrapping="Wrap" />
+            <CheckBox IsChecked="{Binding AcknowledgeRunRetry}" IsEnabled="{Binding CanEdit}"><TextBlock Text="已复核失败/未知用量，知晓旧请求可能计费，允许继续新增请求" TextWrapping="Wrap" /></CheckBox>
+            <WrapPanel>
+              <Button Content="按上述预算明确继续" Command="{Binding ResumeContinuousCommand}" Margin="0,0,8,0" />
+              <Button Content="结束此运行，保留已有稿件" Command="{Binding AbandonContinuousCommand}" />
+            </WrapPanel>
+          </StackPanel>
+        </Expander>
+        <Grid Grid.Row="6" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
           <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
           <Expander Grid.Row="1" Header="本章提纲与修订" HorizontalAlignment="Stretch">
             <StackPanel Spacing="8">

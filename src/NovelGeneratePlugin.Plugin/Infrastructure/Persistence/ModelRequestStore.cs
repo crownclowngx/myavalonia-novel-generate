@@ -49,13 +49,33 @@ public sealed class ModelRequestStore(WorkspacePaths paths) : IModelRequestStore
         using (var reader = command.ExecuteReader())
             if (!reader.Read() || reader.GetInt32(0) != budget.MaximumRequests || reader.GetInt64(1) != budget.MaximumTokens) throw new InvalidOperationException("已建立的预算不能在请求中悄悄扩大。");
         var entries = Read(connection, transaction, budget.Id);
-        if (entries.Any(e => e.State is RequestState.Reserved or RequestState.Running or RequestState.Uncertain or RequestState.Rejected or RequestState.Truncated))
+        if (entries.Any(e => (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null) && !e.RetryAcknowledged))
             throw new InvalidOperationException("预算内有未完成、截断或失败请求，请先复核候选与用量后建立明确的新运行。");
         if (entries.Count >= budget.MaximumRequests || entries.Sum(e => e.ChargedTokens) + entry.ReservedTokens > budget.MaximumTokens)
             throw new InvalidOperationException("本次请求将超过运行预算，未发送。");
         command.Parameters.Clear(); command.CommandText = "INSERT INTO requests VALUES($id,$budget,$snapshot)";
         command.Parameters.AddWithValue("$id", entry.Id.ToString()); command.Parameters.AddWithValue("$budget", budget.Id.ToString()); command.Parameters.AddWithValue("$snapshot", JsonSerializer.Serialize(entry));
         command.ExecuteNonQuery(); transaction.Commit();
+    }
+    public void ReviseBudget(RequestBudget budget, bool acknowledgeUncertain)
+    {
+        if (budget.Id == Guid.Empty || budget.MaximumRequests is < 1 or > 1000 || budget.MaximumTokens < 1) throw new InvalidDataException("预算无效。");
+        using var connection = Open(); using var transaction = connection.BeginTransaction(); using var command = connection.CreateCommand(); command.Transaction = transaction;
+        command.CommandText = "SELECT requests,tokens FROM budgets WHERE id=$id"; command.Parameters.AddWithValue("$id", budget.Id.ToString());
+        using (var reader = command.ExecuteReader())
+            if (reader.Read() && (budget.MaximumRequests < reader.GetInt32(0) || budget.MaximumTokens < reader.GetInt64(1))) throw new InvalidOperationException("继续运行不能降低已建立的预算上限。");
+        command.CommandText = "INSERT INTO budgets VALUES($id,$requests,$tokens) ON CONFLICT(id) DO UPDATE SET requests=excluded.requests,tokens=excluded.tokens";
+        command.Parameters.AddWithValue("$requests", budget.MaximumRequests); command.Parameters.AddWithValue("$tokens", budget.MaximumTokens); command.ExecuteNonQuery();
+        if (acknowledgeUncertain)
+        {
+            // 只表示作者接受新增请求的成本风险；原状态、部分正文和未知用量预留全部保留，不伪造远端完成。
+            foreach (var entry in Read(connection, transaction, budget.Id).Where(e => (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null) && !e.RetryAcknowledged))
+            {
+                command.Parameters.Clear(); command.CommandText = "UPDATE requests SET snapshot=$snapshot WHERE id=$id";
+                command.Parameters.AddWithValue("$snapshot", JsonSerializer.Serialize(entry with { RetryAcknowledged = true })); command.Parameters.AddWithValue("$id", entry.Id.ToString()); command.ExecuteNonQuery();
+            }
+        }
+        transaction.Commit();
     }
     public void Save(ModelRequestEntry entry)
     {

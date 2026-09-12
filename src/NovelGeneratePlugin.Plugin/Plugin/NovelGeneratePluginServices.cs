@@ -39,6 +39,8 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<PlanningService>();
         services.AddSingleton<IChapterWorkStore, ChapterWorkStore>();
         services.AddSingleton<ChapterGenerationService>();
+        services.AddSingleton<IContinuousRunStore, ContinuousRunStore>();
+        services.AddSingleton<ContinuousRunService>();
         return services;
     }
 }
