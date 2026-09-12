@@ -12,10 +12,10 @@ using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Infrastructure.Models;
 
 // 显式开发工具，不纳入普通测试或生产包。输入与输出必须由调用者给出；本工具的 import/benchmark 不访问网络。
-if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate"))
+if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report"))
     throw new ArgumentException("用法：AnalysisProbe <import|benchmark|chunk> <TXT路径或-> <新的输出目录>；chunk 从标准输入读取本次密钥");
 var output = Path.GetFullPath(args[2]);
-var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate";
+var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report";
 if (!resuming && (Directory.Exists(output) || File.Exists(output))) throw new InvalidOperationException("输出目录必须尚不存在，避免覆盖已有验证资料。");
 if (resuming && !File.Exists(Path.Combine(output, "run-id.txt"))) throw new InvalidOperationException("恢复目录缺少运行身份。");
 Directory.CreateDirectory(output);
@@ -31,7 +31,7 @@ if (args[0] == "validate-extract")
     catch (Exception error) { Console.WriteLine(error); }
     return;
 }
-if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "integrate")
+if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report")
 {
     // 密钥通过标准输入传入，既不出现在进程命令行，也不写入配置文件。普通 import/benchmark 不读取凭据。
     var secret = await Console.In.ReadLineAsync() ?? throw new InvalidOperationException("标准输入缺少本次密钥。");
@@ -68,7 +68,7 @@ if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-
         if (preview is not null) store.Import(preview.Import);
         using var client = DeepSeekTextModel.CreateClient();
         var requests = new ModelRequestService(new DeepSeekTextModel(connections, client), new ModelRequestStore(paths));
-        if (args[0] is "extract" or "retry-extract" or "revise-extract" or "integrate")
+        if (args[0] is "extract" or "retry-extract" or "revise-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report")
         {
             var runs = new AnalysisRunStore(paths);
             var runner = new NovelAnalysisRunService(store, runs, connections, requests, new NovelAnalysisNodePreparer());
@@ -77,7 +77,11 @@ if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-
                 await runner.CreateAsync(preview!.Import.Book.Id, binding, 74, 2799138, new(32, 1200000), default);
             if (args[0] == "revise-extract") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id);
             if (args[0] == "integrate") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id, target: AnalysisTarget.Integration);
-            if (resuming) run = runner.Resume(run.Id, true, run.Budget.MaximumRequests, run.Budget.MaximumTokens);
+            if (args[0] == "report") run = await runner.CreateAsync(run.BookId, binding, run.Budget.MaximumRequests, run.Budget.MaximumTokens, run.ReportReserve, default, previousRunId: run.Id, target: AnalysisTarget.Report);
+            if (args[0] == "adopt-continue") run = runner.AdoptReviewedCandidate(run.Id);
+            if (resuming) run = runner.Resume(run.Id, true, run.Budget.MaximumRequests, run.Budget.MaximumTokens,
+                args[0] == "retry-guided" ? "上次Role错误使用了Plan。Role只允许：" + string.Join("、", Enum.GetNames<ContinuityRole>()) + "。计划请写Role=Goal或Unresolved，并用Narration=Plan表达尚未发生，不得把Plan填入Role。严格逐字段核对JSON契约。" :
+                args[0] == "retry-report" ? Environment.GetEnvironmentVariable("NOVEL_ANALYSIS_REVIEW_GUIDANCE") ?? "上次摘要过长或返回多个对象。此次只返回一个JSON对象，顶层只能包含Title、Claims、OpenQuestions。Claims最多12条，请把相近事实合并为结论，绝不能逐条复述输入事实。只保留本阶段最重要的因果、人物变化、规则和文风；细节仍在原始索引中。发送前数清Claims条数，超过12条必须先合并。OpenQuestions最多8条，每条结论Facts最多16个。" : "");
             await File.WriteAllTextAsync(Path.Combine(output, "run-id.txt"), run.Id.ToString());
             try
             {
@@ -88,6 +92,13 @@ if (args[0] is "chunk" or "protocol" or "extract" or "retry-extract" or "revise-
                     var integrated = runner.ReadIntegrated(run.Id);
                     await File.WriteAllTextAsync(Path.Combine(output, "integration-results.json"), JsonSerializer.Serialize(integrated, new JsonSerializerOptions { WriteIndented = true }));
                     Console.WriteLine(JsonSerializer.Serialize(new { Identities = integrated.Identities.Length, Observations = integrated.Observations.Length, UnintegratedFacts = integrated.UnintegratedFacts.Length }));
+                }
+                if (finished.State == AnalysisRunState.Completed && finished.Target == AnalysisTarget.Report)
+                {
+                    var report = new NovelAnalysisReportService(store, runs).Read(run.Id);
+                    await File.WriteAllTextAsync(Path.Combine(output, "novel-analysis-report.md"), NovelReportMarkdown.Format(report));
+                    await File.WriteAllTextAsync(Path.Combine(output, "report-results.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+                    Console.WriteLine(JsonSerializer.Serialize(new { report.IsComplete, Parts = report.Parts.Length, HasSynthesis = report.Synthesis is not null, report.CoveredCharacters, report.SourceCharacters }));
                 }
                 Console.WriteLine(JsonSerializer.Serialize(new { finished.Id, State = finished.State.ToString(), finished.Message, Chunks = finished.Chunks.Length, Completed = finished.Nodes.Count(n => n.State == AnalysisNodeState.Completed) }));
             }

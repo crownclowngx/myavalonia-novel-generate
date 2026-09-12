@@ -83,6 +83,15 @@ public sealed class AnalysisIntegrationTests
     }
 
     [Fact]
+    public void 稠密输入的多条独立观察保留且数量仍有硬上限()
+    {
+        var facts = Enumerable.Range(1, 60).Select(i => Fact(i)).ToArray(); var contract = new ContinuityAnalysisContract(facts);
+        var output = new ContinuityOutput([.. Enumerable.Range(1, 42).Select(i => Observation(i))], []);
+        Assert.Equal(42, contract.Read(Json(output)).Observations.Length);
+        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Observations = [.. Enumerable.Range(0, 81).Select(_ => Observation(1))] })));
+    }
+
+    [Fact]
     public void 已明确存在的价值冲突与未消解的事实矛盾分别表达()
     {
         var contract = new ContinuityAnalysisContract([Fact(1, NarrativeSource.CharacterClaim)]);
@@ -121,9 +130,12 @@ public sealed class AnalysisIntegrationTests
         await using var workspace = new TestWorkspace(); var model = new Router { FailIntegrationOnce = true }; var (service, run, store) = await Setup(workspace, model);
         Assert.Equal(AnalysisRunState.NeedsAttention, (await service.ExecuteAsync(run.Id, new(), null, default)).State); Assert.Equal(3, model.Requests.Count);
         await service.ExecuteAsync(run.Id, new(), null, default); Assert.Equal(3, model.Requests.Count);
-        service.Resume(run.Id, true, 30, 1000000);
+        service.Resume(run.Id, true, 30, 1000000, "保留同名异人，不要强行归并。");
         Assert.Equal(AnalysisRunState.IntegrationCompleted, (await service.ExecuteAsync(run.Id, new(), null, default)).State); Assert.Equal(10, model.Requests.Count);
         Assert.Equal(2, model.Requests.Count(r => r.Contract is ChunkAnalysisContract)); Assert.Equal(10, service.Usage(run.Id).Count);
+        Assert.Contains("保留同名异人", model.Requests[3].SystemPrompt);
+        var revision = await service.CreateAsync(run.BookId, ConnectionService.Bind(run.Connection.Connection), 30, 1000000, new(9, 200000), default, previousRunId: run.Id, target: AnalysisTarget.Integration);
+        Assert.Equal(AnalysisRunState.IntegrationCompleted, (await service.ExecuteAsync(revision.Id, new(), null, default)).State); Assert.Equal(10, model.Requests.Count);
     }
 
     [Fact]

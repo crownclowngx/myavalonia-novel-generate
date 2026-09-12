@@ -56,12 +56,12 @@
 | G0030 | TXT 全文导入、分章与定位 | [计划](G0030/plan.md) / [方案](G0030/implementation.md) / [结果](G0030/result.md) | 阶段已验收，5/5 项；313 项本地测试通过 |
 | G0031 | 分块多维 AI 提取与证据验证 | [计划](G0031/plan.md) / [方案](G0031/implementation.md) / [结果](G0031/result.md) | 阶段已验收，5/5 项；320 项测试及真实章节通过 |
 | G0032 | 全文运行、预算与中断恢复 | [计划](G0032/plan.md) / [方案](G0032/implementation.md) / [结果](G0032/result.md) | 工程已验收，5/5 项；提供文件全文提取通过 |
-| G0033 | 跨章人物、规则、事件与任务整合 | [计划](G0033/plan.md) / [方案](G0033/implementation.md) / [结果](G0033/result.md) | 工程已验收，5/5 项；354 项测试通过，真实整合中 |
-| G0034 | 分层专题分析与综合报告 | [计划](../novel-analysis-feasibility-plan.md#g0034) | 待实施，0/5 项 |
+| G0033 | 跨章人物、规则、事件与任务整合 | [计划](G0033/plan.md) / [方案](G0033/implementation.md) / [结果](G0033/result.md) | 工程已验收，5/5 项；354 项测试通过；真实整合在 G0034 收尾 |
+| G0034 | 分层专题分析与综合报告 | [计划](G0034/plan.md) / [方案](G0034/implementation.md) / [结果](G0034/result.md) | 工程与真实报告候选通过，5/5 项；367 项测试通过 |
 | G0035 | 原生工作流、报告阅读与导出 | [计划](../novel-analysis-feasibility-plan.md#g0035) | 待实施，0/5 项 |
 | G0036 | 全文实测、质量与最终目标验收 | [计划](../novel-analysis-feasibility-plan.md#g0036) | 待实施，0/5 项 |
 
-整本分析专项进度以[进度主表](../novel-analysis-feasibility-plan.md#progress)为准：当前 5/8 阶段、25/40 工作项，最终目标未达到。未来阶段在实际开工时建立三件套，不预建完成结果。
+整本分析专项进度以[进度主表](../novel-analysis-feasibility-plan.md#progress)为准：当前 6/8 阶段、30/40 工作项，最终目标未达到。未来阶段在实际开工时建立三件套，不预建完成结果。
 
 ## 开工与归档规则
 

@@ -122,6 +122,9 @@ public static class NovelIntegrationRequests
         var material = identity ? mentions.Select(NovelIntegrationPlanner.MentionMaterial).ToArray() : findings.Select(NovelIntegrationPlanner.FindingMaterial).ToArray();
         if (material.Length != node.Selection.Length || !identity && findings.Any(f => f.Value.Dimension != node.Dimension)) throw new InvalidDataException("整合节点引用不属于计划维度。");
         var system = identity ? IdentityPrompt : ContinuityPrompt;
+        if (node.Dimension == AnalysisDimension.Goals)
+            system += "目标任务专项：Role只允许 " + string.Join("、", Enum.GetNames<ContinuityRole>()) +
+                "。Plan不是Role的合法值；尚未执行的计划请用Role=Goal或Unresolved，并用Narration=Plan标记它尚未发生。不要把计划写成已经采取的Action或达成的Outcome。逐项检查Role字段。";
         var prompt = AnalysisJson.Write(new { node.Dimension, Items = material });
         if (prompt.Length > 65000) throw new InvalidDataException("整合输入超过容量，尚未发送请求。");
         var stamp = CanonicalJson.Hash(new

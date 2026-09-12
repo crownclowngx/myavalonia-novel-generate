@@ -6,7 +6,7 @@ using NovelGeneratePlugin.Domain.Analysis;
 namespace NovelGeneratePlugin.Application.Analysis;
 
 public enum AnalysisRunState { Queued, Running, Paused, NeedsAttention, ExtractionCompleted, Completed, Cancelled, IntegrationCompleted }
-public enum AnalysisTarget { Extraction, Integration }
+public enum AnalysisTarget { Extraction, Integration, Report }
 public enum AnalysisNodeKind { Extraction, Integration, Summary, Dimension, Synthesis }
 public enum AnalysisNodeState { Pending, Running, Completed }
 
@@ -17,6 +17,8 @@ public sealed record AnalysisNode(string Key, AnalysisNodeKind Kind, Guid? Chunk
     public string ExtractionPromptVersion { get; init; } = "v2";
     public AnalysisDimension? Dimension { get; init; }
     public ImmutableArray<int> Selection { get; init; } = [];
+    public int Layer { get; init; }
+    public string ReviewGuidance { get; init; } = "";
 }
 public sealed record AnalysisStageReserve(int Requests, long Tokens);
 public sealed record AnalysisNodeResult(string Key, string InputStamp, string Json, string Hash);
@@ -48,9 +50,9 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
             if (node is null || string.IsNullOrWhiteSpace(node.Key) || node.Key.Length > 100 || !Enum.IsDefined(node.Kind) || !Enum.IsDefined(node.State) ||
                 node.Dependencies.IsDefault || node.Dependencies.Any(key => !seen.Contains(key)) || !seen.Add(node.Key) ||
                 node.OperationId == Guid.Empty || !operations.Add(node.OperationId) || node.InputStamp is null ||
-                node.State != AnalysisNodeState.Pending && node.InputStamp.Length != 64 || node.Selection.IsDefault || node.Selection.Length > 60 ||
+                node.State != AnalysisNodeState.Pending && node.InputStamp.Length != 64 || node.Selection.IsDefault || node.Selection.Length > (node.Kind == AnalysisNodeKind.Summary ? 80 : 60) || node.Layer is < 0 or > 16 || node.ReviewGuidance is null || node.ReviewGuidance.Length > 2000 ||
                 node.Selection.Any(id => id < 1) || node.Selection.Distinct().Count() != node.Selection.Length || node.Dimension is { } dimension && !Enum.IsDefined(dimension) ||
-                node.Kind == AnalysisNodeKind.Integration && node.Selection.IsEmpty ||
+                node.Kind == AnalysisNodeKind.Integration && node.Selection.IsEmpty || node.Kind == AnalysisNodeKind.Dimension && node.Dimension is null ||
                 node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3")))
                 throw new InvalidDataException("分析节点身份、依赖顺序或输入指纹无效。");
         }

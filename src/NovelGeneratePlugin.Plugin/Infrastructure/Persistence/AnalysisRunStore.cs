@@ -97,7 +97,8 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
         {
             var old = previous.Nodes[i]; var next = run.Nodes[i];
             if (old.Key != next.Key || old.Kind != next.Kind || old.ChunkId != next.ChunkId || old.ExtractionPromptVersion != next.ExtractionPromptVersion ||
-                old.Dimension != next.Dimension || !old.Selection.SequenceEqual(next.Selection) || !old.Dependencies.SequenceEqual(next.Dependencies) ||
+                old.Dimension != next.Dimension || old.Layer != next.Layer || !old.Selection.SequenceEqual(next.Selection) || !old.Dependencies.SequenceEqual(next.Dependencies) ||
+                old.ReviewGuidance != next.ReviewGuidance && (old.State == AnalysisNodeState.Completed || next.State != AnalysisNodeState.Pending || old.OperationId == next.OperationId) ||
                 old.State == AnalysisNodeState.Completed && CanonicalJson.Hash(old) != CanonicalJson.Hash(next) ||
                 old.State != AnalysisNodeState.Completed && next.State == AnalysisNodeState.Completed && result?.Key != next.Key)
                 throw new InvalidDataException("已完成结果不能覆盖；新完成状态必须和对应结果一起提交。");

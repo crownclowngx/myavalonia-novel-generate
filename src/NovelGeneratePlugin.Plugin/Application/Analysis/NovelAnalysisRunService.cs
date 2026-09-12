@@ -18,11 +18,19 @@ public sealed class NovelAnalysisNodePreparer : IAnalysisNodePreparer
 {
     public PreparedAnalysisNode Prepare(AnalysisRun run, ReferenceImport input, AnalysisNode node, IReadOnlyDictionary<string, AnalysisNodeResult> dependencies)
     {
-        if (node.Kind == AnalysisNodeKind.Integration) return NovelIntegrationRequests.Prepare(run, input, node, dependencies);
-        if (node.Kind != AnalysisNodeKind.Extraction) throw new NotSupportedException("此版本尚未实现该分析阶段。");
-        var chunk = input.Chunks.Single(c => c.Id == node.ChunkId);
-        var prepared = NovelChunkAnalysisService.Prepare(input, chunk, run.Connection, node.OperationId, node.ExtractionPromptVersion);
-        return new(prepared.Request, prepared.InputStamp);
+        PreparedAnalysisNode prepared;
+        if (node.Kind == AnalysisNodeKind.Integration) prepared = NovelIntegrationRequests.Prepare(run, input, node, dependencies);
+        else if (node.Kind is AnalysisNodeKind.Summary or AnalysisNodeKind.Dimension or AnalysisNodeKind.Synthesis) prepared = NovelReportRequests.Prepare(run, input, node, dependencies);
+        else
+        {
+            if (node.Kind != AnalysisNodeKind.Extraction) throw new NotSupportedException("此版本尚未实现该分析阶段。");
+            var chunk = input.Chunks.Single(c => c.Id == node.ChunkId);
+            var extracted = NovelChunkAnalysisService.Prepare(input, chunk, run.Connection, node.OperationId, node.ExtractionPromptVersion);
+            prepared = new(extracted.Request, extracted.InputStamp);
+        }
+        if (node.ReviewGuidance.Length == 0) return prepared;
+        return new(prepared.Request with { SystemPrompt = prepared.Request.SystemPrompt + "\n本次复核后的补充约束：" + node.ReviewGuidance },
+            CanonicalJson.Hash(new { prepared.InputStamp, node.ReviewGuidance }));
     }
 }
 
@@ -55,8 +63,14 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         var nodes = input.Chunks.Select(c => new AnalysisNode("chunk-" + c.Id.ToString("N"), AnalysisNodeKind.Extraction, c.Id, [], Guid.NewGuid(), "", AnalysisNodeState.Pending)
         {
             // 修订可以只加强未完成单元的提示，已完成且范围不变的单元仍引用原提示版本，避免重新付费。
-            ExtractionPromptVersion = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ExtractionPromptVersion ?? NovelChunkAnalysisService.CurrentPromptVersion
+            ExtractionPromptVersion = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ExtractionPromptVersion ?? NovelChunkAnalysisService.CurrentPromptVersion,
+            ReviewGuidance = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ReviewGuidance ?? ""
         }).ToImmutableArray();
+        // 同源同冻结配置且全部提取已完成时，修订的下层输入确定不变，可继承已有整合计划与逐节点复核说明。
+        // 来源切分或模型改变则重新规划；每个继承节点仍要按当前依赖指纹校验缓存，不能仅凭旧状态跳过。
+        if (target != AnalysisTarget.Extraction && previous is not null && previous.PipelineVersion == PipelineVersion && previous.Connection == frozen &&
+            previous.Chunks.SequenceEqual(input.Chunks) && previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Extraction).All(n => n.State == AnalysisNodeState.Completed))
+            nodes = nodes.AddRange(previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Integration).Select(n => n with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "" }));
         var run = new AnalysisRun(id, bookId, input.Source.Id, input.Source.TextHash, PipelineVersion, frozen, new(previous?.Budget.Id ?? id, maximumRequests, maximumTokens), reserve,
             nodes, AnalysisRunState.Queued, "已建立全文提取队列。", 1, DateTimeOffset.UtcNow)
         { Chunks = input.Chunks, Target = target };
@@ -145,17 +159,24 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                     // 即使用户恰在响应后取消，也先完成不可分割的本地提交，再在下个边界停下。
                     run = SaveNode(run, index, node, result, progress); completed.Add(node.Key, result);
                 }
-                if (run.Target == AnalysisTarget.Extraction || run.Nodes.Any(n => n.Kind == AnalysisNodeKind.Integration)) break;
-                var plan = NovelIntegrationPlanner.Build(run, NovelAnalysisIndex.Build(run, input, completed));
+                if (run.Target == AnalysisTarget.Extraction) break;
+                var fullIndex = NovelAnalysisIndex.Build(run, input, completed);
+                var plan = run.Nodes.Any(n => n.Kind == AnalysisNodeKind.Integration) ? ImmutableArray<AnalysisNode>.Empty : NovelIntegrationPlanner.Build(run, fullIndex);
+                if (plan.IsEmpty && run.Target == AnalysisTarget.Report)
+                    plan = NovelReportPlanner.Next(run, NovelIntegrationSnapshot.Build(run, fullIndex, completed), completed);
                 if (plan.IsEmpty) break;
-                if (run.Nodes.Length + plan.Length > 1000 || requests.List(run.Budget.Id).Count + plan.Length + Math.Min(7, run.ReportReserve.Requests) > run.Budget.MaximumRequests)
-                    throw new InvalidOperationException("实际整合节点数量超过剩余额度，请复核预算后继续。");
-                var next = run with { Nodes = run.Nodes.AddRange(plan), Version = run.Version + 1, State = AnalysisRunState.Running, Message = "跨章整合计划已保存。", UpdatedAt = DateTimeOffset.UtcNow };
+                var remaining = plan[0].Kind is AnalysisNodeKind.Integration or AnalysisNodeKind.Summary ? Math.Min(7, run.ReportReserve.Requests) : plan[0].Kind == AnalysisNodeKind.Dimension ? 1 : 0;
+                if (run.Nodes.Length + plan.Length > 1000 || requests.List(run.Budget.Id).Count + plan.Length + remaining > run.Budget.MaximumRequests)
+                    throw new InvalidOperationException("下一阶段节点超过剩余额度，请复核预算后继续。");
+                var next = run with { Nodes = run.Nodes.AddRange(plan), Version = run.Version + 1, State = AnalysisRunState.Running, Message = "下一阶段分析计划已保存。", UpdatedAt = DateTimeOffset.UtcNow };
                 runs.Save(next, run.Version); run = next; Notify(progress, run);
             }
-            return run.Target == AnalysisTarget.Extraction
-                ? SaveState(run, AnalysisRunState.ExtractionCompleted, "全文单元提取完成；全局整合与综合报告尚未完成。", progress)
-                : SaveState(run, AnalysisRunState.IntegrationCompleted, "全书信息整合完成；专题与综合报告尚未完成。", progress);
+            return run.Target switch
+            {
+                AnalysisTarget.Extraction => SaveState(run, AnalysisRunState.ExtractionCompleted, "全文单元提取完成；全局整合与综合报告尚未完成。", progress),
+                AnalysisTarget.Integration => SaveState(run, AnalysisRunState.IntegrationCompleted, "全书信息整合完成；专题与综合报告尚未完成。", progress),
+                _ => SaveState(run, AnalysisRunState.Completed, "全文分析报告候选已完成；语义质量待人工评阅。", progress)
+            };
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
@@ -167,7 +188,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
     }
 
     /// <summary>明确接受原请求可能已经计费，才生成新的操作 ID；不清除或降低旧账本计费。</summary>
-    public AnalysisRun Resume(Guid runId, bool acknowledgeUncertain, int maximumRequests, long maximumTokens)
+    public AnalysisRun Resume(Guid runId, bool acknowledgeUncertain, int maximumRequests, long maximumTokens, string reviewGuidance = "")
     {
         var run = runs.Read(runId); using var lease = runs.Acquire(run.Budget.Id); run = runs.Read(runId);
         if (run.State is AnalysisRunState.Running or AnalysisRunState.Completed or AnalysisRunState.ExtractionCompleted or AnalysisRunState.IntegrationCompleted) throw new InvalidOperationException("当前状态不允许修改恢复参数。");
@@ -176,9 +197,33 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         if (entries.Any(e => (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null) && !e.RetryAcknowledged) && !acknowledgeUncertain)
             throw new InvalidOperationException("存在需复核的请求；确认额外成本后才能重试。");
         var nodes = run.Nodes.Select(node => node.State != AnalysisNodeState.Completed && entries.Any(e => e.Id == node.OperationId && e.State != RequestState.Completed)
-            ? node with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "" } : node).ToImmutableArray();
+            ? node with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "", ReviewGuidance = string.IsNullOrWhiteSpace(reviewGuidance) ? node.ReviewGuidance : reviewGuidance } : node).ToImmutableArray();
         var next = run with { Budget = budget, Nodes = nodes, State = AnalysisRunState.Queued, Message = "已准备恢复；旧费用继续计入总额。", Version = run.Version + 1, UpdatedAt = DateTimeOffset.UtcNow };
         next.Validate(); requests.ReviseBudget(budget, acknowledgeUncertain); runs.Save(next, run.Version); return next;
+    }
+
+    /// <summary>
+    /// 明确复核后重新校验已有候选，不发送网络请求。只接受已返回已知用量、随后被本地协议/契约拒绝的完整 JSON。
+    /// 截断、网络中断、缺失用量和输入指纹改变均不可采纳；原失败账本及成本保持原样，仅标记已复核。
+    /// </summary>
+    public AnalysisRun AdoptReviewedCandidate(Guid runId)
+    {
+        var run = runs.Read(runId); using var lease = runs.Acquire(run.Budget.Id); run = runs.Read(runId);
+        if (run.State != AnalysisRunState.NeedsAttention) throw new InvalidOperationException("当前没有待复核候选。");
+        var position = Enumerable.Range(0, run.Nodes.Length).First(i => run.Nodes[i].State != AnalysisNodeState.Completed); var node = run.Nodes[position];
+        var entries = requests.List(run.Budget.Id); var entry = entries.SingleOrDefault(e => e.Id == node.OperationId);
+        if (entry is null || entry.State != RequestState.Uncertain || entry.Failure != ModelFailure.Protocol.ToString() || entry.Usage.InputTokens is null || entry.Usage.OutputTokens is null ||
+            entry.BookId != run.BookId || entry.ConnectionId != run.Connection.Connection.Id || entry.ConnectionVersion != run.Connection.Connection.Version ||
+            entries.Any(e => e.Id != node.OperationId && !e.RetryAcknowledged && (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null)))
+            throw new InvalidOperationException("候选不是已知用量的本地校验失败，或仍有其他未复核请求。");
+        var source = sources.Read(run.BookId) with { Chunks = run.Chunks }; source.Validate();
+        var results = run.Nodes.Where(n => n.State == AnalysisNodeState.Completed).ToDictionary(n => n.Key, n => runs.ReadResult(runId, n.Key) ?? throw new InvalidDataException("前置节点结果缺失。"));
+        var prepared = preparer.Prepare(run, source, node, results);
+        if (prepared.InputStamp != node.InputStamp) throw new InvalidDataException("候选输入已变化，不能在新提示下冒充原任务结果。");
+        var json = ModelRequestService.RepairJsonWrapper(entry.PartialText); ModelRequestService.ValidateJson(json, prepared.Request.Contract);
+        requests.ReviseBudget(run.Budget, true);
+        var accepted = SaveNode(run, position, node with { State = AnalysisNodeState.Completed }, new(node.Key, node.InputStamp, json, AnalysisLimits.HashText(json)), null);
+        return SaveState(accepted, AnalysisRunState.Paused, "已重新校验并采纳保存的候选，未产生新请求；可继续后续节点。", null);
     }
 
     public IReadOnlyList<ChunkAnalysisResult> ReadExtractions(Guid runId)
@@ -202,6 +247,8 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         {
             AnalysisNodeKind.Extraction => run.ReportReserve,
             AnalysisNodeKind.Integration => new(Math.Min(7, run.ReportReserve.Requests), Math.Min(400000, run.ReportReserve.Tokens)),
+            AnalysisNodeKind.Summary => new(Math.Min(7, run.ReportReserve.Requests), Math.Min(400000, run.ReportReserve.Tokens)),
+            AnalysisNodeKind.Dimension => new(Math.Min(1, run.ReportReserve.Requests), Math.Min(80000, run.ReportReserve.Tokens)),
             _ => new(0, 0)
         };
         if (entries.Count + 1 + reserve.Requests > run.Budget.MaximumRequests || entries.Sum(e => e.ChargedTokens) + ModelRequestService.EstimateReservation(request) + reserve.Tokens > run.Budget.MaximumTokens)

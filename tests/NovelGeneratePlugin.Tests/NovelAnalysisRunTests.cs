@@ -146,6 +146,50 @@ public sealed class NovelAnalysisRunTests
     }
 
     [Fact]
+    public async Task 已知费用的本地校验失败可明确重校验采纳且保留失败账本()
+    {
+        await using var workspace = new TestWorkspace(); var calls = 0;
+        var context = new Context(workspace, Model(_ => { calls++; return Response(); })); var run = await context.Create(1); var preparer = new RejectingPreparer();
+        var service = new NovelAnalysisRunService(context.Sources, context.Store, workspace.Connections, context.Requests, preparer);
+        Assert.Equal(AnalysisRunState.NeedsAttention, (await service.ExecuteAsync(run.Id, new(), null, default)).State);
+        Assert.Throws<ModelRequestException>(() => service.AdoptReviewedCandidate(run.Id));
+        preparer.Reject = false;
+        Assert.Equal(AnalysisRunState.Paused, service.AdoptReviewedCandidate(run.Id).State);
+        Assert.Equal(AnalysisRunState.ExtractionCompleted, (await service.ExecuteAsync(run.Id, new(), null, default)).State);
+        Assert.Equal(1, calls); Assert.Single(service.ReadExtractions(run.Id));
+        var entry = Assert.Single(service.Usage(run.Id)); Assert.Equal(RequestState.Uncertain, entry.State); Assert.True(entry.RetryAcknowledged); Assert.Equal(200, entry.ChargedTokens);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task 未知费用和截断候选不能通过重新校验采纳(bool truncated)
+    {
+        await using var workspace = new TestWorkspace();
+        var context = new Context(workspace, Model(_ => Response() with { Usage = truncated ? new(100, 100) : new(null, null), Completion = truncated ? ModelCompletion.Truncated : ModelCompletion.Complete }));
+        var run = await context.Create(1); var preparer = new RejectingPreparer();
+        var service = new NovelAnalysisRunService(context.Sources, context.Store, workspace.Connections, context.Requests, preparer);
+        await service.ExecuteAsync(run.Id, new(), null, default); preparer.Reject = false;
+        Assert.Throws<InvalidOperationException>(() => service.AdoptReviewedCandidate(run.Id)); Assert.Empty(service.ReadExtractions(run.Id));
+    }
+
+    private sealed class RejectingPreparer : IAnalysisNodePreparer
+    {
+        public bool Reject { get; set; } = true;
+        public PreparedAnalysisNode Prepare(AnalysisRun run, ReferenceImport input, AnalysisNode node, IReadOnlyDictionary<string, AnalysisNodeResult> dependencies)
+        {
+            var prepared = new NovelAnalysisNodePreparer().Prepare(run, input, node, dependencies);
+            return prepared with { Request = prepared.Request with { Contract = new Rejection(prepared.Request.Contract!, () => Reject) } };
+        }
+        private sealed class Rejection(IModelOutputContract contract, Func<bool> reject) : IModelOutputContract
+        {
+            public string JsonSchema => contract.JsonSchema;
+            public void Validate(System.Text.Json.JsonElement value)
+            { if (reject()) throw new InvalidDataException("模拟过严的本地校验。"); contract.Validate(value); }
+        }
+    }
+
+    [Fact]
     public async Task 提示修订保留有效旧版本并只为失败单元使用新提示()
     {
         await using var workspace = new TestWorkspace();

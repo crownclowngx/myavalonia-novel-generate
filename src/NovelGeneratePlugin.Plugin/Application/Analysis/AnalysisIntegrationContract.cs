@@ -50,7 +50,7 @@ public sealed class ContinuityAnalysisContract(IReadOnlyList<IndexedFinding> inp
     public ContinuityOutput Read(string json)
     {
         var output = AnalysisJson.Read<ContinuityOutput>(json); var ids = input.ToDictionary(f => f.Number);
-        if (output.Observations.IsDefault || output.Observations.Length > 40) throw new InvalidDataException("整合观察超过容量。");
+        if (output.Observations.IsDefault || output.Observations.Length > 80) throw new InvalidDataException("整合观察超过容量。");
         AnalysisJson.Questions(output.OpenQuestions);
         foreach (var observation in output.Observations)
         {
