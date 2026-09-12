@@ -84,7 +84,7 @@
           </Expander>
         </StackPanel>
       </Grid>
-      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*" RowSpacing="10">
+      <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" RowSpacing="10">
         <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanSwitch}">
           <TextBlock Text="书名" VerticalAlignment="Center" />
           <TextBox Grid.Column="1" Text="{Binding BookTitle}" MaxLength="200" PlaceholderText="输入书名" />
@@ -198,7 +198,30 @@
           </StackPanel>
         </Expander>
         <TextBlock Grid.Row="3" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
-        <Grid Grid.Row="4" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
+        <Expander x:Name="GenerationExpander" Grid.Row="4" Header="单章生成与审校" HorizontalAlignment="Stretch" IsVisible="{Binding HasProject}">
+          <StackPanel Spacing="8">
+            <TextBlock Text="生成使用本书连接额度；候选独立保存，检查通过后可提交工作稿。" TextWrapping="Wrap" />
+            <WrapPanel>
+              <TextBlock Text="目标字数" VerticalAlignment="Center" Margin="0,0,8,0" />
+              <NumericUpDown Value="{Binding GenerationTargetCharacters}" Minimum="100" Maximum="10000" Increment="100" IsEnabled="{Binding CanEdit}" />
+              <TextBlock Text="最多局部修正次数" VerticalAlignment="Center" Margin="8,0" />
+              <NumericUpDown Value="{Binding GenerationMaximumRepairs}" Minimum="0" Maximum="2" Increment="1" IsEnabled="{Binding CanEdit}" />
+            </WrapPanel>
+            <WrapPanel>
+              <Button Content="生成并审校本章" Command="{Binding GenerateChapterCommand}" Margin="0,0,8,0" />
+              <Button Content="取消请求" Command="{Binding CancelGenerationCommand}" Margin="0,0,8,0" />
+              <Button Content="恢复本章候选" Command="{Binding RefreshGenerationCommand}" Margin="0,0,8,0" />
+              <Button Content="提交通过的候选" Command="{Binding CommitGenerationCommand}" />
+            </WrapPanel>
+            <TextBlock Text="{Binding GenerationStatus}" TextWrapping="Wrap" />
+            <ComboBox ItemsSource="{Binding GenerationChoices}" SelectedItem="{Binding SelectedGeneration}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch" />
+            <TextBox x:Name="GenerationCandidate" Text="{Binding GenerationText}" SelectionStart="{Binding GenerationSelectionStart}" SelectionEnd="{Binding GenerationSelectionEnd}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="150" MaxHeight="400" />
+            <ComboBox ItemsSource="{Binding GenerationIssues}" SelectedItem="{Binding SelectedGenerationIssue}" HorizontalAlignment="Stretch" />
+            <Button Content="在候选中定位问题证据" Command="{Binding LocateGenerationIssueCommand}" />
+            <TextBox Text="{Binding GenerationReport}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="250" />
+          </StackPanel>
+        </Expander>
+        <Grid Grid.Row="5" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
           <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
           <Expander Grid.Row="1" Header="本章提纲与修订" HorizontalAlignment="Stretch">
             <StackPanel Spacing="8">

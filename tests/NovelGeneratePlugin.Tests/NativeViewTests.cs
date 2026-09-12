@@ -151,6 +151,45 @@ public sealed class NativeViewTests
             return true;
         }, CancellationToken.None);
     }
+
+    [Fact]
+    public async Task 原生单章候选独立显示问题定位与工作稿提交()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); var book = await ChapterGenerationTests.BookAsync(workspace);
+            book = book with { Chapters = book.Chapters.SetItem(0, book.Chapters[0] with { Text = "作者的原始正文" }) };
+            workspace.Store.Create(workspace.ProjectPath(), book);
+            var review = ChapterGenerationTests.Review with { Issues = [new(Domain.ReviewSeverity.Advice, Domain.ReviewCategory.Style, "可考虑深化意象", "铜钥匙")] };
+            var fake = new ScriptedTextModel(_ => ChapterGenerationTests.Response(ChapterGenerationTests.Body), _ => ChapterGenerationTests.Response(ChapterGenerationTests.Json(review)));
+            var service = new Application.Models.ChapterGenerationService(workspace.Connections, new(fake, new Infrastructure.Persistence.ModelRequestStore(workspace.Paths)), new Infrastructure.Persistence.ChapterWorkStore(workspace.Paths));
+            await using var document = workspace.CreateDocument(generation: service);
+            var view = new MainView { DataContext = document }; var window = new Window { Width = 1200, Height = 1000, Content = view };
+            try
+            {
+                window.Show(); await document.InitializeAsync(new NewDocumentActivation("单章测试"), default);
+                workspace.Interaction.NextPath = workspace.ProjectPath(); await document.OpenProjectCommand.ExecuteAsync(null);
+                document.GenerationTargetCharacters = 100; document.GenerationMaximumRepairs = 0;
+                view.FindControl<Expander>("GenerationExpander")!.IsExpanded = true;
+                await document.GenerateChapterCommand.ExecuteAsync(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.Equal("作者的原始正文", document.ChapterText); Assert.True(document.CanCommitGeneration);
+                document.SelectedGenerationIssue = Assert.Single(document.GenerationIssues); document.LocateGenerationIssueCommand.Execute(null);
+                Dispatcher.UIThread.RunJobs(); var candidate = view.FindControl<TextBox>("GenerationCandidate")!;
+                Assert.Equal("铜钥匙", candidate.Text![candidate.SelectionStart..candidate.SelectionEnd]);
+                candidate.BringIntoView(); var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame); frame.Save(Path.Combine(output, "chapter-generation.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+                await document.CommitGenerationCommand.ExecuteAsync(null);
+                Assert.Equal(ChapterGenerationTests.Body, workspace.Store.Read(document.ProjectPath).Project.Chapters[0].Text);
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Theory]
     [InlineData(1200, 850, false)]
     [InlineData(800, 650, true)]

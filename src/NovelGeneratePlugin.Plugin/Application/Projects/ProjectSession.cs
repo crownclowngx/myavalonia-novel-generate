@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Threading.Channels;
 using NovelGeneratePlugin.Domain;
 namespace NovelGeneratePlugin.Application.Projects;
@@ -33,6 +34,12 @@ public sealed class ProjectSession : IAsyncDisposable
     public BookProject Current { get { lock (_sync) return _current; } }
     public SaveStatus Status { get { lock (_sync) return _status; } }
     public event EventHandler? StateChanged;
+    private void NotifyStateChanged()
+    {
+        // 持久化和租约释放不能受显示订阅者支配；一个窗口通知失败也不能阻止其他订阅者收到状态。
+        foreach (var handler in StateChanged?.GetInvocationList() ?? [])
+            try { ((EventHandler)handler)(this, EventArgs.Empty); } catch (Exception error) when (error is not OutOfMemoryException) { }
+    }
     internal ProjectSession(string path, StoredProject stored, IDisposable lease, IProjectStore store, IRecoveryStore recovery, Action<ProjectSession> released)
     {
         Path = path; _current = stored.Project; _databaseVersion = stored.Version; _lease = lease;
@@ -56,7 +63,7 @@ public sealed class ProjectSession : IAsyncDisposable
             _current = project; _editVersion++;
             _status = new SaveStatus(SaveState.Unsaved, "有未保存修改");
         }
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        NotifyStateChanged();
         _requests.Writer.TryWrite(true);
     }
     private async Task AutoSaveAsync()
@@ -84,7 +91,7 @@ public sealed class ProjectSession : IAsyncDisposable
                 snapshot = _current; editVersion = _editVersion; databaseVersion = _databaseVersion;
                 _status = new SaveStatus(SaveState.Saving, "正在保存…");
             }
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            NotifyStateChanged();
             try
             {
                 var next = await Task.Run(() => _store.Save(Path, snapshot, databaseVersion)).ConfigureAwait(false);
@@ -99,7 +106,7 @@ public sealed class ProjectSession : IAsyncDisposable
                         ? new SaveStatus(SaveState.Saved, "已保存 " + DateTime.Now.ToString("HH:mm:ss") + cleanupWarning)
                         : new SaveStatus(SaveState.Unsaved, "有更新的修改等待保存");
                 }
-                StateChanged?.Invoke(this, EventArgs.Empty);
+                NotifyStateChanged();
                 return new SaveOutcome(true, false, Status.Message);
             }
             catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -130,7 +137,7 @@ public sealed class ProjectSession : IAsyncDisposable
                     message += recovered ? "；当前全部修改有恢复副本，可恢复为新项目。" : "；当前全部修改尚未获得恢复保护，请保持窗口打开并重试保存。";
                     _status = new SaveStatus(SaveState.Failed, message, recovered);
                 }
-                StateChanged?.Invoke(this, EventArgs.Empty);
+                NotifyStateChanged();
                 return new SaveOutcome(false, recovered, message);
             }
         }
@@ -140,7 +147,11 @@ public sealed class ProjectSession : IAsyncDisposable
     /// 稿件指针与不可变正文/记忆在同一数据库事务中提交。失败时不改变当前修订状态。
     /// 保存期间新收到的普通编辑继续保留；成功后只合入修订状态，再由队列保存较新的编辑缓冲。
     /// </summary>
-    public async Task CommitRevisionChangeAsync(Func<BookProject, RevisionLedger> change, CancellationToken cancellationToken = default)
+    public Task CommitRevisionChangeAsync(Func<BookProject, RevisionLedger> change, CancellationToken cancellationToken = default)
+        => CommitProjectChangeAsync(book => book with { Revisions = change(book) }, cancellationToken);
+    public Task CommitGeneratedChapterAsync(ChapterWork work, CancellationToken cancellationToken = default)
+        => CommitProjectChangeAsync(book => ChapterGenerationRules.Commit(book, work), cancellationToken);
+    private async Task CommitProjectChangeAsync(Func<BookProject, BookProject> change, CancellationToken cancellationToken)
     {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -152,9 +163,8 @@ public sealed class ProjectSession : IAsyncDisposable
                 before = _current; editVersion = _editVersion; databaseVersion = _databaseVersion; _committingRevision = true;
             }
             cancellationToken.ThrowIfCancellationRequested();
-            var ledger = change(before);
+            var committed = change(before); var ledger = committed.Revisions;
             if (ReferenceEquals(ledger, before.Revisions)) return;
-            var committed = before with { Revisions = ledger };
             committed.Validate(); ledger.EnsureAppendOnlyFrom(before.Revisions);
             // 进入磁盘提交后不再让网络取消令牌中断本地一致性。
             var next = await Task.Run(() => _store.Save(Path, committed, databaseVersion)).ConfigureAwait(false);
@@ -162,13 +172,29 @@ public sealed class ProjectSession : IAsyncDisposable
             {
                 _databaseVersion = next;
                 var hasNewEdits = _editVersion != editVersion;
-                var merged = _current with { Revisions = ledger };
+                // 生成提交同时保存编辑稿正文与修订；磁盘写入期间若作者有新编辑，只合并账本，保留较新输入。
+                var merged = committed;
+                if (hasNewEdits)
+                {
+                    // 按字段比较提交前快照：书名等无关编辑不能把刚生成的正文换回旧正文；真正的新正文输入优先。
+                    var chapters = _current.Chapters.Select(current =>
+                    {
+                        var original = before.Chapters.Single(c => c.Id == current.Id);
+                        var accepted = committed.Chapters.Single(c => c.Id == current.Id);
+                        return current with
+                        {
+                            Text = current.Text == original.Text ? accepted.Text : current.Text,
+                            Summary = current.Summary == original.Summary ? accepted.Summary : current.Summary
+                        };
+                    }).ToImmutableArray();
+                    merged = _current with { Chapters = chapters, Revisions = ledger };
+                }
                 merged.Validate();
                 _current = merged; _editVersion++;
                 if (!hasNewEdits) _savedEditVersion = _editVersion;
                 _status = hasNewEdits ? new SaveStatus(SaveState.Unsaved, "稿件已提交，较新的编辑等待保存") : new SaveStatus(SaveState.Saved, "稿件与故事记忆已一起保存");
             }
-            StateChanged?.Invoke(this, EventArgs.Empty);
+            NotifyStateChanged();
             _requests.Writer.TryWrite(true);
         }
         finally { lock (_sync) _committingRevision = false; _writeGate.Release(); }

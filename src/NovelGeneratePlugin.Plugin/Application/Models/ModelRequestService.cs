@@ -60,7 +60,11 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
             if (!Enum.IsDefined(response.Completion) || string.IsNullOrWhiteSpace(response.Text)) throw new ModelRequestException(ModelFailure.Protocol, "模型未返回有效正文。");
             if (response.Usage.InputTokens is < 0 || response.Usage.OutputTokens is < 0) throw new ModelRequestException(ModelFailure.Protocol, "模型用量计数无效。");
             entry = entry with { Usage = response.Usage };
-            if (response.Completion == ModelCompletion.Complete && request.JsonOutput) ValidateJson(response.Text, request.Contract);
+            if (response.Completion == ModelCompletion.Complete && request.JsonOutput)
+            {
+                if (request.AllowJsonWrapperRepair) response = response with { Text = RepairJsonWrapper(response.Text) };
+                ValidateJson(response.Text, request.Contract);
+            }
             entry = entry with { State = response.Completion == ModelCompletion.Complete ? RequestState.Completed : RequestState.Truncated };
             store.Save(entry); Notify(progress, response.Text); return response;
         }
@@ -91,6 +95,14 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
                 _ => "模型请求未完成，已保留可用候选；请检查连接及本地存储。"
             });
         }
+    }
+    /// <summary>仅去掉 BOM、外围空白和完整的单层 JSON 代码围栏，不补字段、不猜引号、不修补截断内容；原始响应仍在请求账本。</summary>
+    public static string RepairJsonWrapper(string text)
+    {
+        var value = text.Trim().TrimStart('\uFEFF').Trim();
+        var normalized = value.Replace("\r\n", "\n");
+        var prefix = normalized.StartsWith("```json\n", StringComparison.Ordinal) ? 8 : normalized.StartsWith("```\n", StringComparison.Ordinal) ? 4 : 0;
+        return prefix > 0 && normalized.EndsWith("\n```", StringComparison.Ordinal) ? normalized[prefix..^4].Trim() : value;
     }
     public static void ValidateJson(string text, IModelOutputContract? contract)
     {

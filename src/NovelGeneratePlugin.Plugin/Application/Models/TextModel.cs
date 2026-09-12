@@ -4,6 +4,7 @@ namespace NovelGeneratePlugin.Application.Models;
 public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configuration, string SystemPrompt, string UserPrompt, bool JsonOutput)
 {
     public IModelOutputContract? Contract { get; init; }
+    public bool AllowJsonWrapperRepair { get; init; }
     public void Validate()
     {
         if (OperationId == Guid.Empty || Configuration is null || Configuration.BookId == Guid.Empty ||
@@ -11,7 +12,7 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
             SystemPrompt.Length + UserPrompt.Length > 250000) throw new InvalidDataException("模型请求身份或提示内容无效（总长度上限 25 万字符）。");
         Configuration.Connection.Validate(); Configuration.Preset.Validate();
         if (Configuration.Preset != Configuration.Connection.Settings.Preset(Configuration.Task)) throw new InvalidDataException("请求预设与冻结连接不一致。");
-        if (Contract is not null && !JsonOutput) throw new InvalidDataException("结构化契约必须使用 JSON 输出。");
+        if ((Contract is not null || AllowJsonWrapperRepair) && !JsonOutput) throw new InvalidDataException("结构化契约必须使用 JSON 输出。");
         if (Contract is not null)
         {
             if (string.IsNullOrWhiteSpace(Contract.JsonSchema) || SystemPrompt.Length + UserPrompt.Length + Contract.JsonSchema.Length > 250000)

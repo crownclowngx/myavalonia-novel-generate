@@ -1,6 +1,6 @@
 # G 编号实施档案与文档治理
 
-日期：2026-09-12。G0001–G0010 已完成本地实现与验证；每阶段验证后独立 Git 提交。
+日期：2026-09-12。G0001–G0011 已完成本地实现与验证；每阶段验证后独立 Git 提交。
 
 总入口为[网络小说创作工作台实施总计划](../implementation-plan.md)，共同工程要求见[质量基线](quality-baseline.md)。沿用其他插件的 G 四位编号及计划/方案/结果三件套；本项目是从模板实现产品，目录名 `refactoring` 仅用于保持现有插件文档习惯。
 
@@ -33,7 +33,7 @@
 | G0008 | 模型协议与用量基础 | [计划](G0008/plan.md) / [方案](G0008/implementation.md) / [结果](G0008/result.md) | 本地验证完成，Codex 单句实测通过；DeepSeek 未实测 |
 | G0009 | 记忆、检索与上下文 | [计划](G0009/plan.md) / [方案](G0009/implementation.md) / [结果](G0009/result.md) | 本地及独立暂存检索验证完成 |
 | G0010 | 分层规划与章纲 | [计划](G0010/plan.md) / [方案](G0010/implementation.md) / [结果](G0010/result.md) | 本地验证及 Codex 三章规划实测通过 |
-| G0011 | 单章生成检查提交 | [计划](../implementation-plan.md#g0011) | 待实施 |
+| G0011 | 单章生成检查提交 | [计划](G0011/plan.md) / [方案](G0011/implementation.md) / [结果](G0011/result.md) | 单章本地实现与验证完成，真实样本边界见结果 |
 | G0012 | 连续运行、预算与恢复 | [计划](../implementation-plan.md#g0012) | 待实施 |
 | G0013 | 材料方法化与文风校准 | [计划](../implementation-plan.md#g0013) | 待实施 |
 | G0014 | 改稿、影响与批量定稿 | [计划](../implementation-plan.md#g0014) | 待实施 |
