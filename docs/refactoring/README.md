@@ -12,6 +12,7 @@
 | [HTML 图文版](../product/novel-generation-product-requirements.html) | 完整产品正文与概念界面示意 |
 | [技术设计](../design/novel-generation-plugin-design.md) | 架构、存储、规则、记忆、任务和接入边界 |
 | [实施总计划](../implementation-plan.md) | G0001–G0028 工作拆分、顺序、依赖、范围与出口 |
+| [整本小说分析专项计划](../novel-analysis-feasibility-plan.md) | G0029–G0036 可行性、工作项、进度、报告与最终目标验收；承接原 G0021 的分析部分 |
 | `Gxxxx/plan.md` | 开工时真实基线、该阶段选定范围、工作项和验收计划 |
 | `Gxxxx/implementation.md` | 实际方案、修改位置、职责、数据流、理由与兼容处理 |
 | `Gxxxx/result.md` | 已发生的实现和验证、偏差、限制及未完成事项 |
@@ -43,7 +44,7 @@
 | G0018 | 反馈候选与规范回退 | [计划](../implementation-plan.md#g0018) | 待实施 |
 | G0019 | 长篇性能与迁移恢复 | [计划](../implementation-plan.md#g0019) | 待实施 |
 | G0020 | P2 长篇质量验收 | [计划](../implementation-plan.md#g0020) | 待实施 |
-| G0021 | 单本参考提炼模板 | [计划](../implementation-plan.md#g0021) | 待选做 |
+| G0021 | 单本参考提炼模板 | [计划](../implementation-plan.md#g0021) | 分析部分由 G0029–G0036 承接；模板/初始化待选做 |
 | G0022 | 多本参考组合 | [计划](../implementation-plan.md#g0022) | 待选做 |
 | G0023 | Workflow Provider | [计划](../implementation-plan.md#g0023) | 待选做 |
 | G0024 | 更多材料格式 | [计划](../implementation-plan.md#g0024) | 待选做 |
@@ -51,6 +52,16 @@
 | G0026 | 语义检索收益验证 | [计划](../implementation-plan.md#g0026) | 待选做 |
 | G0027 | 故事可视化 | [计划](../implementation-plan.md#g0027) | 待选做 |
 | G0028 | 选定版本交付 | [计划](../implementation-plan.md#g0028) | 待交付任务启动 |
+| G0029 | 分析范围、数据契约与存储基础 | [计划](G0029/plan.md) / [方案](G0029/implementation.md) / [结果](G0029/result.md) | 阶段已验收，5/5 项；299 项本地测试通过 |
+| G0030 | TXT 全文导入、分章与定位 | [计划](../novel-analysis-feasibility-plan.md#g0030) | 待实施，0/5 项 |
+| G0031 | 分块多维 AI 提取与证据验证 | [计划](../novel-analysis-feasibility-plan.md#g0031) | 待实施，0/5 项 |
+| G0032 | 全文运行、预算与中断恢复 | [计划](../novel-analysis-feasibility-plan.md#g0032) | 待实施，0/5 项 |
+| G0033 | 跨章人物、规则、事件与任务整合 | [计划](../novel-analysis-feasibility-plan.md#g0033) | 待实施，0/5 项 |
+| G0034 | 分层专题分析与综合报告 | [计划](../novel-analysis-feasibility-plan.md#g0034) | 待实施，0/5 项 |
+| G0035 | 原生工作流、报告阅读与导出 | [计划](../novel-analysis-feasibility-plan.md#g0035) | 待实施，0/5 项 |
+| G0036 | 全文实测、质量与最终目标验收 | [计划](../novel-analysis-feasibility-plan.md#g0036) | 待实施，0/5 项 |
+
+整本分析专项进度以[进度主表](../novel-analysis-feasibility-plan.md#progress)为准：当前 1/8 阶段、5/40 工作项，最终目标未达到。未来阶段在实际开工时建立三件套，不预建完成结果。
 
 ## 开工与归档规则
 

@@ -9,6 +9,7 @@ using NovelGeneratePlugin.Application.Export;
 using NovelGeneratePlugin.Infrastructure.Export;
 using NovelGeneratePlugin.Application.Models;
 using NovelGeneratePlugin.Infrastructure.Models;
+using NovelGeneratePlugin.Application.Analysis;
 namespace NovelGeneratePlugin.Plugin;
 
 public static class NovelGeneratePluginServices
@@ -42,6 +43,7 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IContinuousRunStore, ContinuousRunStore>();
         services.AddSingleton<ContinuousRunService>();
         services.AddSingleton<IMaterialStore, MaterialStore>();
+        services.AddSingleton<IReferenceSourceStore, ReferenceSourceStore>();
         services.AddSingleton<MaterialCalibrationService>();
         services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.MaterialCalibrationPanel>();
         return services;
