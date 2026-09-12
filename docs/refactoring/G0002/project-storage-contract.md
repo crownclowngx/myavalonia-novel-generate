@@ -1,5 +1,7 @@
 # G0002 项目存储契约
 
+本文保留 G0002 的 schema 1 基线；当前版本升级见 [G0003 迁移契约](../G0003/schema-migration.md)。
+
 ## 文件与身份
 
 作品由作者选择保存位置，扩展名 `.noveldb`。SQLite `application_id=0x4E4F564C`、`user_version=1`。

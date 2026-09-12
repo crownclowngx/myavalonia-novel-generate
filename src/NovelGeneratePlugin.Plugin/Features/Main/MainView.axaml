@@ -12,10 +12,11 @@
       </WrapPanel>
       <TextBlock Text="{Binding ProjectPath}" Opacity="0.65" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ProjectPath}" />
     </StackPanel>
-    <Grid Grid.Row="1" ColumnDefinitions="230,14,*">
+    <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+    <Grid ColumnDefinitions="230,14,*">
       <Grid RowDefinitions="Auto,*,Auto">
         <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8" />
-        <ListBox x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
+        <ListBox MaxHeight="600" x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
         <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
           <Expander Header="最近项目" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
@@ -43,8 +44,18 @@
         <TextBlock Grid.Row="2" Text="新建项目后即可保存创意和正文。" IsVisible="{Binding !HasProject}" Opacity="0.65" />
         <Grid Grid.Row="3" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="10" IsEnabled="{Binding CanEdit}">
           <TextBox Text="{Binding ChapterTitle}" MaxLength="200" PlaceholderText="章节标题" FontSize="19" />
-          <Expander Grid.Row="1" Header="本章提纲" HorizontalAlignment="Stretch">
+          <Expander Grid.Row="1" Header="本章提纲与修订" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="8">
             <TextBox Text="{Binding ChapterOutline}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="150" PlaceholderText="目标、冲突、事件与承接" />
+            <TextBox Text="{Binding RevisionSummary}" PlaceholderText="本章摘要（随提交的修订保存）" />
+            <WrapPanel>
+              <Button Content="提交工作稿" Command="{Binding CommitDraftCommand}" Margin="0,0,6,6" />
+              <Button Content="人工定稿本章" Command="{Binding FinalizeChapterCommand}" Margin="0,0,6,6" />
+              <Button Content="放弃本轮工作稿" Command="{Binding DiscardWorkingCommand}" Margin="0,0,6,6" />
+              <Button Content="回退本章及后续定稿" Command="{Binding RollbackFormalCommand}" Margin="0,0,6,6" />
+            </WrapPanel>
+            <TextBlock Text="人工定稿是作者确认；未检查不等于 AI 检查通过。回退和放弃保留正文历史。" TextWrapping="Wrap" FontSize="12" />
+            </StackPanel>
           </Expander>
           <TextBox x:Name="ChapterEditor" Grid.Row="2" Text="{Binding ChapterText}" AcceptsReturn="True" TextWrapping="Wrap" FontSize="17" MinHeight="64"
                    PlaceholderText="在这里开始正文。输入后会自动保存；也可以点击“保存本书”。" />
@@ -52,7 +63,9 @@
         </Grid>
       </Grid>
     </Grid>
+    </ScrollViewer>
     <StackPanel Grid.Row="2" Spacing="5">
+      <TextBlock Text="{Binding RevisionStatus}" TextWrapping="Wrap" FontSize="12" IsVisible="{Binding HasProject}" />
       <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontWeight="SemiBold" />
       <TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Opacity="0.65" FontSize="12" />
     </StackPanel>

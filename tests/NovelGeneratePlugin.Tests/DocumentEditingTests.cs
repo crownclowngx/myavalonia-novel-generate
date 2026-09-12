@@ -5,6 +5,25 @@ namespace NovelGeneratePlugin.Tests;
 public sealed class DocumentEditingTests
 {
     [Fact]
+    public async Task 人工工作稿定稿与回退操作不会冒充模型检查()
+    {
+        await using var workspace = new TestWorkspace();
+        await using var document = workspace.CreateDocument();
+        await document.InitializeAsync(new NewDocumentActivation("小说创作"), CancellationToken.None);
+        workspace.Interaction.NextPath = workspace.ProjectPath(); await document.NewProjectCommand.ExecuteAsync(null);
+        document.ChapterText = "雾港的邮差打开未来的信。"; document.RevisionSummary = "邮差收到一封未来来信";
+        await document.CommitDraftCommand.ExecuteAsync(null);
+        Assert.Contains("未检查", document.RevisionStatus);
+        await document.FinalizeChapterCommand.ExecuteAsync(null);
+        var saved = workspace.Store.Read(document.ProjectPath).Project;
+        Assert.NotNull(saved.Revisions.Head(saved.Chapters[0].Id).FormalId);
+        Assert.Equal(NovelGeneratePlugin.Domain.RevisionCheck.NotChecked, saved.Revisions.History[0].Check);
+        await document.RollbackFormalCommand.ExecuteAsync(null);
+        saved = workspace.Store.Read(document.ProjectPath).Project;
+        Assert.Null(saved.Revisions.Head(saved.Chapters[0].Id).FormalId); Assert.Single(saved.Revisions.History);
+        Assert.Equal("雾港的邮差打开未来的信。", document.ChapterText);
+    }
+    [Fact]
     public async Task 两书选中项值相等仍显式重新加载各自正文()
     {
         await using var workspace = new TestWorkspace();

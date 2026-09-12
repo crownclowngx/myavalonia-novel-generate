@@ -23,7 +23,7 @@ public sealed class ProjectSession : IAsyncDisposable
     private readonly Task _worker;
     private BookProject _current;
     private long _databaseVersion, _editVersion, _savedEditVersion;
-    private bool _closing, _disposed;
+    private bool _closing, _disposed, _committingRevision;
     private Task? _disposeTask;
     private SaveStatus _status = new(SaveState.Saved, "已保存");
     public string Path { get; }
@@ -47,6 +47,10 @@ public sealed class ProjectSession : IAsyncDisposable
         {
             ObjectDisposedException.ThrowIf(_closing || _disposed, this);
             if (project.Id != _current.Id) throw new InvalidOperationException("不能把其他作品写入当前会话。");
+            if (_committingRevision && (!project.Volumes.Select(v => v.Id).SequenceEqual(_current.Volumes.Select(v => v.Id)) ||
+                !project.Chapters.Select(c => (c.Id, c.VolumeId)).SequenceEqual(_current.Chapters.Select(c => (c.Id, c.VolumeId)))))
+                throw new InvalidOperationException("稿件提交期间暂不能改变卷章结构，请在提交结束后重试。");
+            if (project.Revisions != _current.Revisions) throw new InvalidOperationException("编辑入口不能改变修订状态，请使用稿件提交用例。");
             if (project == _current) return;
             _current = project; _editVersion++;
             _status = new SaveStatus(SaveState.Unsaved, "有未保存修改");
@@ -102,7 +106,7 @@ public sealed class ProjectSession : IAsyncDisposable
                 var recovered = false; var message = "保存失败：" + exception.Message;
                 try
                 {
-                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(1, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
+                    await Task.Run(() => _recovery.Write(RecoveryPath, new RecoverySnapshot(2, Path, databaseVersion, snapshot, DateTimeOffset.UtcNow, editVersion))).ConfigureAwait(false);
                     lock (_sync) _recoveredEditVersion = editVersion;
                     message += "；本次编辑快照已写入恢复副本。";
                 }
@@ -130,6 +134,43 @@ public sealed class ProjectSession : IAsyncDisposable
             }
         }
         finally { _writeGate.Release(); }
+    }
+    /// <summary>
+    /// 稿件指针与不可变正文/记忆在同一数据库事务中提交。失败时不改变当前修订状态。
+    /// 保存期间新收到的普通编辑继续保留；成功后只合入修订状态，再由队列保存较新的编辑缓冲。
+    /// </summary>
+    public async Task CommitRevisionChangeAsync(Func<BookProject, RevisionLedger> change, CancellationToken cancellationToken = default)
+    {
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            BookProject before; long editVersion, databaseVersion;
+            lock (_sync)
+            {
+                ObjectDisposedException.ThrowIf(_closing || _disposed, this);
+                before = _current; editVersion = _editVersion; databaseVersion = _databaseVersion; _committingRevision = true;
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            var ledger = change(before);
+            if (ReferenceEquals(ledger, before.Revisions)) return;
+            var committed = before with { Revisions = ledger };
+            committed.Validate(); ledger.EnsureAppendOnlyFrom(before.Revisions);
+            // 进入磁盘提交后不再让网络取消令牌中断本地一致性。
+            var next = await Task.Run(() => _store.Save(Path, committed, databaseVersion)).ConfigureAwait(false);
+            lock (_sync)
+            {
+                _databaseVersion = next;
+                var hasNewEdits = _editVersion != editVersion;
+                var merged = _current with { Revisions = ledger };
+                merged.Validate();
+                _current = merged; _editVersion++;
+                if (!hasNewEdits) _savedEditVersion = _editVersion;
+                _status = hasNewEdits ? new SaveStatus(SaveState.Unsaved, "稿件已提交，较新的编辑等待保存") : new SaveStatus(SaveState.Saved, "稿件与故事记忆已一起保存");
+            }
+            StateChanged?.Invoke(this, EventArgs.Empty);
+            _requests.Writer.TryWrite(true);
+        }
+        finally { lock (_sync) _committingRevision = false; _writeGate.Release(); }
     }
     public ValueTask DisposeAsync()
     {

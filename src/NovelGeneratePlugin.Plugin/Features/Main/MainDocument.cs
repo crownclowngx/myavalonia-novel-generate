@@ -35,6 +35,8 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     [ObservableProperty] private string _chapterTitle = "";
     [ObservableProperty] private string _chapterOutline = "";
     [ObservableProperty] private string _chapterText = "";
+    [ObservableProperty] private string _revisionStatus = "尚无工作稿或正式稿";
+    [ObservableProperty] private string _revisionSummary = "";
     [ObservableProperty] private string _wordCount = "0 字";
     public ObservableCollection<ChapterItem> Chapters { get; } = [];
     public ObservableCollection<RecentProject> RecentProjects { get; } = [];
@@ -57,6 +59,8 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     private void NotifyCommands()
     {
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
+        CommitDraftCommand.NotifyCanExecuteChanged(); FinalizeChapterCommand.NotifyCanExecuteChanged();
+        DiscardWorkingCommand.NotifyCanExecuteChanged(); RollbackFormalCommand.NotifyCanExecuteChanged();
         NewProjectCommand.NotifyCanExecuteChanged(); OpenProjectCommand.NotifyCanExecuteChanged(); SaveCommand.NotifyCanExecuteChanged();
         AddChapterCommand.NotifyCanExecuteChanged(); AddVolumeCommand.NotifyCanExecuteChanged();
         OpenRecentCommand.NotifyCanExecuteChanged(); RestoreRecoveryCommand.NotifyCanExecuteChanged(); RefreshLibraryCommand.NotifyCanExecuteChanged();
@@ -65,6 +69,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     partial void OnIdeaChanged(string value) => CaptureEdit();
     partial void OnChapterTitleChanged(string value) => CaptureEdit();
     partial void OnChapterOutlineChanged(string value) => CaptureEdit();
+    partial void OnRevisionSummaryChanged(string value) => CaptureEdit();
     partial void OnChapterTextChanged(string value)
     { WordCount = value.EnumerateRunes().Count(r => !Rune.IsWhiteSpace(r)) + " 字（非空白字符）"; CaptureEdit(); }
     partial void OnSelectedChapterChanged(ChapterItem? value)
@@ -76,8 +81,9 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     {
         var chapter = _session!.Current.Chapters.Single(c => c.Id == id);
         _loading = true;
-        try { ChapterTitle = chapter.Title; ChapterOutline = chapter.Outline; ChapterText = chapter.Text; }
+        try { ChapterTitle = chapter.Title; ChapterOutline = chapter.Outline; ChapterText = chapter.Text; RevisionSummary = chapter.Summary; }
         finally { _loading = false; }
+        UpdateRevisionStatus();
     }
     private void CaptureEdit()
     {
@@ -89,7 +95,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
             if (index >= 0)
             {
                 var chapter = project.Chapters[index];
-                project = project with { Chapters = project.Chapters.SetItem(index, chapter with { Title = ChapterTitle, Outline = ChapterOutline, Text = ChapterText }) };
+                project = project with { Chapters = project.Chapters.SetItem(index, chapter with { Title = ChapterTitle, Outline = ChapterOutline, Text = ChapterText, Summary = RevisionSummary }) };
                 var label = ChapterLabel(project, project.Chapters[index]);
                 var itemIndex = Chapters.IndexOf(SelectedChapter);
                 if (itemIndex >= 0 && SelectedChapter.Label != label)
@@ -101,7 +107,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
             }
         }
         _session.Update(project with { Title = BookTitle, Idea = Idea });
-        UpdatePresentation();
+        UpdatePresentation(); UpdateRevisionStatus();
     }
     private static string ChapterLabel(BookProject project, Chapter chapter)
         => project.Volumes.Single(v => v.Id == chapter.VolumeId).Title + " / " + (string.IsNullOrWhiteSpace(chapter.Title) ? "未命名章节" : chapter.Title);
@@ -115,10 +121,51 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         void Apply()
         {
             if (_disposed || !ReferenceEquals(sender, _session)) return;
-            Status = _session!.Status.Message; UpdatePresentation();
+            Status = _session!.Status.Message; UpdatePresentation(); UpdateRevisionStatus();
         }
         if (_ui is not null && SynchronizationContext.Current != _ui) _ui.Post(_ => Apply(), null); else Apply();
     }
+    private void UpdateRevisionStatus()
+    {
+        if (_session is null || SelectedChapter is null) return;
+        var ledger = _session.Current.Revisions; var head = ledger.Head(SelectedChapter.Id);
+        var working = ledger.Get(head.WorkingId); var formal = ledger.Get(head.FormalId);
+        var check = working?.Check switch { RevisionCheck.Passed => "检查通过", RevisionCheck.Failed => "检查失败", _ => "未检查" };
+        RevisionStatus = $"工作稿：{(working is null ? "无" : working.Id.ToString("N")[..8] + " / " + check)}  ·  正式稿：{(formal is null ? "未定稿" : formal.Id.ToString("N")[..8])}";
+        if (working is not null && working.TextHash != RevisionRules.Hash(ChapterText)) RevisionStatus += "  ·  编辑稿有未提交修改";
+    }
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private Task CommitDraft() => RunAsync(async () =>
+    {
+        var project = _session!.Current; var chapter = project.Chapters.Single(c => c.Id == SelectedChapter!.Id);
+        var head = project.Revisions.Head(chapter.Id);
+        var submission = new DraftSubmission(project.Id, chapter.Id, head.WorkingId, head.FormalId, RevisionRules.Hash(chapter.Text),
+            RevisionRules.ContextStamp(project, chapter.Id), chapter.Text, RevisionSummary, [], RevisionCheck.NotChecked,
+            project.Revisions.ActiveRunId ?? Guid.NewGuid(), Guid.NewGuid());
+        await _session.CommitRevisionChangeAsync(current => RevisionRules.CommitWorking(current, submission), _closing.Token);
+        UpdateRevisionStatus();
+    });
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private Task FinalizeChapter() => RunAsync(async () =>
+    {
+        var id = SelectedChapter!.Id; var head = _session!.Current.Revisions.Head(id);
+        if (head.WorkingId is not Guid working) throw new InvalidOperationException("请先提交本章工作稿。");
+        await _session.CommitRevisionChangeAsync(current => RevisionRules.FinalizeChapter(current, id, working, authorConfirmed: true), _closing.Token);
+        UpdateRevisionStatus();
+    });
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private Task DiscardWorking() => RunAsync(async () =>
+    {
+        await _session!.CommitRevisionChangeAsync(RevisionRules.DiscardWorking, _closing.Token);
+        RevisionSummary = ""; UpdateRevisionStatus(); Notice = "本轮工作稿已放弃；编辑缓冲、正式稿与历史仍保留。";
+    });
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private Task RollbackFormal() => RunAsync(async () =>
+    {
+        var id = SelectedChapter!.Id;
+        await _session!.CommitRevisionChangeAsync(current => RevisionRules.RollbackFrom(current, id), _closing.Token);
+        RevisionSummary = ""; UpdateRevisionStatus(); Notice = "本章及后续正式指针与本轮工作稿已撤销；正文历史和编辑缓冲保留。";
+    });
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task NewProject() => RunAsync(async () =>
     {
