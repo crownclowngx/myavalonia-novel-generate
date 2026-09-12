@@ -176,9 +176,9 @@ G0016 后可继续 P2，也可按实际需求启动 G0021 等扩展。数字较�
 | [G0033](novel-analysis-feasibility-plan.md#g0033) | 跨章人物、规则、事件与任务整合 | 工程已验收，见[结果](refactoring/G0033/result.md) |
 | [G0034](refactoring/G0034/result.md) | 分层专题分析与综合报告 | 工程与真实提供文件报告候选通过，5/5 项 |
 | [G0035](refactoring/G0035/result.md) | 原生工作流、报告阅读与导出 | 4/5 项；本地与 Host 组合通过，完整桌面待验 |
-| [G0036](novel-analysis-feasibility-plan.md#g0036) | 全文实测、质量与最终目标验收 | 待实施 |
+| [G0036](refactoring/G0036/result.md) | 全文实测、质量与最终目标验收 | 1/5 项；机械审计归档完成，人工/长篇/桌面待验 |
 
-专项按 G0029 → G0036 推进，当前 6/8 阶段、34/40 工作项。阶段状态与里程碑在[进度主表](novel-analysis-feasibility-plan.md#progress)持续维护；G0036 通过才表示本次分析目标达到，模板初始化与正式发行分别保持 G0021、G0028 的独立出口。
+专项按 G0029 → G0036 推进，当前 6/8 阶段、35/40 工作项。阶段状态与里程碑在[进度主表](novel-analysis-feasibility-plan.md#progress)持续维护；G0036 通过才表示本次分析目标达到，模板初始化与正式发行分别保持 G0021、G0028 的独立出口。
 
 ## 4. P0：可靠的本地创作基础
 

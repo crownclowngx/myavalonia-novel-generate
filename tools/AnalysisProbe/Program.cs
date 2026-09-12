@@ -12,14 +12,18 @@ using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Infrastructure.Models;
 
 // 显式开发工具，不纳入普通测试或生产包。输入与输出必须由调用者给出；本工具的 import/benchmark 不访问网络。
-if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report"))
+if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report" or "audit"))
     throw new ArgumentException("用法：AnalysisProbe <import|benchmark|chunk> <TXT路径或-> <新的输出目录>；chunk 从标准输入读取本次密钥");
 var output = Path.GetFullPath(args[2]);
-var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report";
+var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report" or "audit";
 if (!resuming && (Directory.Exists(output) || File.Exists(output))) throw new InvalidOperationException("输出目录必须尚不存在，避免覆盖已有验证资料。");
 if (resuming && !File.Exists(Path.Combine(output, "run-id.txt"))) throw new InvalidOperationException("恢复目录缺少运行身份。");
 Directory.CreateDirectory(output);
 var input = args[1];
+if (args[0] == "audit")
+{
+    Console.WriteLine(await ReportAudit.RunAsync(new WorkspacePaths(output), Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt"))))); return;
+}
 if (args[0] == "validate-extract")
 {
     var paths = new WorkspacePaths(output); var run = new AnalysisRunStore(paths).Read(Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt"))));
