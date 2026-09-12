@@ -16,6 +16,8 @@
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+    <ManagedPluginPrivatePackage Include="System.Security.Cryptography.ProtectedData" />
     <ManagedPluginPrivatePackage Include="Microsoft.Data.Sqlite.Core" />
     <ManagedPluginPrivatePackage Include="SQLitePCLRaw.bundle_e_sqlite3" />
     <ManagedPluginPrivatePackage Include="SQLitePCLRaw.core" />

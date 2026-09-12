@@ -64,7 +64,7 @@ public sealed partial class MainWindow : Window
         {
             await _initialization;
             foreach (var tool in _toolClosers)
-                if (!await tool.Model.SaveBeforeCloseAsync()) { _tabs.SelectedItem = tool.Tab; Title = "未关闭：模板草案尚未可靠保存"; return; }
+                if (!await tool.Model.SaveBeforeCloseAsync()) { _tabs.SelectedItem = tool.Tab; Title = "未关闭：工具面板尚有未处理的修改"; return; }
             if (_document is IClosePreparation novel && !await novel.SaveBeforeCloseAsync()) { _tabs.SelectedItem = _documentTab; return; }
             await _scope.DisposeAsync();
             if (_services is not null) await _services.DisposeAsync();

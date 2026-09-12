@@ -4,6 +4,8 @@ using NovelGeneratePlugin.Application.Projects;
 using NovelGeneratePlugin.Application.Templates;
 using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Infrastructure.Persistence;
+using NovelGeneratePlugin.Application.Connections;
+using NovelGeneratePlugin.Infrastructure.Credentials;
 namespace NovelGeneratePlugin.Tests;
 
 /// <summary>所有测试文件均在单次创建的随机临时目录，避免读取或写入作者的真实作品。</summary>
@@ -15,6 +17,8 @@ public sealed class TestWorkspace : IAsyncDisposable
     public CatalogStore Catalog { get; }
     public RecoveryStore Recovery { get; }
     public TemplateLibrary Templates { get; }
+    public UserCredentialVault Vault { get; }
+    public ConnectionService Connections { get; }
     public ProjectSessions Sessions { get; }
     public TestWindowInteraction Interaction { get; } = new();
     public TestWorkspace()
@@ -23,13 +27,15 @@ public sealed class TestWorkspace : IAsyncDisposable
         Paths = new WorkspacePaths(Path.Combine(Root, "user-data"));
         Catalog = new CatalogStore(Paths); Recovery = new RecoveryStore(Paths);
         Templates = new TemplateLibrary(new TemplateStore(Paths));
+        Vault = new UserCredentialVault(Paths); Connections = new ConnectionService(new ConnectionStore(Paths), Vault);
         Sessions = new ProjectSessions(Store, Catalog, Recovery, new FileProjectLeaseProvider());
     }
     public string ProjectPath(string name = "作品") => Path.Combine(Root, name + ".noveldb");
-    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction, Templates);
+    public MainDocument CreateDocument() => new(Sessions, Catalog, Recovery, Interaction, Templates, Connections);
     public async ValueTask DisposeAsync()
     {
         await Sessions.DisposeAsync();
+        Vault.Dispose();
         Directory.Delete(Root, recursive: true);
     }
 }

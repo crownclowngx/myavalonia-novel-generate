@@ -9,6 +9,7 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
 {
     public WritingProfile Profile { get; init; } = WritingProfile.Empty;
     public TemplateAdoption? AdoptedTemplate { get; init; }
+    public ConnectionBinding? Connection { get; init; }
     public RevisionLedger Revisions { get; init; } = RevisionLedger.Empty;
     public static BookProject Create(string title, string idea = "")
     {
@@ -37,6 +38,8 @@ public sealed record BookProject(Guid Id, string Title, string Idea, ImmutableAr
         Revisions.Validate(this);
         if (Profile is null) throw new InvalidDataException("本书规范不能为空。");
         Profile.Validate();
+        if (Connection is { } binding && (binding.ConnectionId == Guid.Empty || binding.Version < 1 || binding.Name is null))
+            throw new InvalidDataException("本书连接绑定无效。");
         if (AdoptedTemplate is { } adopted)
         {
             if (adopted.TemplateId == Guid.Empty || adopted.VersionId == Guid.Empty || adopted.VersionNumber < 1 || adopted.Name is null || adopted.SourceContent is null ||

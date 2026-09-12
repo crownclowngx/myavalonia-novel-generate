@@ -7,6 +7,8 @@ using Avalonia.Threading;
 using MyAvaloniaManagement.PluginSdk;
 using NovelGeneratePlugin.Features.Main;
 using NovelGeneratePlugin.Features.TemplateLibrary;
+using NovelGeneratePlugin.Features.ModelConnections;
+using Avalonia.VisualTree;
 using Xunit;
 
 [assembly: AvaloniaTestApplication(typeof(NovelGeneratePlugin.Tests.TestAppBuilder))]
@@ -25,6 +27,38 @@ public sealed class TestApplication : Avalonia.Application
 /// <summary>在真实 Avalonia 控件树上输入中文并切换章节，补充纯 ViewModel 测试无法覆盖的双向绑定风险。</summary>
 public sealed class NativeViewTests
 {
+    [Fact]
+    public async Task 连接表单真实绑定可输入中文和预设且密钥框始终遮蔽()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections);
+            var view = new ModelConnectionsView { DataContext = tool }; var window = new Window { Width = 650, Height = 850, Content = view };
+            try
+            {
+                window.Show(); await tool.InitializeAsync(); tool.Provider = Domain.ModelProvider.DeepSeek; tool.Endpoint = "https://api.deepseek.com";
+                foreach (var preset in tool.Presets) preset.Model = "deepseek-flash";
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                var name = view.FindControl<TextBox>("ConnectionNameEditor")!; name.Focus(); name.SelectAll(); window.KeyTextInput("独立测试连接");
+                Assert.Equal("独立测试连接", tool.Name);
+                var count = view.GetVisualDescendants().OfType<NumericUpDown>().First(); count.Value = 4096;
+                Assert.Equal(4096, tool.Presets[0].MaxOutputTokens);
+                Assert.NotEqual(default, view.FindControl<TextBox>("SecretEditor")!.PasswordChar);
+                await tool.SaveConfigurationCommand.ExecuteAsync(null);
+                Assert.Equal(4096, Assert.Single((await workspace.Connections.ListAsync()).Connections).Settings.Planning.MaxOutputTokens);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    frame.Save(Path.Combine(output, "model-connections.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
     [Fact]
     public async Task 模板原生输入与共享模型在视图重建后保留草案()
     {

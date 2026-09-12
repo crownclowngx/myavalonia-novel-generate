@@ -12,7 +12,7 @@ namespace NovelGeneratePlugin.Features.Main;
 public sealed record ChapterItem(Guid Id, string Label) { public override string ToString() => Label; }
 
 /// <summary>一本书一个 Document；窗口只通过公开文件选择端口接触宿主。</summary>
-public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates)
+public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatalog catalog, IRecoveryStore recovery, IPluginWindowInteraction interaction, NovelGeneratePlugin.Application.Templates.TemplateLibrary templates, NovelGeneratePlugin.Application.Connections.ConnectionService connections)
     : ObservableObject, IPluginDocument, IAsyncDisposable, IClosePreparation
 {
     private ProjectSession? _session;
@@ -58,6 +58,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     partial void OnHasProjectChanged(bool value) => NotifyCommands();
     private void NotifyCommands()
     {
+        RefreshConnectionsCommand.NotifyCanExecuteChanged(); BindConnectionCommand.NotifyCanExecuteChanged(); UnbindConnectionCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(CanEdit)); OnPropertyChanged(nameof(CanSwitch));
         CommitDraftCommand.NotifyCanExecuteChanged(); FinalizeChapterCommand.NotifyCanExecuteChanged();
         DiscardWorkingCommand.NotifyCanExecuteChanged(); RollbackFormalCommand.NotifyCanExecuteChanged();
@@ -176,6 +177,9 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     private async Task CreateProjectAsync(bool useTemplate)
     {
         var project = BookProject.Create(string.IsNullOrWhiteSpace(BookTitle) ? "未命名小说" : BookTitle, Idea);
+        // 默认项只在创建时建议；目录不可用不阻止作者离线创建和编辑作品。
+        try { project = project with { Connection = await connections.DefaultForNewBookAsync() }; }
+        catch (Exception exception) when (exception is not OutOfMemoryException) { Notice = "默认连接未读取；本书仍可离线编辑。"; }
         // 模板初始化在创建文件前完成；失败不会留下一本缺少所选规范的半成品作品。
         if (useTemplate)
         {
@@ -263,6 +267,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     }
     private async Task RefreshListsAsync()
     {
+        await RefreshBookConnectionsAsync();
         try { await RefreshTemplateChoicesAsync(); }
         catch (Exception exception) { Notice = "模板列表不可用，本书仍可编辑：" + exception.Message; }
         try

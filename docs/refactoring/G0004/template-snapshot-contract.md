@@ -38,3 +38,5 @@ Tool 保存期间捕获编辑代数，成功只认可该次保存的内容。关
 
 本地原生控件测试确认中文输入、发布、视图重建和快照持久化；组合测试确认 Tool 单例与 Document 隔离。
 真实 Host 的隐藏、重新打开、卸载与退出待 G0015 联调；`IClosePreparation` 是插件自己的开发关闭契约，不是 SDK 接口。
+
+本文保留 G0004 格式记录；G0005 当前作品 schema 已提升到 4，连接与秘密边界见 [G0005 契约](../G0005/connection-and-credential-contract.md)。

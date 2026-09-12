@@ -8,6 +8,7 @@ using Xunit;
 using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Infrastructure.Persistence;
 using NovelGeneratePlugin.Features.TemplateLibrary;
+using NovelGeneratePlugin.Features.ModelConnections;
 namespace NovelGeneratePlugin.Tests;
 
 public sealed class CompositionTests
@@ -22,7 +23,9 @@ public sealed class CompositionTests
         new NovelGeneratePluginModule().Configure(registration);
         Assert.Equal(PluginIds.MainDocument, Assert.Single(registration.Documents).Descriptor.DocumentTypeId);
         Assert.Empty(registration.Commands);
-        Assert.Equal(PluginIds.Templates, Assert.Single(registration.Tools).Descriptor.ToolTypeId);
+        Assert.Equal(2, registration.Tools.Count);
+        Assert.Single(registration.Tools, t => t.Descriptor.ToolTypeId == PluginIds.Templates);
+        Assert.Single(registration.Tools, t => t.Descriptor.ToolTypeId == PluginIds.Connections);
         await using var provider = registration.Services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         await using var scope1 = provider.CreateAsyncScope();
         await using var scope2 = provider.CreateAsyncScope();
@@ -32,6 +35,8 @@ public sealed class CompositionTests
         var sharedTool = scope1.ServiceProvider.GetRequiredService<TemplateLibraryTool>();
         Assert.Same(sharedTool, scope2.ServiceProvider.GetRequiredService<TemplateLibraryTool>());
         Assert.Single(registration.Services, d => d.ServiceType == typeof(TemplateLibraryTool));
+        Assert.Same(scope1.ServiceProvider.GetRequiredService<ModelConnectionsTool>(), scope2.ServiceProvider.GetRequiredService<ModelConnectionsTool>());
+        Assert.Single(registration.Services, d => d.ServiceType == typeof(ModelConnectionsTool));
         await first.InitializeAsync(new NewDocumentActivation("作品甲"), CancellationToken.None);
         first.BookTitle = "甲书";
         Assert.Equal("未命名小说", second.BookTitle);

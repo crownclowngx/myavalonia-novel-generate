@@ -28,7 +28,7 @@ public sealed class RecoveryStore(WorkspacePaths paths) : IRecoveryStore
         if (!System.IO.Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("恢复文件不在恢复目录内。");
         using var stream = File.OpenRead(path);
         var snapshot = JsonSerializer.Deserialize<RecoverySnapshot>(stream) ?? throw new InvalidDataException("恢复文件内容为空。");
-        if (snapshot.FormatVersion is not (1 or 2 or 3)) throw new NotSupportedException("恢复文件版本不受支持。");
+        if (snapshot.FormatVersion is not (1 or 2 or 3 or 4)) throw new NotSupportedException("恢复文件版本不受支持。");
         snapshot.Project.Validate(); return snapshot;
     }
     public IReadOnlyList<RecoveryEntry> List()

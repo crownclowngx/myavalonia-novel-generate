@@ -18,6 +18,15 @@
         <TextBlock Text="卷章目录" FontWeight="SemiBold" Margin="0,0,0,8" />
         <ListBox MaxHeight="600" x:Name="ChapterList" Grid.Row="1" ItemsSource="{Binding Chapters}" SelectedItem="{Binding SelectedChapter}" IsEnabled="{Binding CanEdit}" />
         <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
+          <Expander Header="本书模型连接" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="6">
+              <TextBlock Text="{Binding BookConnectionStatus}" TextWrapping="Wrap" />
+              <ComboBox ItemsSource="{Binding ConnectionChoices}" SelectedItem="{Binding SelectedBookConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+              <Button Content="刷新连接" Command="{Binding RefreshConnectionsCommand}" />
+              <Button Content="明确绑定此配置" Command="{Binding BindConnectionCommand}" />
+              <Button Content="解除本书绑定" Command="{Binding UnbindConnectionCommand}" />
+            </StackPanel>
+          </Expander>
           <Expander Header="最近项目" HorizontalAlignment="Stretch">
             <StackPanel Spacing="6">
               <ComboBox ItemsSource="{Binding RecentProjects}" SelectedItem="{Binding SelectedRecent}" HorizontalAlignment="Stretch" />
