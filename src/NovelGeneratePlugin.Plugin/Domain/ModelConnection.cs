@@ -8,8 +8,8 @@ public sealed record ModelPreset(string Model, int MaxOutputTokens, string Reaso
     public void Validate()
     {
         if (string.IsNullOrWhiteSpace(Model) || Model.Length > 120 || Model.Any(char.IsControl) ||
-            MaxOutputTokens is < 256 or > 131072 || ReasoningEffort is not ("low" or "medium" or "high"))
-            throw new InvalidDataException("模型预设无效：需填写模型，输出上限为 256–131072，推理强度为 low/medium/high。");
+            MaxOutputTokens is < 256 or > 131072 || ReasoningEffort is not ("none" or "low" or "medium" or "high" or "max"))
+            throw new InvalidDataException("模型预设无效：需填写模型，输出上限为 256–131072，推理强度为 none/low/medium/high/max。");
     }
 }
 public sealed record ConnectionSettings(string Name, ModelProvider Provider, string Endpoint, string CodexExecutable,
@@ -20,6 +20,9 @@ public sealed record ConnectionSettings(string Name, ModelProvider Provider, str
         if (string.IsNullOrWhiteSpace(Name) || Name.Length > 120 || !Enum.IsDefined(Provider) || Endpoint is null || CodexExecutable is null ||
             Planning is null || Drafting is null || Checking is null) throw new InvalidDataException("连接名称、类型或预设无效。");
         Planning.Validate(); Drafting.Validate(); Checking.Validate();
+        // DeepSeek 的关闭思考和最大思考不能透传到现有 Codex 适配器；按服务商验证，避免界面切换留下非法参数。
+        if (Provider == ModelProvider.CodexCli && new[] { Planning, Drafting, Checking }.Any(p => p.ReasoningEffort is "none" or "max"))
+            throw new InvalidDataException("当前 Codex 连接支持 low/medium/high 推理强度。");
         if (Provider == ModelProvider.DeepSeek)
         {
             if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||

@@ -178,6 +178,31 @@ public sealed class ModelProtocolTests
         await workspace.Connections.SetSecretAsync(ConnectionService.Bind(connection), "unit-" + new Uri(endpoint).Host, false);
         return new(Guid.NewGuid(), new(Guid.NewGuid(), connection, ModelTask.Drafting, preset), "只返回文本", "写一句小说", false);
     }
+    [Theory]
+    [InlineData("none", "disabled", "none")]
+    [InlineData("low", "enabled", "low")]
+    [InlineData("high", "enabled", "high")]
+    [InlineData("max", "enabled", "max")]
+    [InlineData("medium", "enabled", "high")]
+    public async Task DeepSeek思考开关与强度按官方协议发送(string effort, string thinking, string expected)
+    {
+        await using var workspace = new TestWorkspace(); var request = await ApiRequest(workspace, "https://api.deepseek.com");
+        var original = request.Configuration.Connection;
+        var saved = await workspace.Connections.SaveAsync(original, original.Settings with { Drafting = new("deepseek-flash", 65536, effort) });
+        request = request with { Configuration = await workspace.Connections.FreezeAsync(ConnectionService.Bind(saved), request.Configuration.BookId, ModelTask.Drafting) };
+        // 协议夹具只截获请求，不发送真实 Key 或网络；验证思考不会混入最终正文。
+        var handler = new FakeHttp(message =>
+        {
+            using var body = JsonDocument.Parse(message.Content!.ReadAsStringAsync().GetAwaiter().GetResult()); var root = body.RootElement;
+            Assert.Equal("deepseek-flash", root.GetProperty("model").GetString()); Assert.Equal(65536, root.GetProperty("max_tokens").GetInt32());
+            Assert.Equal(thinking, root.GetProperty("thinking").GetProperty("type").GetString()); Assert.Equal(expected, root.GetProperty("reasoning_effort").GetString());
+            Assert.False(root.TryGetProperty("temperature", out _)); Assert.False(root.TryGetProperty("top_p", out _));
+            return Sse(Event("雨落书窗。", "stop") + Done);
+        });
+        using var client = new HttpClient(handler);
+        Assert.Equal("雨落书窗。", (await new DeepSeekTextModel(workspace.Connections, client).GenerateAsync(request, null, default)).Text);
+        Assert.Equal(1, handler.Calls);
+    }
     private static HttpResponseMessage Sse(string data)
     { var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(data) }; response.Content.Headers.ContentType = new("text/event-stream"); return response; }
     private sealed class FakeHttp(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

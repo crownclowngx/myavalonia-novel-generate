@@ -28,6 +28,40 @@ public sealed class TestApplication : Avalonia.Application
 public sealed class NativeViewTests
 {
     [Fact]
+    public async Task DeepSeek默认下拉真实绑定且切换服务商不遗留错误参数()
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections, workspace.Closing, workspace.Models);
+            var view = new ModelConnectionsView { DataContext = tool }; var window = new Window { Width = 720, Height = 1100, Content = view };
+            try
+            {
+                window.Show(); await tool.InitializeAsync(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                Assert.False(tool.IsDirty); Assert.Equal("", view.FindControl<TextBox>("SecretEditor")!.Text);
+                var model = view.GetVisualDescendants().OfType<ComboBox>().First(c => c.Name == "ModelSelector");
+                var effort = view.GetVisualDescendants().OfType<ComboBox>().First(c => c.Name == "EffortSelector");
+                Assert.Equal("deepseek-flash", model.SelectedItem); Assert.Equal("high", effort.SelectedItem);
+                model.SelectedItem = "deepseek-v4-pro"; effort.SelectedItem = "none";
+                Assert.Equal("deepseek-v4-pro", tool.Presets[0].Model); Assert.Equal("none", tool.Presets[0].ReasoningEffort);
+                var provider = view.FindControl<ComboBox>("ProviderSelector")!;
+                provider.SelectedItem = Domain.ModelProvider.CodexCli; Dispatcher.UIThread.RunJobs(); Assert.Equal("gpt-6-astra", tool.Presets[0].Model);
+                provider.SelectedItem = Domain.ModelProvider.DeepSeek; Dispatcher.UIThread.RunJobs(); Assert.Equal("deepseek-flash", tool.Presets[0].Model);
+                Assert.Equal("high", tool.Presets[0].ReasoningEffort); Assert.Equal(65536, tool.Presets[0].MaxOutputTokens);
+                tool.ResetConfigurationCommand.Execute(null); Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); Assert.False(tool.IsDirty);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    frame.Save(Path.Combine(output, "deepseek-defaults.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { tool.ResetConfigurationCommand.Execute(null); window.Close(); }
+            return true;
+        }, CancellationToken.None);
+    }
+    [Fact]
     public async Task 连接表单真实绑定可输入中文和预设且密钥框始终遮蔽()
     {
         var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);

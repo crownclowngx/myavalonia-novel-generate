@@ -13,6 +13,35 @@ namespace NovelGeneratePlugin.Tests;
 public sealed class ConnectionTests
 {
     [Fact]
+    public async Task 一次保存连接时密钥失败保留输入且可重试()
+    {
+        await using var workspace = new TestWorkspace(); var fail = true;
+        var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { if (fail) throw new IOException("注入密钥写入失败"); } };
+        var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync();
+        tool.SecretInput = TestKey; await tool.SaveConnectionCommand.ExecuteAsync(null);
+        Assert.Equal(TestKey, tool.SecretInput); Assert.Contains("失败", tool.Status);
+        var saved = Assert.Single((await service.ListAsync()).Connections);
+        Assert.Equal(CredentialState.Missing, await service.StateAsync(ConnectionService.Bind(saved)));
+        fail = false; await tool.SaveConnectionCommand.ExecuteAsync(null);
+        Assert.Empty(tool.SecretInput); Assert.Contains("API Key 已保存", tool.Status);
+        Assert.Equal(saved.Version, Assert.Single((await service.ListAsync()).Connections).Version);
+    }
+    [Fact]
+    public async Task 一次保存连接期间的新密钥输入不会被旧操作清空()
+    {
+        await using var workspace = new TestWorkspace(); using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
+        var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync();
+        tool.SecretInput = TestKey; var saving = tool.SaveConnectionCommand.ExecuteAsync(null);
+        try { await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SecretInput = "unit-new-input"; } finally { release.Set(); }
+        await saving; Assert.Equal("unit-new-input", tool.SecretInput);
+        var saved = Assert.Single((await service.ListAsync()).Connections); Assert.Equal(TestKey, workspace.Vault.ReadForRequest(Target(saved)));
+        tool.ClearInputCommand.Execute(null);
+    }
+    [Fact]
     public async Task 清除旧密钥期间的新输入不丢失()
     {
         await using var workspace = new TestWorkspace(); using var release = new ManualResetEventSlim();

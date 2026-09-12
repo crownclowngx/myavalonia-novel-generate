@@ -16,9 +16,11 @@ dotnet run --project src/NovelGeneratePlugin.Standalone -c Debug
 
 ## 配置 Codex 套餐
 
+1.0.1 新连接现在默认 DeepSeek：地址、三类任务模型 `deepseek-flash`、推理 `high` 和输出上限 `65536` 已填好，输入 API Key 后点击“保存连接（配置与 Key）”。需要跨重启使用时勾选 Windows 加密保存；具体步骤见 [DeepSeek 默认参数说明](deepseek-defaults.md)。下面继续说明如何切换到 Codex 套餐。
+
 1. 在“模型连接” Tool 新建连接，Provider 选择 Codex 套餐，填写本机已登录的 Codex CLI 完整 exe 路径。
 2. 规划、正文、检查均可填 `gpt-6-astra`；本次实测为输出上限 8192、推理强度 low。CLI 0.153.4 已实测；当前机器的旧全局 CLI 0.140.0 未通过该模型调用。
-3. 保存后可生成一句检测，此动作消耗套餐额度。查看实际用量；未知用量不会自动当成零。
+3. 点击“仅保存配置”后可生成一句检测，此动作消耗套餐额度。查看实际用量；未知用量不会自动当成零。
 4. 在本书“设定 → 本书模型连接”刷新并明确绑定。共享连接更改后要重新绑定，本书不会静默切模型。
 
 使用既有 Codex 登录，不复制认证文件，也不把套餐登录转换成 API Key。DeepSeek 单独使用 HTTPS 端点与独立 Key，

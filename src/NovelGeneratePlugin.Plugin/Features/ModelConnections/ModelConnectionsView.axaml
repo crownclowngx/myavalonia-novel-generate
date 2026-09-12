@@ -6,31 +6,45 @@
       <TextBlock Text="模型连接" FontSize="24" FontWeight="SemiBold" />
       <WrapPanel>
         <Button Content="新连接" Command="{Binding NewConnectionCommand}" Margin="0,0,6,6" />
-        <Button Content="保存配置" Command="{Binding SaveConfigurationCommand}" Margin="0,0,6,6" />
+        <Button Content="保存连接（配置与 Key）" Command="{Binding SaveConnectionCommand}" Margin="0,0,6,6" />
+        <Button Content="仅保存配置" Command="{Binding SaveConfigurationCommand}" Margin="0,0,6,6" />
         <Button Content="刷新" Command="{Binding RefreshCommand}" Margin="0,0,6,6" />
         <Button Content="放弃未保存更改" Command="{Binding ResetConfigurationCommand}" Margin="0,0,6,6" />
       </WrapPanel>
     </StackPanel>
     <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch">
       <StackPanel Spacing="10">
-        <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" IsEnabled="{Binding CanNavigate}" HorizontalAlignment="Stretch" />
+        <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" IsEnabled="{Binding CanNavigate}" PlaceholderText="新连接：填写 Key 后保存，或选择已有连接" HorizontalAlignment="Stretch" />
         <StackPanel Spacing="8" IsEnabled="{Binding CanManage}">
           <TextBox x:Name="ConnectionNameEditor" Text="{Binding Name}" MaxLength="120" PlaceholderText="连接名称" />
-          <ComboBox ItemsSource="{Binding Providers}" ItemTemplate="{StaticResource ProviderChoice}" SelectedItem="{Binding Provider}" HorizontalAlignment="Stretch" />
+          <ComboBox ItemsSource="{Binding Providers}" ItemTemplate="{StaticResource ProviderChoice}" x:Name="ProviderSelector" SelectedItem="{Binding Provider}" HorizontalAlignment="Stretch" />
           <TextBox Text="{Binding Endpoint}" IsVisible="{Binding IsApi}" PlaceholderText="HTTPS API 地址，例如 https://api.deepseek.com" />
           <TextBox Text="{Binding CodexExecutable}" IsVisible="{Binding !IsApi}" PlaceholderText="已登录的 Codex CLI 完整 exe 路径" />
-          <TextBlock Text="分别配置规划、正文与检查模型；API 的当前模型名称请按服务商文档填写。" TextWrapping="Wrap" />
+          <StackPanel Spacing="8" IsVisible="{Binding IsApi}" IsEnabled="{Binding CanManage}">
+            <TextBox x:Name="SecretEditor" Text="{Binding SecretInput}" PasswordChar="●" MaxLength="8192" PlaceholderText="输入新 API Key（不回显已有密钥）" />
+            <CheckBox Content="使用 Windows 当前用户加密保存；不勾选则仅本次会话" IsChecked="{Binding PersistSecret}" />
+            <WrapPanel>
+              <Button Content="保存密钥" Command="{Binding SaveSecretCommand}" Margin="0,0,6,6" />
+              <Button Content="清除已保存密钥" Command="{Binding ClearSecretCommand}" Margin="0,0,6,6" />
+              <Button Content="清空输入" Command="{Binding ClearInputCommand}" />
+            </WrapPanel>
+          </StackPanel>
+          <TextBlock Text="{Binding ProviderHelp}" TextWrapping="Wrap" />
+          <Button Content="恢复当前服务商默认参数" Command="{Binding ApplyProviderDefaultsCommand}" />
           <ItemsControl ItemsSource="{Binding Presets}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="local:PresetEditor">
                 <StackPanel Spacing="6" Margin="0,0,0,12">
                   <TextBlock Text="{Binding Purpose}" FontWeight="SemiBold" />
-                  <TextBox Text="{Binding Model}" PlaceholderText="模型 ID" />
+                  <ComboBox x:Name="ModelSelector" ItemsSource="{Binding ModelChoices}" SelectedItem="{Binding SelectedModel}" HorizontalAlignment="Stretch" />
+                  <Expander Header="自定义模型 ID" HorizontalAlignment="Stretch">
+                    <TextBox Text="{Binding Model}" PlaceholderText="填写服务商支持的模型 ID" />
+                  </Expander>
                   <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="6">
                     <TextBlock Text="输出上限" VerticalAlignment="Center" />
                     <NumericUpDown Grid.Column="1" Value="{Binding MaxOutputTokens}" Minimum="256" Maximum="131072" Increment="256" />
                     <TextBlock Grid.Row="1" Text="推理强度" VerticalAlignment="Center" />
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ReasoningEffort}" PlaceholderText="low / medium / high" />
+                    <ComboBox x:Name="EffortSelector" Grid.Row="1" Grid.Column="1" ItemsSource="{Binding EffortChoices}" SelectedItem="{Binding SelectedEffort}" HorizontalAlignment="Stretch" />
                   </Grid>
                 </StackPanel>
               </DataTemplate>
@@ -50,15 +64,6 @@
         <TextBlock Text="本连接最近 20 条请求（可重开查看候选）" />
         <ComboBox ItemsSource="{Binding RecentRequests}" SelectedItem="{Binding SelectedRequest}" IsEnabled="{Binding CanManage}" HorizontalAlignment="Stretch" />
         <TextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" />
-        <StackPanel Spacing="8" IsVisible="{Binding IsApi}" IsEnabled="{Binding CanManage}">
-          <TextBox x:Name="SecretEditor" Text="{Binding SecretInput}" PasswordChar="●" MaxLength="8192" PlaceholderText="输入新 API Key（不回显已有密钥）" />
-          <CheckBox Content="使用 Windows 当前用户加密保存；不勾选则仅本次会话" IsChecked="{Binding PersistSecret}" />
-          <WrapPanel>
-            <Button Content="保存密钥" Command="{Binding SaveSecretCommand}" Margin="0,0,6,6" />
-            <Button Content="清除已保存密钥" Command="{Binding ClearSecretCommand}" Margin="0,0,6,6" />
-            <Button Content="清空输入" Command="{Binding ClearInputCommand}" />
-          </WrapPanel>
-        </StackPanel>
       </StackPanel>
     </ScrollViewer>
     <TextBlock Grid.Row="2" Text="{Binding Status}" TextWrapping="Wrap" FontSize="12" />

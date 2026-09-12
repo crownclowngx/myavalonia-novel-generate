@@ -80,12 +80,12 @@ def build():
     intro = render(chunks[0].splitlines()[1:])
     digest = hashlib.sha256(source.encode('utf-8')).hexdigest()
     output = f'''<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="source-sha256" content="{digest}"><meta name="description" content="面向普通作者的小说创作工作台使用说明：新书、文风提炼、旧稿续写、手工设定、生成调优，含六张实际界面截图。"><title>网络小说创作工作台 · 用户说明书</title><style>{CSS}</style></head>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="source-sha256" content="{digest}"><meta name="description" content="面向普通作者的小说创作工作台使用说明：新书、文风提炼、旧稿续写、手工设定、生成调优，含七张实际界面截图。"><title>网络小说创作工作台 · 用户说明书</title><style>{CSS}</style></head>
 <body><a class="skip" href="#main">跳转到说明书正文</a><header><a class="brand" href="#start"><span class="monogram" aria-hidden="true">N</span>网络小说创作工作台<span class="topnote">用户说明书</span></a><button class="print" id="print" type="button">打印 / 保存 PDF</button></header>
 <details class="mobile-nav"><summary>打开阅读目录 · 选择使用场景</summary>{toc}</details>
-<div class="shell"><aside><div class="eyebrow">作者使用指南 / V1.0</div>{toc}<div class="aside-note">6 张实际界面截图<br>5 条使用路线<br>支持离线阅读与打印<br><br>适用：2026.09.12 工程候选<br>截图为界面验证演示数据</div></aside><main id="main">
+<div class="shell"><aside><div class="eyebrow">作者使用指南 / V1.1</div>{toc}<div class="aside-note">7 张实际界面截图<br>5 条使用路线<br>支持离线阅读与打印<br><br>适用：2026.09.12 工程候选<br>截图为界面验证演示数据</div></aside><main id="main">
 <section class="hero" id="start"><span class="pill">从第一章开始，逐步完成你的故事</span><h1>把想写的故事，<br>一步步写出来。</h1><p>从一个空白创意，到接着已有章节往下写。这份说明书告诉你：在哪里填写、按什么顺序操作、看到什么结果才算完成。</p><div class="routes">{routes}</div><div class="lead-note">{intro}</div></section>
-{''.join(sections)}<footer><span>网络小说创作工作台 · 用户说明书 v1.0 · 2026-09-12</span><a href="#start">回到开始 ↑</a></footer></main></div>
+{''.join(sections)}<footer><span>网络小说创作工作台 · 用户说明书 v1.1 · 2026-09-12</span><a href="#start">回到开始 ↑</a></footer></main></div>
 <dialog id="image-dialog" aria-labelledby="zoom-title"><div class="zoom-tools"><span id="zoom-title">界面截图</span><button class="print" id="close-image" type="button">关闭 / Esc</button></div><div class="zoom-scroll"><img id="zoom-image" alt=""></div></dialog><script>{JS}</script></body></html>
 '''
     OUTPUT.write_text(output, encoding='utf-8')

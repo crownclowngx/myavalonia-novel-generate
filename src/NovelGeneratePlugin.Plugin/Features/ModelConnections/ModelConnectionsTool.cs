@@ -9,12 +9,49 @@ namespace NovelGeneratePlugin.Features.ModelConnections;
 
 public sealed partial class PresetEditor(string purpose) : ObservableObject
 {
+    private bool _updatingChoices;
     public string Purpose { get; } = purpose;
-    [ObservableProperty] private string _model = "gpt-6-astra";
-    [ObservableProperty] private int _maxOutputTokens = 8192;
+    [ObservableProperty] private string _model = "deepseek-flash";
+    [ObservableProperty] private int _maxOutputTokens = 65536;
     [ObservableProperty] private string _reasoningEffort = "high";
+    public IReadOnlyList<string> ModelChoices { get; private set; } = [];
+    public IReadOnlyList<string> EffortChoices { get; private set; } = [];
+    // 下拉框重建时可能短暂回写 null；选择代理只接受有效项，不能清空已保存的自定义模型。
+    public string? SelectedModel { get => Model; set { if (!_updatingChoices && !string.IsNullOrWhiteSpace(value)) Model = value; } }
+    public string? SelectedEffort { get => ReasoningEffort; set { if (!_updatingChoices && !string.IsNullOrWhiteSpace(value)) ReasoningEffort = value; } }
+    partial void OnModelChanged(string value)
+    {
+        var updating = _updatingChoices; _updatingChoices = true;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(value) && !ModelChoices.Contains(value)) { ModelChoices = [.. ModelChoices, value]; OnPropertyChanged(nameof(ModelChoices)); }
+            OnPropertyChanged(nameof(SelectedModel));
+        }
+        finally { _updatingChoices = updating; }
+    }
+    partial void OnReasoningEffortChanged(string value) => OnPropertyChanged(nameof(SelectedEffort));
+    public void ConfigureChoices(ModelProvider provider)
+    {
+        _updatingChoices = true;
+        try
+        {
+            // 一次替换完整选项，避免 Clear/Add 让真实 ComboBox 在刷新时丢失当前选择。
+            ModelChoices = ConnectionDefaults.Models(provider).Append(Model).Where(m => !string.IsNullOrWhiteSpace(m)).Distinct().ToArray();
+            // 保留旧连接 medium 等已验证兼容值，不因加载表单而迁移用户配置。
+            EffortChoices = ConnectionDefaults.Efforts(provider).Append(ReasoningEffort).Distinct().ToArray();
+            OnPropertyChanged(nameof(ModelChoices)); OnPropertyChanged(nameof(EffortChoices));
+            OnPropertyChanged(nameof(SelectedModel)); OnPropertyChanged(nameof(SelectedEffort));
+        }
+        finally { _updatingChoices = false; }
+    }
     public ModelPreset Capture() => new(Model.Trim(), MaxOutputTokens, ReasoningEffort.Trim());
-    public void Load(ModelPreset preset) { Model = preset.Model; MaxOutputTokens = preset.MaxOutputTokens; ReasoningEffort = preset.ReasoningEffort; }
+    public void Load(ModelPreset preset)
+    {
+        // 切换服务商时旧下拉控件会同步回写旧值；批量载入期间只发布新值，不接受这些回写。
+        _updatingChoices = true;
+        try { Model = preset.Model; MaxOutputTokens = preset.MaxOutputTokens; ReasoningEffort = preset.ReasoningEffort; }
+        finally { _updatingChoices = false; }
+    }
 }
 /// <summary>共享连接表单。密钥是短暂输入字段，保存或显式清空后立即清除，不从服务取回已有 Key。</summary>
 public sealed partial class ModelConnectionsTool : ObservableObject, IClosePreparation, IAsyncDisposable, IDisposable
@@ -38,6 +75,7 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         _shutdown = shutdown;
         _requests = requests;
         foreach (var preset in Presets) preset.PropertyChanged += (_, _) => MarkDirty();
+        Load(null);
     }
     public ObservableCollection<ModelConnection> Connections { get; } = [];
     public ObservableCollection<ModelRequestEntry> RecentRequests { get; } = [];
@@ -49,9 +87,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     public IReadOnlyList<PresetEditor> Presets { get; } = [new("规划"), new("正文"), new("检查")];
     public IReadOnlyList<ModelProvider> Providers { get; } = Enum.GetValues<ModelProvider>();
     [ObservableProperty] private ModelConnection? _selectedConnection;
-    [ObservableProperty] private string _name = "Codex 开发验证";
-    [ObservableProperty] private ModelProvider _provider;
-    [ObservableProperty] private string _endpoint = "";
+    [ObservableProperty] private string _name = "DeepSeek 默认连接";
+    [ObservableProperty] private ModelProvider _provider = ModelProvider.DeepSeek;
+    [ObservableProperty] private string _endpoint = "https://api.deepseek.com";
     [ObservableProperty] private string _codexExecutable = "";
     [ObservableProperty] private string _secretInput = "";
     [ObservableProperty] private bool _persistSecret;
@@ -67,11 +105,37 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     public bool CanCancelProbe => _probeCancellation is not null;
     [ObservableProperty] private string _probeResult = "生成检测会发送一条简短样本并消耗当前连接的套餐额度或 API 用量；启动与刷新凭据不会生成。Codex 输出 token 上限为软目标及事后校验。";
     public bool IsApi => Provider == ModelProvider.DeepSeek;
+    public string ProviderHelp => IsApi
+        ? "新连接已预填 DeepSeek 参数；已有连接可点下方按钮恢复默认。填写 API Key 后保存连接。思考：none 关闭，low 低，high 默认，max 最大；输出上限含思考与正文，本工作台最多允许 131072 token。"
+        : "Codex 使用本机已登录 CLI，请填写 exe 完整路径；推理强度支持 low / medium / high。";
     public Task InitializeAsync() => _initialization ??= RunAsync(() => RefreshCoreAsync(null));
     partial void OnNameChanged(string value) => MarkDirty();
     partial void OnEndpointChanged(string value) => MarkDirty();
     partial void OnCodexExecutableChanged(string value) => MarkDirty();
-    partial void OnProviderChanged(ModelProvider value) { MarkDirty(); OnPropertyChanged(nameof(IsApi)); }
+    partial void OnProviderChanged(ModelProvider value)
+    {
+        if (!_loading)
+        {
+            // 用户主动切换服务商才应用新服务商参数；读取已有连接绝不能触发默认值覆盖。
+            SecretInput = "";
+            ApplyDefaultsCore(value);
+            MarkDirty();
+        }
+        OnPropertyChanged(nameof(IsApi)); OnPropertyChanged(nameof(ProviderHelp));
+    }
+    private void ApplyDefaultsCore(ModelProvider provider)
+    {
+        var defaults = ConnectionDefaults.Create(provider);
+        if (Name is "Codex 开发验证" or "DeepSeek 默认连接" || string.IsNullOrWhiteSpace(Name)) Name = defaults.Name;
+        Endpoint = defaults.Endpoint;
+        foreach (var preset in Presets) { preset.Load(defaults.Planning); preset.ConfigureChoices(provider); }
+    }
+    [RelayCommand(CanExecute = nameof(CanManage))]
+    private void ApplyProviderDefaults()
+    {
+        // 恢复参数保留待提交 Key；凭据仍由服务按实际认证端点隔离。保存前不改变持久化配置。
+        ApplyDefaultsCore(Provider); MarkDirty(); Status = "已填入当前服务商默认参数，请保存连接；已有作品仍需明确重新绑定。";
+    }
     partial void OnSecretInputChanged(string value) { if (!_loading && value.Length > 0) EnsureCloseRegistration(); _secretGeneration++; NotifyCommands(); }
     partial void OnIsBusyChanged(bool value) => NotifyCommands();
     private void MarkDirty() { if (!_loading) { EnsureCloseRegistration(); _edited++; Status = "配置有未保存更改。端点变更后需重新配置密钥。"; NotifyCommands(); } }
@@ -80,6 +144,7 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         OnPropertyChanged(nameof(IsDirty)); OnPropertyChanged(nameof(CanManage)); OnPropertyChanged(nameof(CanNavigate)); OnPropertyChanged(nameof(CanUseSaved));
         NewConnectionCommand.NotifyCanExecuteChanged(); SaveConfigurationCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged();
         ResetConfigurationCommand.NotifyCanExecuteChanged(); SaveSecretCommand.NotifyCanExecuteChanged(); ClearSecretCommand.NotifyCanExecuteChanged();
+        SaveConnectionCommand.NotifyCanExecuteChanged(); ApplyProviderDefaultsCommand.NotifyCanExecuteChanged();
         MakeDefaultCommand.NotifyCanExecuteChanged(); ClearDefaultCommand.NotifyCanExecuteChanged(); ClearInputCommand.NotifyCanExecuteChanged();
         ProbeCommand.NotifyCanExecuteChanged(); CancelProbeCommand.NotifyCanExecuteChanged(); OnPropertyChanged(nameof(CanProbe)); OnPropertyChanged(nameof(CanCancelProbe));
     }
@@ -99,10 +164,11 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         {
             _current = connection; var settings = connection?.Settings;
             SelectedRequest = null; RecentRequests.Clear();
-            Name = settings?.Name ?? "Codex 开发验证"; Provider = settings?.Provider ?? ModelProvider.CodexCli;
-            Endpoint = settings?.Endpoint ?? ""; CodexExecutable = settings?.CodexExecutable ?? "";
-            var defaultPreset = new ModelPreset("gpt-6-astra", 8192, "high");
-            Presets[0].Load(settings?.Planning ?? defaultPreset); Presets[1].Load(settings?.Drafting ?? defaultPreset); Presets[2].Load(settings?.Checking ?? defaultPreset);
+            var defaults = ConnectionDefaults.Create(ModelProvider.DeepSeek);
+            Name = settings?.Name ?? defaults.Name; Provider = settings?.Provider ?? defaults.Provider;
+            Endpoint = settings?.Endpoint ?? defaults.Endpoint; CodexExecutable = settings?.CodexExecutable ?? "";
+            Presets[0].Load(settings?.Planning ?? defaults.Planning); Presets[1].Load(settings?.Drafting ?? defaults.Drafting); Presets[2].Load(settings?.Checking ?? defaults.Checking);
+            foreach (var preset in Presets) preset.ConfigureChoices(Provider);
             SecretInput = ""; _edited = _saved = 0; CredentialStatus = connection is null ? "未选择连接" : "请刷新凭据状态";
         }
         finally { _loading = false; }
@@ -142,6 +208,21 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private void NewConnection() { _loading = true; try { SelectedConnection = null; } finally { _loading = false; } Load(null); }
     [RelayCommand(CanExecute = nameof(CanManage))]
     private Task SaveConfiguration() => RunAsync(SaveCoreAsync);
+    [RelayCommand(CanExecute = nameof(CanManage))]
+    private Task SaveConnection() => RunAsync(async () =>
+    {
+        // 一个入口依次保存公开配置和独立凭据；保留原有分步命令供只修改模型的用户使用。
+        // 保存期间的新 Key 输入不能被此次操作误用或清空，失败时输入也必须保留供重试。
+        var input = SecretInput; var generation = _secretGeneration; var persist = PersistSecret;
+        await SaveCoreAsync();
+        if (_current!.Settings.Provider == ModelProvider.DeepSeek && input.Length > 0)
+        {
+            await _service.SetSecretAsync(ConnectionService.Bind(_current!), input, persist);
+            if (_secretGeneration == generation) SecretInput = "";
+            await UpdateCredentialStatusAsync();
+            Status = "连接配置与本次输入的 API Key 已保存；请在本书明确绑定此配置。";
+        }
+    });
     private async Task SaveCoreAsync()
     {
         if (!IsDirty && _current is not null) return;
