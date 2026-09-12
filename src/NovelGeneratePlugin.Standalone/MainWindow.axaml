@@ -1,0 +1,3 @@
+<Window x:Class="NovelGeneratePlugin.Standalone.MainWindow" xmlns="https://github.com/avaloniaui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Width="1250" Height="850" MinWidth="760" MinHeight="550"
+ Title="小说创作 · 开发预览"><ContentControl x:Name="PreviewHost" /></Window>

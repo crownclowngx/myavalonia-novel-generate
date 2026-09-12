@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ManagedPlugin>true</ManagedPlugin>
+    <ManagedPluginId>myavalonia.plugin.novel.generate</ManagedPluginId>
+    <ManagedPluginDirectoryName>NovelGeneratePlugin</ManagedPluginDirectoryName>
+    <PluginVersion>1.0.0</PluginVersion>
+    <ManagedPluginRuntimeIdentifier>win-x64</ManagedPluginRuntimeIdentifier>
+    <ManagedPluginEntryType>NovelGeneratePlugin.Plugin.NovelGeneratePluginModule</ManagedPluginEntryType>
+    <ManagedPluginSdkMinInclusive>3.4.0</ManagedPluginSdkMinInclusive>
+    <ManagedPluginSdkMaxExclusive>4.0.0</ManagedPluginSdkMaxExclusive>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="MyAvaloniaManagement.Plugin.Build" PrivateAssets="all" />
+    <PackageReference Include="MyAvaloniaManagement.PluginSdk" />
+    <PackageReference Include="MyAvaloniaManagement.Icons" />
+    <ManagedPluginPrivatePackage Include="MyAvaloniaManagement.Icons" />
+    <PackageReference Include="MyAvaloniaManagement.PluginSdk.UI" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,146 @@
+[
+  {
+    "path": "Directory.Build.props",
+    "sha256": "5378aa0eac80522f0b89fe18002c5aba5096f4f6c59035d65683350fb98c32e3"
+  },
+  {
+    "path": "Directory.Packages.props",
+    "sha256": "0024335c79fef32ed4a89786f9b74da71ad4e95e3293804000b0b93cf2f2a50a"
+  },
+  {
+    "path": "LICENSE",
+    "sha256": "7ab5b49c4389eb819d429734ea0a64785fe7639d318ce65715ed6d8477382be7"
+  },
+  {
+    "path": "NovelGeneratePlugin.slnx",
+    "sha256": "05aeb4578bbf75f08959360baa0edd7be6eeb02f485943d1b88effc5e6d72485"
+  },
+  {
+    "path": "README.md",
+    "sha256": "73a27f22a1fa50dc5319ca252ba8209734402ae5b472eb1df5107536a3be8ae7"
+  },
+  {
+    "path": "docs/deployment-and-release.md",
+    "sha256": "74880451d29637c33ba8cbf5fe9d92d4bcaa9a6a98779ca6b7af393c0eac311c"
+  },
+  {
+    "path": "docs/implementation-plan.md",
+    "sha256": "de799468bd7b4c192af75c4133fecbf7aa6d4ce25b81424e62f48de02d969db1"
+  },
+  {
+    "path": "docs/plugin-icons.md",
+    "sha256": "c67dacfca4b63b82ab27f53fc32cfd16c023df2a2ca928ca0ad0298dc4768e58"
+  },
+  {
+    "path": "docs/project-and-window-responsibilities.md",
+    "sha256": "748d5e962fd855316624c125e894bb61cd61c7c90943792d06b804d6263c28ab"
+  },
+  {
+    "path": "docs/README.md",
+    "sha256": "3c0cf6bf490144ae210090727db204e40ba4e90d136042e57b965439d8a3b8bb"
+  },
+  {
+    "path": "docs/workbench-commands.md",
+    "sha256": "8c37a6309cd016d93c4c4597d61c9af9a5c86a2213f7bd483b2928dbc0523595"
+  },
+  {
+    "path": "docs/workflow-actions.md",
+    "sha256": "8a4bfc8b5cf3097721e9bb175beaf344f6999666f0cfccbf81f995b7caad5c03"
+  },
+  {
+    "path": "tests/NovelGeneratePlugin.Tests/MainDocumentTests.cs",
+    "sha256": "d20fe4cf36c233a8cbcf73454e2bcacb398f365e52cd1f6786d4aa760916c5ab"
+  },
+  {
+    "path": "tests/NovelGeneratePlugin.Tests/NovelGeneratePlugin.Tests.csproj",
+    "sha256": "1d403d25bf6210a9e6e974e95de47138525a47c8f0a8900dea24bdd47ad43f66"
+  },
+  {
+    "path": "tests/NovelGeneratePlugin.Tests/packages.lock.json",
+    "sha256": "b206ada3646f846fea3646209feef71dd21ac3221272c063b3de4cb6bcdea161"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/NovelGeneratePlugin.Plugin.csproj",
+    "sha256": "fe30c0c09234bb7c8777edf41c6c45ce322f2a89490c3a05a715eef1cc6fab8e"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/packages.lock.json",
+    "sha256": "bb9b86c07880b749dec07559310d388b6e5ba8a667f14cd673286bcb68ed72f8"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/App.axaml",
+    "sha256": "f8bf77f781e6df8c5d69763f91467c152950488671540b0bcfa3b851a4ded481"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/App.axaml.cs",
+    "sha256": "768a190241c1307f89e0a7634b4f08602874274aecfac224fdee316b92273153"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/MainWindow.axaml",
+    "sha256": "1df676e97911c2a49877414d9d2c678bcbfdb012e228c47ccd5f2d87f6084ecc"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/MainWindow.axaml.cs",
+    "sha256": "c3d4ed55dd3c4768a65637ff4b1d5e36609c866fbc3c34e55bdc71879232a424"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/NovelGeneratePlugin.Standalone.csproj",
+    "sha256": "56f97ac81c4bde7490855306e380382c3f4de76296b103ee49a631a3e9222ff7"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/packages.lock.json",
+    "sha256": "b1e21baf8d854e7649333be226dc7b10a9c0798f86ec695135a21380d080b547"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Standalone/Program.cs",
+    "sha256": "51f1c3677def598efbe4de9396ff5c3e73b326663d9306d58876ff1aee546555"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Constants/PluginIds.cs",
+    "sha256": "bfdf78ac476e0b3159bfb3c3117bb5e82817f7b8eddbcd542dd376e02d81136a"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Plugin/NovelGeneratePluginModule.cs",
+    "sha256": "0fd8330e159fca7383662fa02cfd71b2c04440e6989680f46d0cfdb7805a3469"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Plugin/NovelGeneratePluginServices.cs",
+    "sha256": "c76ac1baa6d0f6e27d421dac2ee3f57aa1710ffe82f39f87b815455619a3caf8"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Features/Main/MainDocument.cs",
+    "sha256": "4d4a166b6a28a71949c0966203af8e2dac9343e0a3a6b35329c46a9a75dc77e1"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Features/Main/MainView.axaml",
+    "sha256": "8a97ec664f74b3a916db3fd09a5b23de9c3a5a9f8ab604d53d5a9f8d0e96368b"
+  },
+  {
+    "path": "src/NovelGeneratePlugin.Plugin/Features/Main/MainView.axaml.cs",
+    "sha256": "a12028dc6bbfd04f819a04c989ff0478daa6bfb9c5f6dd7393dd90f63b8894ac"
+  },
+  {
+    "path": "docs/design/novel-generation-plugin-design.md",
+    "sha256": "382e0e10ce8581dce7949a269c597c601c9b0637e34fc80038e86c37c930c7ef"
+  },
+  {
+    "path": "docs/product/novel-generation-product-requirements.html",
+    "sha256": "04e20d48c389dbcb7bbc035db8b21662647a865c09491c7b629a64f229c9066c"
+  },
+  {
+    "path": "docs/product/novel-generation-product-requirements.md",
+    "sha256": "bae008f647af64965ebda94ac10ac4f5e00f36d41a6275a9861abb490d661cbd"
+  },
+  {
+    "path": "docs/product/render-product-html.py",
+    "sha256": "12c1d68c4847c79fb7582aa8231f9e98e65883decf545be1e844651c1be767e5"
+  },
+  {
+    "path": "docs/refactoring/quality-baseline.md",
+    "sha256": "c46159c13e97425938d5a2452a052661704687471ea4d441ef402c46ef326a43"
+  },
+  {
+    "path": "docs/refactoring/README.md",
+    "sha256": "72c035d9a948880228efc16c00afb74e93695f178ea9c48dd9b43b2aa60abd77"
+  }
+]

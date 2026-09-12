@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/artifacts/
+artifacts/
+**/__pycache__/
+.vs/
+*.user
+*.noveldb*

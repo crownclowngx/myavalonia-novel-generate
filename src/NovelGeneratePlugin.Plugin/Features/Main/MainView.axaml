@@ -1,0 +1,12 @@
+<UserControl x:Class="NovelGeneratePlugin.Features.Main.MainView"
+ xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:vm="using:NovelGeneratePlugin.Features.Main" x:DataType="vm:MainDocument">
+ <ScrollViewer><StackPanel Margin="32" Spacing="18" MaxWidth="850" HorizontalAlignment="Stretch">
+  <TextBlock Text="网络小说创作工作台" FontSize="28" FontWeight="SemiBold" />
+  <TextBlock Text="从创意开始，逐步形成可审阅的长篇作品。" TextWrapping="Wrap" />
+  <TextBlock Text="书名" /><TextBox Text="{Binding BookTitle}" />
+  <TextBlock Text="创意与主角方向" /><TextBox Text="{Binding Idea}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" />
+  <StackPanel Orientation="Horizontal" Spacing="10"><Button Content="新建小说项目" IsEnabled="False"/><Button Content="打开已有项目" IsEnabled="False"/></StackPanel>
+  <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+ </StackPanel></ScrollViewer>
+</UserControl>

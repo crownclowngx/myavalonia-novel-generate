@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="网络小说创作工作台产品需求文档：用户场景、交互示意、自动创作流程、11 组功能需求与产品验收。"><meta name="source-sha256" content="d0efdfc261476609c6c076c1566b9be763b64b0e3b097ba9ecf9878ccdb20e25"><title>网络小说创作工作台 · 产品需求文档</title><style>
+:root{--paper:#f7f8f5;--white:#fff;--ink:#253731;--muted:#626e67;--line:#dce3dc;--green:#21664f;--wash:#e8f1e9;--amber:#896024;--amber-wash:#faf1df;--serif:'Noto Serif SC','Source Han Serif SC','Songti SC','SimSun',serif;--sans:Inter,'Segoe UI','Microsoft YaHei',sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:88px}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.85 var(--sans)}button,a,input{ -webkit-tap-highlight-color:transparent}button{font:inherit;cursor:pointer}a{color:var(--green);text-underline-offset:4px}button:focus-visible,a:focus-visible{outline:3px solid #b88434;outline-offset:4px}button:disabled{cursor:default}::selection{background:#d1e4d5}p{margin:14px 0}h1,h2,h3{line-height:1.5}h2{font-size:26px;letter-spacing:-.5px;margin:0 0 26px}h3{font-size:18px;margin:30px 0 14px}code{font:13px/1.6 Consolas,monospace;background:#edf0ea;padding:3px 5px;border-radius:4px;overflow-wrap:anywhere}strong{font-weight:650}ol,ul{padding-left:24px}li{padding-left:4px;margin:10px 0}small{font-size:12px}.skip{position:absolute;left:16px;top:-100px;z-index:10}.skip:focus{top:15px;background:#fff;padding:10px}.topbar{position:sticky;top:0;z-index:8;height:68px;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:20px;border-bottom:1px solid var(--line);background:#fcfdfb}.brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--ink)}.brand-mark{background:var(--green);color:#fff;width:32px;height:36px;display:grid;place-items:center;font:24px var(--serif);border-radius:3px 8px 8px 3px}.brand strong{font-size:14px;letter-spacing:1px}.brand small{font-size:10px;color:var(--muted);letter-spacing:1.7px;display:block;line-height:1.4}.top-actions{display:flex;align-items:center;gap:20px;font-size:12px}.plain-button{border:1px solid var(--line);background:white;color:var(--ink);border-radius:5px;padding:7px 13px}.status-chip{font-size:11px;color:var(--amber);background:var(--amber-wash);border:1px solid #e9d8b3;border-radius:4px;padding:3px 8px;white-space:nowrap}.layout{max-width:1570px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr)}.sidebar{padding:34px 20px 24px 30px;position:sticky;top:68px;height:calc(100vh - 68px);overflow:auto;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:24px}.nav-kicker,.eyebrow{font-size:11px;font-weight:600;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted)}.nav-kicker{margin:0 0 12px}.toc{display:grid;gap:3px}.toc a{text-decoration:none;color:var(--muted);padding:7px 10px;border-left:2px solid transparent;font-size:12px;line-height:1.6}.toc a span{font:11px Consolas,monospace;color:#7f8e83;margin-right:9px}.toc a:hover{background:#edf1eb}.toc a.active{background:var(--wash);border-left-color:var(--green);color:var(--green)}.side-note{margin-top:auto;padding:17px 10px 0;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.reading-line{height:3px;background:#e3e9e0;margin:14px 0 7px}.reading-line span{display:block;height:100%;background:var(--green);width:0}.content{min-width:0;padding:0 54px 50px}.hero{padding:58px 0 40px;border-bottom:1px solid var(--line)}.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:35px;align-items:center}.eyebrow{color:var(--green);display:flex;align-items:center;gap:12px}.eyebrow:before{content:'';width:24px;height:1px;background:var(--green)}h1{font:500 clamp(33px,3.6vw,53px)/1.45 var(--serif);letter-spacing:1px;margin:20px 0}.hero-lead{color:var(--muted);font-size:15px;max-width:600px}.hero-flow{padding:25px 0 25px 28px;border-left:1px solid var(--line)}.hero-flow-item{display:flex;gap:16px;align-items:center}.hero-flow-item>span{font:italic 25px var(--serif);color:#a3afa3}.hero-flow-item b{display:block;font-size:14px;font-weight:600}.hero-flow-item small{color:var(--muted);font-size:11px}.hero-flow .down{color:#91a591;margin:7px 0 7px 44px}.meta-strip{display:flex;gap:24px;flex-wrap:wrap;margin-top:30px;padding-top:23px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.meta-strip b{font-size:20px;color:var(--ink);font-weight:500;margin-right:7px}.hero-caption{margin:24px 0 0;display:flex;gap:12px;align-items:center;color:var(--muted);font-size:12px}.intro{margin-top:28px;padding:23px 26px;background:#eef2ea;border-left:3px solid #869e79;font-size:13px}.intro p:first-child{margin-top:0}.intro p:last-child{margin-bottom:0}.intro p:first-child{font-size:12px;color:var(--muted)}.doc-section{padding-top:52px;margin-top:4px}.doc-section+.doc-section{border-top:1px solid var(--line);margin-top:45px}.section-count{font-size:10px;letter-spacing:2px;color:var(--green);display:block;margin-bottom:9px}.table-wrap{width:100%;overflow-x:auto;margin:24px 0;border:1px solid var(--line);border-radius:7px;background:#fff}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.8}th{text-align:left;font-size:12px;font-weight:650;background:#edf2eb;color:#385343;white-space:normal}th,td{padding:14px 17px;border-bottom:1px solid #e4e9e2;vertical-align:top}td:first-child{font-weight:550;min-width:100px}tr:last-child td{border-bottom:0}tbody tr:nth-child(even){background:#fbfcf9}td a{overflow-wrap:anywhere}.requirement{padding:24px 28px;border:1px solid var(--line);border-radius:7px;margin:20px 0;background:#fff;position:relative}.requirement h3{margin:0 0 16px;font-size:17px;padding-right:2px}.requirement .req-phase{display:block;color:var(--green);font-size:11px;font-weight:500;margin-top:5px;letter-spacing:.1px}.requirement p{font-size:14px}.requirement p:last-child{font-size:12px;border-top:1px solid var(--line);padding-top:14px;margin-bottom:0;color:#50664f}.requirement .table-wrap{border-radius:3px}.figure{margin:28px 0 32px}.figure-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:18px}.figure-index{font:11px Consolas,monospace;color:var(--green);display:block;margin-bottom:4px}.figure-title{margin:0;font:500 22px/1.5 var(--serif)}.figure-desc{font-size:12px;color:var(--muted);margin:5px 0 0}.figure-note{font-size:11px;color:var(--muted);margin-top:12px}.switcher{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border:1px solid var(--line);background:#edf1ea;border-radius:6px}.switcher button{border:0;background:transparent;color:#536250;padding:7px 12px;font-size:12px;border-radius:4px}.switcher button[aria-selected=true]{background:#fff;color:var(--green);box-shadow:0 1px 4px #25373115}.prototype{border:1px solid #ccd6cc;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 18px 36px #233a2010}.app-top{background:#edf1eb;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;font-size:11px;gap:10px}.app-top .app-name{font-weight:600}.app-top small{color:var(--muted);font-size:10px}.app-tabs{display:flex;border-bottom:1px solid var(--line);background:#f7f9f5;font-size:11px;padding:0 14px;gap:22px}.app-tabs span{padding:11px 0}.app-tabs span:first-child{border-bottom:2px solid var(--green);color:var(--green)}.workspace{display:grid;grid-template-columns:155px minmax(0,1fr) 195px;min-height:390px}.book-nav{background:#fafbf8;border-right:1px solid var(--line);padding:20px 12px}.mini-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.book-nav h4{font-size:12px;margin:10px 7px 20px}.chapter-button{display:block;border:0;width:100%;text-align:left;background:none;color:#586850;font-size:11px;line-height:1.8;padding:10px 8px;border-radius:4px;margin-bottom:6px}.chapter-button small{display:block;color:var(--muted);font-size:10px}.chapter-button[aria-pressed=true]{background:var(--wash);color:var(--green)}.manuscript{padding:24px 28px;min-width:0}.chapter-meta{display:flex;gap:8px;font-size:10px;color:var(--muted);align-items:center}.mini-tag{font-size:10px;background:var(--wash);color:var(--green);padding:2px 6px;border-radius:3px}.manuscript h4{font:500 24px/1.6 var(--serif);margin:24px 0 18px}.sample-copy{font:14px/2.2 var(--serif);color:#425043}.sample-copy p{margin:13px 0}.sample-copy mark{background:#f5e7be;color:inherit;padding:2px}.excerpt-note{font-size:10px;color:#71816f;margin-top:24px}.inspector{border-left:1px solid var(--line);background:#f9fbf7;padding:20px 15px}.inspector h5{font-size:11px;margin:0 0 17px}.rule-row{font-size:10px;border-bottom:1px solid var(--line);padding:9px 0;display:flex;justify-content:space-between;gap:8px}.rule-row span:last-child{color:var(--green)}.review-issue{font-size:11px;line-height:1.8;padding:12px;margin-top:20px;background:var(--amber-wash);border-left:2px solid #c39544}.review-issue b{display:block;color:var(--amber);font-size:11px;margin-bottom:6px}.review-issue.clear{background:var(--wash);border-color:var(--green)}.review-issue.clear b{color:var(--green)}.app-status{padding:9px 14px;font-size:10px;color:#597150;display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);background:#f3f7ef}.dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--green);margin-right:5px}.dot.amber{background:var(--amber)}.tool-content{padding:26px;min-height:437px}.tool-heading{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:20px}.tool-heading h4{font-size:20px;font-family:var(--serif);font-weight:500;margin:0}.tool-heading p{font-size:12px;color:var(--muted);margin:5px 0}.display-action{background:var(--green);color:#fff;border-radius:4px;padding:7px 12px;font-size:11px;white-space:nowrap}.template-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}.template-card{border:1px solid var(--line);padding:20px;border-radius:5px}.template-card.active{border-color:#82a08a;background:#f7faf4}.book-spine{height:65px;width:47px;background:#457b61;box-shadow:inset 5px 0 0 #00000017;border-radius:2px 6px 6px 2px;color:#fff;display:grid;place-items:center;font:19px var(--serif);margin-bottom:19px}.book-spine.gold{background:#a18b55}.book-spine.gray{background:#748483}.template-card h5{font-size:12px;margin:0 0 8px}.template-card p{font-size:11px;color:var(--muted);line-height:1.8;min-height:56px}.tiny-tags{display:flex;gap:5px;flex-wrap:wrap;font-size:9px;color:var(--green)}.tiny-tags span{padding:2px 5px;background:var(--wash)}.template-card footer{border-top:1px solid var(--line);padding-top:12px;margin-top:15px;font-size:10px;color:var(--muted)}.tool-bottom{font-size:11px;color:var(--muted);padding-top:19px}.connection-layout{display:grid;grid-template-columns:170px 1fr;gap:26px}.connection-choice{background:var(--wash);padding:14px;font-size:12px;border-radius:5px;color:var(--green)}.connection-choice small{display:block;font-size:10px;color:var(--muted);margin-top:7px}.connection-fields{display:grid;grid-template-columns:1fr 1fr;gap:17px}.field-label{font-size:10px;color:var(--muted);display:block;margin-bottom:6px}.field-value{padding:9px 11px;border:1px solid var(--line);border-radius:4px;font-size:12px;background:#fafbf8;overflow-wrap:anywhere}.field.full{grid-column:1/-1}.connection-note{font-size:11px;padding:13px;background:var(--wash);color:#496d48;margin-top:18px}.flow-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;background:#edf2ea;padding:26px;border-radius:7px}.flow-card{position:relative;background:#fff;border-top:3px solid #72936c;padding:20px 17px;min-height:150px}.flow-card:not(:last-child):after{content:'→';position:absolute;right:-19px;top:60px;color:#76906f}.flow-card span{font:12px Consolas,monospace;color:#7f9773}.flow-card h4{font-size:14px;margin:10px 0 8px}.flow-card p{font-size:11px;line-height:1.8;color:var(--muted);margin:0}.flow-card.human{border-top-color:#b89150;background:#fffaf0}.flow-sub{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:16px 24px;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;font-size:12px}.flow-sub b{display:block;font-size:11px;color:var(--green)}.flow-sub>div:last-child b{color:var(--amber)}.asset-diagram{display:grid;grid-template-columns:1fr 74px 1.35fr;gap:15px;align-items:center;border:1px solid var(--line);background:#fff;border-radius:7px;padding:28px}.asset-source{border:1px solid #aec3aa;background:#f1f6ed;padding:25px 22px;border-radius:5px}.asset-source h4{margin:7px 0 15px;font-size:16px;font-family:var(--serif);font-weight:500}.asset-source p{font-size:12px;line-height:2;margin:0;color:var(--muted)}.asset-arrow{text-align:center;color:var(--green);font-size:24px}.asset-arrow small{font:10px/1.7 var(--sans);display:block;color:var(--muted)}.asset-books{display:grid;gap:14px}.asset-book{border:1px solid var(--line);border-left:3px solid #759a73;padding:14px 18px;font-size:13px}.asset-book:last-child{border-left-color:#b49963}.asset-book b{display:block;margin-bottom:5px}.asset-book small{font-size:11px;color:var(--muted)}.version-flow{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;padding:26px;background:#fff;border:1px solid var(--line);border-radius:6px}.version-item{position:relative}.version-item:not(:last-child):after{content:'→';position:absolute;right:-22px;top:25px;color:#8d9b83}.version-item>small{font-size:10px;color:var(--muted)}.version-item h4{font:500 21px var(--serif);margin:9px 0 10px}.version-item p{font-size:12px;margin:0;color:var(--muted)}.version-item .state-label{font-size:10px;display:inline-block;color:var(--green);background:var(--wash);padding:2px 6px;margin-top:14px}.version-item:last-child .state-label{color:var(--amber);background:var(--amber-wash)}.roadmap{display:grid;grid-template-columns:repeat(4,1fr);margin:27px 0 32px;gap:20px}.roadmap-item{border-top:2px solid #c6d3c0;padding-top:19px}.roadmap-item.focus{border-top-color:var(--green)}.roadmap-item span{font:26px var(--serif);color:#809278}.roadmap-item.focus span{color:var(--green)}.roadmap-item h4{font-size:13px;margin:10px 0}.roadmap-item p{font-size:11px;color:var(--muted);line-height:1.9;margin:0}.roadmap-item small{font-size:10px;color:var(--green);display:block;margin-top:12px}.page-footer{margin-top:50px;padding:24px 0;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;font-size:11px;color:var(--muted)}[hidden]{display:none!important}.mobile-nav{display:none}details>summary{cursor:pointer}.screen-reader{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+@media(min-width:1500px){.content{padding-left:68px;padding-right:68px}}
+@media(max-width:1150px){.layout{grid-template-columns:205px minmax(0,1fr)}.sidebar{padding:26px 12px 20px 18px}.content{padding-left:30px;padding-right:30px}.hero-grid{grid-template-columns:1fr}.hero-flow{display:none}.workspace{grid-template-columns:130px minmax(0,1fr)}.inspector{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:16px}.inspector .review-issue{margin-top:0}.inspector h5{margin-bottom:6px}.workspace{min-height:0}.manuscript{min-height:320px}.flow-grid{gap:20px;padding:20px}.flow-card{padding:15px 12px}.flow-card:not(:last-child):after{right:-17px}.figure-head{flex-direction:column}.template-card{padding:15px}.app-top{flex-wrap:wrap}}
+@media(max-width:820px){.layout{display:block}.sidebar{display:none}.content{padding:0 25px 35px}.topbar{height:62px;padding:0 22px}.top-actions{gap:12px}.top-actions>a{display:none}.mobile-nav{display:block;position:sticky;top:62px;z-index:7;background:#fcfdfb;border-bottom:1px solid var(--line);padding:10px 24px;font-size:12px}.mobile-nav nav{padding:13px 0;display:grid;grid-template-columns:1fr 1fr;gap:8px}.mobile-nav nav a{color:var(--muted);text-decoration:none}.hero{padding-top:37px}.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 175px;gap:23px}.hero-flow{display:block;padding-left:20px}.hero-flow-item{gap:9px}.hero-flow-item b{font-size:12px}.hero-flow-item small{font-size:10px}.hero-flow-item>span{font-size:20px}h1{font-size:36px}.hero-lead{font-size:13px}html{scroll-padding-top:120px}.doc-section{scroll-margin-top:8px}.template-card p{min-height:0}}
+@media(max-width:560px){body{font-size:14px}.topbar{padding:0 16px}.brand strong{font-size:12px}.brand small{font-size:8px}.top-actions .status-chip{display:none}.plain-button{font-size:11px;padding:6px 9px}.content{padding-left:17px;padding-right:17px}.hero-grid{grid-template-columns:1fr}.hero-flow{display:none}h1{font-size:34px}.hero{padding-top:31px}.hero-caption{align-items:start}.meta-strip{gap:15px}.meta-strip b{font-size:17px}.intro{padding:17px;font-size:12px}.intro code{font-size:11px}.doc-section{padding-top:35px}h2{font-size:22px;margin-bottom:20px}h3{font-size:16px}.requirement{padding:19px 18px}.requirement h3{font-size:16px}.requirement p{font-size:13px}.table-wrap table{min-width:570px}.figure-title{font-size:21px}.workspace{grid-template-columns:1fr}.book-nav{border-right:0;border-bottom:1px solid var(--line);padding:10px}.book-nav h4{margin:5px 0 10px}.book-nav .chapter-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.chapter-button{font-size:10px;padding:7px;margin:0}.chapter-button small{font-size:9px}.book-nav .mini-label{display:none}.manuscript{padding:22px;min-height:0}.manuscript h4{font-size:22px;margin:18px 0 12px}.sample-copy{font-size:13px}.inspector{grid-template-columns:1fr;padding:16px;gap:12px}.rule-row{padding:6px 0}.app-status{align-items:start;flex-direction:column;gap:3px}.app-tabs{gap:15px;flex-wrap:wrap}.app-top{padding:10px 12px}.tool-content{padding:19px;min-height:0}.tool-heading{align-items:start;gap:10px}.tool-heading h4{font-size:18px}.tool-heading p{font-size:11px}.display-action{font-size:10px;padding:5px 8px}.template-grid{grid-template-columns:1fr}.template-card{display:grid;grid-template-columns:48px 1fr;column-gap:14px;padding:16px}.book-spine{grid-row:1/5;margin:0}.template-card p{margin:0 0 8px;font-size:11px}.template-card footer{grid-column:2;font-size:10px}.connection-layout{grid-template-columns:1fr;gap:18px}.connection-fields{gap:12px;grid-template-columns:1fr}.field.full{grid-column:auto}.flow-grid{grid-template-columns:1fr;gap:24px;padding:20px}.flow-card{min-height:0;padding:14px 17px}.flow-card:not(:last-child):after{content:'↓';right:auto;top:auto;bottom:-25px;left:calc(50% - 6px)}.flow-card h4{display:inline;margin-left:10px;font-size:14px}.flow-card p{margin-top:7px}.flow-sub{grid-template-columns:1fr;padding:17px;gap:12px}.asset-diagram{grid-template-columns:1fr;padding:20px;gap:15px}.asset-arrow{font-size:0}.asset-arrow:before{content:'↓';font-size:22px}.asset-arrow small{font-size:10px}.asset-source{padding:20px}.version-flow{grid-template-columns:1fr;padding:22px;gap:29px}.version-item:not(:last-child):after{content:'↓';right:0;top:auto;bottom:-25px}.version-item h4{font-size:20px}.roadmap{grid-template-columns:1fr 1fr;gap:25px}.page-footer{flex-direction:column;gap:8px}.switcher{width:100%}.switcher button{flex:1;padding:7px 4px;font-size:11px}.figure-note{font-size:10px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{@page{size:A4;margin:16mm 13mm}html{scroll-padding-top:0}body{background:white;font-size:10pt;line-height:1.7}.topbar,.sidebar,.mobile-nav,.switcher,.top-actions,.page-footer{display:none!important}.layout{display:block}.content{padding:0}.hero{padding:0 0 20px}.hero-grid{grid-template-columns:1fr}.hero-flow{display:none}h1{font-size:30pt}.intro{font-size:9pt}.doc-section{padding-top:20px;margin-top:15px;break-before:auto}.doc-section+.doc-section{margin-top:25px}h2{font-size:17pt;break-after:avoid}h3{font-size:12pt;break-after:avoid}.requirement{break-inside:auto;padding:15px}.requirement p{font-size:9pt}.table-wrap{overflow:visible;border-radius:0}table,.table-wrap table{min-width:0;font-size:8pt;table-layout:fixed}th,td{padding:7px;overflow-wrap:anywhere;min-width:0!important}thead{display:table-header-group}tr{break-inside:avoid}.figure,.prototype,.roadmap{break-inside:avoid}.prototype{box-shadow:none}.workspace{grid-template-columns:110px minmax(0,1fr) 155px}.inspector{grid-column:auto;display:block;border-top:0;border-left:1px solid var(--line)}.inspector .review-issue{margin-top:15px}.manuscript{padding:18px;min-height:0}.sample-copy{font-size:10pt}.app-status{font-size:8pt}.flow-grid{grid-template-columns:repeat(4,1fr);padding:15px;gap:16px}.flow-card{min-height:140px;padding:14px 10px}.flow-card p{font-size:8pt}.flow-card:not(:last-child):after{right:-14px}.figure-head{display:block}.figure-desc,.figure-note{font-size:8pt}.connection-layout{grid-template-columns:150px 1fr}.template-grid{grid-template-columns:repeat(3,1fr)}.asset-diagram{grid-template-columns:1fr 60px 1.3fr}.version-flow{grid-template-columns:repeat(3,1fr)}a{color:inherit;text-decoration:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head>
+<body><a class="skip" href="#main-content">跳转到产品文档</a>
+<header class="topbar"><a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">N</span><span><strong>网络小说创作工作台</strong><small>NOVEL WORKBENCH / PRODUCT</small></span></a><div class="top-actions"><span class="status-chip">产品评审稿 · 未实施</span><a href="novel-generation-product-requirements.md">Markdown 原文 ↗</a><button class="plain-button" id="print-button" type="button">打印 / 存为 PDF</button></div></header>
+<details class="mobile-nav"><summary>阅读目录</summary><nav aria-label="移动端目录"><a href="#overview"><span>00</span>产品概览</a>
+<a href="#section-1"><span>01</span>产品定位与目标</a>
+<a href="#section-2"><span>02</span>目标用户与使用场景</a>
+<a href="#section-3"><span>03</span>产品形态与信息架构</a>
+<a href="#section-4"><span>04</span>核心创作流程</a>
+<a href="#section-5"><span>05</span>功能需求</a>
+<a href="#section-6"><span>06</span>状态、异常与用户控制</a>
+<a href="#section-7"><span>07</span>用量、数据与可靠性要求</a>
+<a href="#section-8"><span>08</span>首版范围与暂不纳入内容</a>
+<a href="#section-9"><span>09</span>产品验收与效果衡量</a>
+<a href="#section-10"><span>10</span>版本路线与退出条件</a>
+<a href="#section-11"><span>11</span>产品风险与待验证事项</a>
+<a href="#section-12"><span>12</span>依据与需求追溯</a></nav></details>
+<div class="layout"><aside class="sidebar"><div><p class="nav-kicker">DOCUMENT / V0.1</p><nav class="toc" aria-label="文档目录"><a href="#overview" class="active"><span>00</span>产品概览</a>
+<a href="#section-1"><span>01</span>产品定位与目标</a>
+<a href="#section-2"><span>02</span>目标用户与使用场景</a>
+<a href="#section-3"><span>03</span>产品形态与信息架构</a>
+<a href="#section-4"><span>04</span>核心创作流程</a>
+<a href="#section-5"><span>05</span>功能需求</a>
+<a href="#section-6"><span>06</span>状态、异常与用户控制</a>
+<a href="#section-7"><span>07</span>用量、数据与可靠性要求</a>
+<a href="#section-8"><span>08</span>首版范围与暂不纳入内容</a>
+<a href="#section-9"><span>09</span>产品验收与效果衡量</a>
+<a href="#section-10"><span>10</span>版本路线与退出条件</a>
+<a href="#section-11"><span>11</span>产品风险与待验证事项</a>
+<a href="#section-12"><span>12</span>依据与需求追溯</a></nav></div><div class="side-note">MYAVALONIA NOVEL GENERATE<br>2026.09.12 · 产品需求评审<div class="reading-line"><span id="reading-progress"></span></div><span>阅读进度 <span id="reading-percent">0%</span></span></div></aside>
+<main class="content" id="main-content"><section class="hero" id="overview" aria-labelledby="product-title"><div class="hero-grid"><div><div class="eyebrow">PRODUCT BRIEF / 产品需求文档</div><h1 id="product-title">让创意成为<br>可持续创作的长篇。</h1><p class="hero-lead">面向个人中文网文创作者，把创意、规范和故事记忆放进同一个工作台。在明确范围与预算内连续起草，由作者掌握方向和最终定稿。</p></div><div class="hero-flow" aria-label="创意经过受限自动创作成为工作稿，作者审阅后形成正式稿"><div class="hero-flow-item"><span>01</span><div><b>作者给出创意与边界</b><small>方向 / 规则 / 范围 / 预算</small></div></div><div class="down" aria-hidden="true">↓</div><div class="hero-flow-item"><span>02</span><div><b>系统连续生成工作稿</b><small>规划 / 起草 / 检查 / 修正</small></div></div><div class="down" aria-hidden="true">↓</div><div class="hero-flow-item"><span>03</span><div><b>作者审阅与正式定稿</b><small>修改 / 选择 / 回退 / 导出</small></div></div></div></div><div class="meta-strip"><span><b>11</b>组功能需求</span><span><b>16</b>个首版验收场景</span><span><b>05</b>组产品示意</span><span><b>P0–P3</b>版本路线</span></div><p class="hero-caption"><span class="status-chip">设计阶段</span><span>以下为拟建设的产品方案；界面示意与示例正文不代表真实运行结果。</span></p></section>
+<div class="intro" aria-label="原文说明"><p>项目：<code>myavalonia-novel-generate</code><br>
+文档版本：v0.1<br>
+编写日期：2026-09-12<br>
+文档状态：产品评审稿；描述拟建设的产品，不代表功能已交付<br>
+适用读者：产品负责人、创作者、交互设计、研发与测试</p>
+<p>本文依据现有<a href="../design/novel-generation-plugin-design.md">网络小说生成器插件设计方案</a>，从用户价值、使用流程、功能范围和验收结果整理产品需求。产品展示名暂称“网络小说创作工作台”，不涉及插件身份变更。</p>
+<p>截至本次检查，仓库只有示例文档、示例命令、独立预览和模板测试，小说项目管理、模板库、模型连接与生成功能均尚未实现。本文中的用户画像和衡量指标是产品假设与评测建议；已有创作反馈来自设计文档的转述，未在本轮另行开展用户访谈或模型效果评测。</p></div>
+<section class="doc-section" id="section-1" aria-labelledby="heading-1"><span class="section-count">PRODUCT REQUIREMENTS / 01</span><h2 id="heading-1">1. 产品定位与目标</h2><h3>1.1 一句话定位</h3>
+<p>面向个人中文长篇网文创作者的桌面创作工作台：作者给出创意、创作要求和本次范围，系统在预算内持续完成规划、起草、检查与有限修正，作者负责创作方向、关键取舍和最终定稿。</p>
+<p>产品的核心产物是可编辑、可追溯、可继续创作的小说项目，包括大纲、正文、设定、创作规范、故事记忆和修订记录。</p>
+<h3>1.2 要解决的问题</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">用户遇到的问题</th><th scope="col">产品应提供的价值</th><th scope="col">用户能够看到的结果</th></tr></thead><tbody>
+<tr><td>有题材和角色想法，但从创意到数章正文需要反复组织指令</td><td>降低启动和连续创作的操作成本</td><td>简要输入后，自动形成规划并连续完成数章工作稿</td></tr>
+<tr><td>写得越久，越容易忘记禁句、视角、人物设定</td><td>让明确要求持续参与每次创作</td><td>规则有保存状态、适用范围、使用记录和违规位置</td></tr>
+<tr><td>提供写作课件后，只得到概念总结，剧情没有改善</td><td>把写作知识转为可执行的方法</td><td>章纲中能找到具体期待、信息分配、障碍与兑现事件</td></tr>
+<tr><td>提供样文后，生成文字仍不符合自己的阅读偏好</td><td>将文风要求与实际样稿反复校准</td><td>作者可对比同一剧情的不同写法，再采用合适方案</td></tr>
+<tr><td>修改前文后，后续剧情和人物状态跟不上</td><td>降低长篇连续性维护成本</td><td>系统提示受影响章节，并保留原文供作者处理</td></tr>
+<tr><td>网络中断、返工过多或模型出错时，担心丢稿和费用失控</td><td>让创作过程可停止、可恢复、可核对</td><td>已保存内容保留，停止原因明确，用量和未知费用可见</td></tr>
+<tr><td>每开一本新书，都要重复设置风格和模型账号</td><td>复用已有创作资产</td><td>模板和连接配置一次，多本书分别选用、独立调整</td></tr>
+</tbody></table></div>
+<h3>1.3 产品目标</h3>
+<ol>
+<li>让作者用一次明确的运行设置，完成从创意到 3–5 章可审阅工作稿的首版创作流程。</li>
+<li>让作者已经明确的长期要求，在重启、续写、改写和更换模型后仍能被保存、应用和检查。</li>
+<li>让课件、样文和修改经验逐步成为可复用的创作资产，减少重复指导。</li>
+<li>让作者始终能知道正在写哪本书、使用什么规范、花费多少、为何暂停，以及哪些内容已经定稿。</li>
+<li>为后续 30–50 章的连续性和文风稳定性评测建立基础。</li>
+</ol>
+<p>“通过规则检查”和“生成完成”都不能单独证明文学质量。产品效果最终由作者接受的正文比例、修改时间和阅读体验衡量。</p></section>
+<section class="doc-section" id="section-2" aria-labelledby="heading-2"><span class="section-count">PRODUCT REQUIREMENTS / 02</span><h2 id="heading-2">2. 目标用户与使用场景</h2><h3>2.1 目标用户假设</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">用户类型</th><th scope="col">主要诉求</th><th scope="col">典型使用方式</th><th scope="col">优先程度</th></tr></thead><tbody>
+<tr><td>有明确题材、角色方向的个人网文作者</td><td>尽快获得符合要求的连续正文</td><td>设置范围后自动生成，再集中审稿</td><td>首要用户</td></tr>
+<tr><td>有写作课件、样文和个人偏好的创作者</td><td>让自己的写作要求稳定生效</td><td>提炼模板、试写校准、长期复用</td><td>首要用户</td></tr>
+<tr><td>希望掌控每章剧情的辅助创作用户</td><td>保留手写习惯，按需调用 AI</td><td>逐章协作、续写、选区改写</td><td>首版兼顾</td></tr>
+<tr><td>同时维护多本作品的个人作者</td><td>降低配置重复，防止作品间设定混用</td><td>多作品工作区共享模板和连接</td><td>首版兼顾</td></tr>
+</tbody></table></div>
+<p>首版面向单机、单用户使用。多人编辑团队、内容分发运营团队和多设备同步用户不作为首版核心对象。</p>
+<h3>2.2 关键用户场景</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">场景</th><th scope="col">用户故事</th><th scope="col">完成标志</th></tr></thead><tbody>
+<tr><td>S01 从创意开始</td><td>我有题材和主角方向，希望一次启动后得到数章正文</td><td>运行目标完成，工作稿、检查结果和用量可查看</td></tr>
+<tr><td>S02 长期执行要求</td><td>我已经说明本书的禁用表达，希望以后不用反复提醒</td><td>重启、续写和改写仍应用规则，违规可定位</td></tr>
+<tr><td>S03 应用写作材料</td><td>我有期待感、信息差等材料，希望它们实际改善本书章纲</td><td>提炼出方法卡，章纲中有具体应用，并能追溯来源</td></tr>
+<tr><td>S04 校准文风</td><td>我知道哪些段落读起来不舒服，希望通过修改让后续更合适</td><td>可对比样稿、保存规范，并在后续任务中使用</td></tr>
+<tr><td>S05 修改前文</td><td>我修改了前面的关键事件，希望知道后面哪些内容需要复核</td><td>受影响范围可见，后续原文和版本记录仍保留</td></tr>
+<tr><td>S06 复用创作资产</td><td>我想用同一套世界观或文风开两本不同的书</td><td>两书采用各自配置副本，人物、正文和记忆互不影响</td></tr>
+<tr><td>S07 中断后继续</td><td>我遇到断网或退出，希望下次从已保存的位置继续</td><td>展示中断任务，经恢复操作后按有效检查点继续</td></tr>
+<tr><td>S08 参考作品建模板</td><td>我想从一本或多本小说提炼可复用的世界观和写法</td><td>保存命名模板，之后可用于不同新书；属于后续扩展</td></tr>
+</tbody></table></div></section>
+<section class="doc-section" id="section-3" aria-labelledby="heading-3"><span class="section-count">PRODUCT REQUIREMENTS / 03</span><h2 id="heading-3">3. 产品形态与信息架构</h2>
+<figure class="figure" id="product-preview" aria-labelledby="preview-heading">
+ <div class="figure-head"><div><span class="figure-index">FIG. 01 / PRODUCT WORKSPACE</span><h3 class="figure-title" id="preview-heading">一本书，一个专注的创作空间</h3><p class="figure-desc">切换下方三个入口，查看工作区与共享工具的职责。</p></div>
+ <div class="switcher" role="tablist" aria-label="产品界面示意"><button role="tab" id="tab-writing" aria-controls="panel-writing" aria-selected="true" tabindex="0">小说工作区</button><button role="tab" id="tab-templates" aria-controls="panel-templates" aria-selected="false" tabindex="-1">创作模板库</button><button role="tab" id="tab-models" aria-controls="panel-models" aria-selected="false" tabindex="-1">模型与连接</button></div></div>
+ <div class="prototype">
+  <div class="app-top"><span class="app-name">N / 网络小说创作工作台</span><small>概念示意 · 所有内容与状态均为示例</small></div>
+  <div role="tabpanel" id="panel-writing" aria-labelledby="tab-writing">
+   <div class="app-tabs"><span>雾城账簿</span><span>荒原来信</span><span>本次目标：3 章</span></div>
+   <div class="workspace"><aside class="book-nav"><span class="mini-label">本书目录</span><h4>第一卷 / 消失的账目</h4><div class="chapter-buttons"><button class="chapter-button" data-chapter="0" aria-pressed="false">01 雨夜来客<small>已保存 · 工作稿</small></button><button class="chapter-button" data-chapter="1" aria-pressed="false">02 缺失的名字<small>已保存 · 工作稿</small></button><button class="chapter-button" data-chapter="2" aria-pressed="true">03 钟楼的回声<small>已保存 · 待处理</small></button></div></aside>
+    <div class="manuscript"><div class="chapter-meta"><span>正文</span><span>/</span><span class="mini-tag" id="chapter-state">候选稿 · 待处理</span></div><h4 id="chapter-title">第三章　钟楼的回声</h4><div class="sample-copy" id="chapter-copy"><p>钟声停了。林砚把账簿合上，潮湿的纸页黏住了他的指尖。钟楼下，巡夜人的灯正向北街移去。</p><p>他将手贴在铜门上，<mark>隔着门板，看见了里面的人影。</mark>那人怀里抱着的，正是失踪账房的印匣。</p><p>可他从未学过这样的术法。</p></div><p class="excerpt-note">示例片段 · 点击左侧章节查看不同内容状态。</p></div>
+    <aside class="inspector"><div><h5>本书规则 / 应用记录</h5><div class="rule-row"><span>第三人称限知视角</span><span>已应用</span></div><div class="rule-row"><span>禁用表达清单</span><span>已检查</span></div><div class="rule-row"><span>低魔世界约束</span><span>已锁定</span></div></div><div class="review-issue" id="review-issue"><b>01 / 锁定设定冲突</b><span id="review-message">主角不具备感知类术法。候选新增能力与本书设定冲突，待作者处理。</span></div></aside>
+   </div><div class="app-status"><span><i class="dot amber" id="state-dot"></i><span id="app-task-state">运行已暂停 · 第 3 章待处理</span></span><span>2 / 3 章工作稿已保存 · 尚未人工定稿</span></div>
+  </div>
+  <div role="tabpanel" id="panel-templates" aria-labelledby="tab-templates" hidden><div class="tool-content"><div class="tool-heading"><div><h4>创作模板库</h4><p>将世界观、文风和方法保存为可反复使用的方案。</p></div><span class="display-action">共享创作资产</span></div><div class="template-grid"><article class="template-card active"><div class="book-spine">雾</div><h5>低魔城邦 · 悬疑叙事</h5><p>稀缺术法、有限视角，围绕线索建立期待与信息差。</p><div class="tiny-tags"><span>世界观</span><span>文风</span><span>方法</span></div><footer>v1.0 · 已用于 2 本示例作品</footer></article><article class="template-card"><div class="book-spine gold">行</div><h5>冒险成长 · 阶段回报</h5><p>以目标、代价和阶段兑现组织人物的成长路径。</p><div class="tiny-tags"><span>剧情方法</span><span>规则</span></div><footer>v1.2 · 手工创建</footer></article><article class="template-card"><div class="book-spine gray">言</div><h5>克制叙事 · 文风规范</h5><p>让动作和对话承担情绪，用适量细节连接场景。</p><div class="tiny-tags"><span>文风</span><span>正反例</span></div><footer>v0.2 · 样文试写待校准</footer></article></div><p class="tool-bottom">采用时保存为本书副本。模板更新不会自动覆盖已有作品。</p></div></div>
+  <div role="tabpanel" id="panel-models" aria-labelledby="tab-models" hidden><div class="tool-content"><div class="tool-heading"><div><h4>模型与连接</h4><p>配置一次，由每本作品选择自己的连接。</p></div><span class="display-action">连接配置示意</span></div><div class="connection-layout"><div><div class="connection-choice">DeepSeek 主连接<small>密钥已配置 · 示例状态</small></div></div><div><div class="connection-fields"><div class="field"><span class="field-label">连接名称</span><div class="field-value">DeepSeek 主连接</div></div><div class="field"><span class="field-label">服务商</span><div class="field-value">DeepSeek</div></div><div class="field full"><span class="field-label">模型与任务预设</span><div class="field-value">由用户配置型号 · 规划 / 正文 / 审校</div></div><div class="field"><span class="field-label">API Key</span><div class="field-value">已配置 · 不展示原密钥</div></div><div class="field"><span class="field-label">默认使用范围</span><div class="field-value">新书建议，已有书保留绑定</div></div></div><div class="connection-note">每次运行单独设置范围和预算。作品与模板不携带密钥，迁移后重新绑定连接。</div></div></div></div></div>
+ </div><figcaption class="figure-note">示意图用于产品评审，未表示真实功能已经实现。界面切换仅改变本页展示，不发起模型请求。</figcaption>
+</figure>
+<p>产品作为 MyAvaloniaManagement 中的插件使用，当前交付目标为 Windows x64。用户安装插件后使用本地作品管理；AI 生成需要联网并配置自己的模型连接。首版优先接入 DeepSeek，具体型号和价格不在本文固定。</p>
+<p>界面由两个共享工具面板和多个小说工作区组成。一个工作区对应一本小说；工具面板负责可跨书复用的资产。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">入口</th><th scope="col">核心内容</th><th scope="col">用户常用操作</th></tr></thead><tbody>
+<tr><td>小说工作区</td><td>本书创意、目录、大纲、正文、人物设定、创作规范、检查和任务状态</td><td>新建、打开、编辑、开始创作、暂停、取消、定稿、导出</td></tr>
+<tr><td>创作模板库</td><td>命名模板、版本、世界观、文风、方法、规则、来源和试写记录</td><td>新建、搜索、编辑、复制、归档、提炼材料、试写</td></tr>
+<tr><td>模型与连接</td><td>命名连接、服务商、模型、API Key 状态、任务预设和用量</td><td>配置、检测、更换或清除密钥、设置新书默认连接</td></tr>
+</tbody></table></div>
+<h3>3.1 小说工作区</h3>
+<p>首次进入时，突出“新建小说”和“打开已有项目”。新建表单优先展示创意、主角方向、模板、模型连接、生成范围和预算；高级参数折叠，默认值可修改。</p>
+<p>创作过程中采用以下布局：</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">区域</th><th scope="col">内容</th><th scope="col">设计目的</th></tr></thead><tbody>
+<tr><td>顶部操作区</td><td>当前作品、生成范围、开始/暂停/取消、定稿、导出</td><td>明确操作对象与主要下一步</td></tr>
+<tr><td>左侧目录</td><td>全书、卷、章及章节状态</td><td>快速定位剧情和创作进度</td></tr>
+<tr><td>中央编辑区</td><td>章纲或正文、选区改写、版本对比</td><td>让阅读和修改正文占据主要空间</td></tr>
+<tr><td>右侧可折叠面板</td><td>本书设定、规则、故事记忆、检查问题</td><td>查证和处理当前内容的问题</td></tr>
+<tr><td>底部状态区</td><td>保存状态、当前阶段、完成章数、用量和停止原因</td><td>让长任务和数据保存状态可理解</td></tr>
+</tbody></table></div>
+<p>两本书同时打开时，标题、操作对象和任务状态必须清楚。人物、章纲、伏笔始终属于具体作品，不放进共享面板的隐含“当前书”状态。</p>
+<h3>3.2 关键概念</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">用户可见名称</th><th scope="col">含义</th></tr></thead><tbody>
+<tr><td>创作模板</td><td>可复用的创作方案，可以只含文风，也可以组合世界观、写作方法和规则</td></tr>
+<tr><td>本书配置</td><td>本书采用的模板内容副本及局部调整；后续写作以本书配置为准</td></tr>
+<tr><td>模型连接</td><td>已命名的模型服务配置，可被多本书使用；密钥单独保存</td></tr>
+<tr><td>候选稿</td><td>新生成或修改后尚未完成必要检查与采纳的内容，可能不完整</td></tr>
+<tr><td>工作稿</td><td>按运行策略通过检查、可供后续章节承接的内容，尚未人工定稿</td></tr>
+<tr><td>正式稿</td><td>作者明确选定并提交的作品版本及对应故事状态</td></tr>
+<tr><td>故事记忆</td><td>由设定和正文支持的人物状态、事件、知情范围与伏笔记录，可查看来源</td></tr>
+<tr><td>改进候选</td><td>从批注和改稿中提议的新规范，尚未被作者启用</td></tr>
+</tbody></table></div></section>
+<section class="doc-section" id="section-4" aria-labelledby="heading-4"><span class="section-count">PRODUCT REQUIREMENTS / 04</span><h2 id="heading-4">4. 核心创作流程</h2>
+<figure class="figure" aria-labelledby="flow-heading"><div class="figure-head"><div><span class="figure-index">FIG. 02 / CREATION JOURNEY</span><h3 class="figure-title" id="flow-heading">从一次创作意图，到一批可审阅工作稿</h3><p class="figure-desc">作者明确边界，系统在边界内连续推进。</p></div></div><div class="flow-grid"><div class="flow-card"><span>01 / SETUP</span><h4>设定本次目标</h4><p>创意、模板与连接<br>章数、字数和预算</p></div><div class="flow-card"><span>02 / PLAN</span><h4>自动形成规划</h4><p>主线 → 分卷 → 章纲<br>带入规则与有效记忆</p></div><div class="flow-card"><span>03 / WRITE</span><h4>逐章循环推进</h4><p>生成 → 检查 → 有限修正<br>保存工作稿与运行记忆 ↺</p></div><div class="flow-card human"><span>04 / AUTHOR</span><h4>集中审阅定稿</h4><p>修改、返工或放弃<br>连续范围定稿与导出</p></div></div><div class="flow-sub"><div><b>通过检查 + 仍有章节 → 继续第 03 步</b>正常章节无需逐章点击接受。</div><div><b>冲突 / 预算不足 / 修正耗尽 → 暂停</b>保留已有成果，作者处理后再继续。</div></div><figcaption class="figure-note">生成完成只代表本次范围完成。工作稿纳入正式作品，需要作者明确选择。</figcaption></figure>
+<h3>4.1 主要流程：受限自动连续生成</h3>
+<ol>
+<li><strong>建立小说项目。</strong> 作者选择保存位置，输入题材、主角方向和故事创意；书名等可先用临时值。</li>
+<li><strong>选用创作方案。</strong> 可选择已有模板及需要采用的维度，也可从基础预设直接开始；课件和样文不是必填项。</li>
+<li><strong>设置本次运行。</strong> 选择已配置的模型连接，明确章节范围、目标字数、预算、返工上限和停止条件。</li>
+<li><strong>启动自动规划。</strong> 系统形成全书方向、分卷目标和近期章纲。作者可以先预览大纲或试写，但主流程不默认逐阶段要求确认。</li>
+<li><strong>连续起草。</strong> 系统逐章读取适用规范和本书有效记忆，生成、检查、有限修正；通过后保存工作稿及其故事状态，再继续下一章。</li>
+<li><strong>处理需要作者判断的问题。</strong> 硬规则无法修复、锁定设定冲突、预算不足或重大方向待选时暂停，提供问题位置、原因和处理入口。</li>
+<li><strong>集中审阅。</strong> 作者查看工作稿、检查记录和差异，可以修改、返工、放弃，或选择连续章节范围批量定稿。</li>
+<li><strong>继续或交付。</strong> 保存项目、备份或导出明确选择的工作稿/正式稿，再开启下一次有范围和预算的创作。</li>
+</ol>
+<p>流程概览：创意与本书配置 → 设置范围和预算 → 自动规划 → 逐章生成、检查、有限修正 → 保存工作稿并继续 → 集中审阅 → 人工定稿与导出。遇到必须处理的问题时进入暂停处理，保留已有成果。</p>
+<h3>4.2 可选流程：逐章协作</h3>
+<p>作者选择本章目标，系统生成候选，作者查看差异与问题并决定是否接受，再进入下一章。逐章协作与自动模式使用相同的创作规范、生成和检查能力。</p>
+<p>选择自动模式，表示作者授权在本次明确范围内按策略推进工作稿。正式定稿仍是独立操作；需要逐章控制的作者可以使用协作模式。</p>
+<h3>4.3 首版体验示例</h3>
+<p>以下仅为需求演示，不是已生成成果：作者输入“低魔城邦背景，账房学徒调查失踪案”，选用“悬疑叙事”模板，指定第三人称、一个禁用句式和本次 3 章的预算。</p>
+<p>系统生成主线和近期章纲，连续完成通过检查的第 1、2 章。第 3 章若出现与锁定世界规则冲突的能力，且有限修正仍未解决，则暂停并定位问题；第 1、2 章保留。作者处理冲突后继续，最终集中审阅并选择定稿。整个过程不要求正常通过的每一章都点一次“接受”。</p></section>
+<section class="doc-section" id="section-5" aria-labelledby="heading-5"><span class="section-count">PRODUCT REQUIREMENTS / 05</span><h2 id="heading-5">5. 功能需求</h2>
+<figure class="figure" aria-labelledby="asset-heading"><div class="figure-head"><div><span class="figure-index">FIG. 03 / REUSABLE ASSETS</span><h3 class="figure-title" id="asset-heading">复用创作方案，各本书独立生长</h3></div></div><div class="asset-diagram"><div class="asset-source"><span class="mini-label">共享模板库</span><h4>低魔城邦 · 悬疑叙事 v1</h4><p>世界观 + 文风 + 方法 + 规则<br>可命名、版本化、复制与归档</p></div><div class="asset-arrow">→<small>选取维度<br>复制为本书配置</small></div><div class="asset-books"><div class="asset-book"><b>作品 A / 雾城账簿</b><small>配置副本 A · 独立人物 · 正文与故事记忆 A</small></div><div class="asset-book"><b>作品 B / 荒原来信</b><small>配置副本 B · 独立人物 · 正文与故事记忆 B</small></div></div></div><figcaption class="figure-note">模板升级不会自动覆盖两本书；只采用文风时，不自动带入世界观。模型连接可复用，密钥与作品分开保存。</figcaption></figure>
+<p>下文的 P0–P3 表示与原设计一致的交付阶段，不表示需求优先级。所有功能当前均为规划，阶段说明见第 10 节。</p>
+
+<article class="requirement" id="fr-01"><h3>FR-01 小说项目与本地资产管理<span class="req-phase">P0 建立，P1 完成使用流程</span></h3>
+<p><strong>用户目标：</strong> 安全保存一本书，并能随时打开、编辑、备份和带走。</p>
+<p>提供新建、打开、近期项目、保存、备份、恢复及 TXT/Markdown 导出。一个项目包含本书设定、大纲、正文、修订、已采用规范和任务状态；模板库和模型连接另行管理。</p>
+<p>编辑内容和运行工作稿自动保存，界面显示“保存中 / 已保存 / 保存失败”，并提供明确的“保存项目”入口。首版不能让用户误以为宿主通用 Ctrl+S 已覆盖小说项目保存。</p>
+<p>验收要点：无密钥、断网时仍可本地编辑和导出；保存失败可见并可重试；同一项目重复打开不会出现两个独立写入副本；更换插件文件不影响作品。备份包含恢复创作所需的已保存内容，普通正文导出不替代项目备份。</p>
+</article>
+<article class="requirement" id="fr-02"><h3>FR-02 创作模板库<span class="req-phase">P0 基础，P1 材料提炼与复用</span></h3>
+<p><strong>用户目标：</strong> 把有效的创作方案保存成有名称、有版本的资产，供多本书使用。</p>
+<p>支持手工创建、命名、标签/检索、编辑、复制、归档，以及世界观、人物原型、文风、写作方法、创作规则的组合。作者可以只采用部分维度；例如只采用叙述节奏而不带入世界观。</p>
+<p>每次采用都保存为本书内容副本。模板改名、升级或归档不改变已经创建的作品；同一模板初始化的两本书分别产生自己的人物、正文和故事记忆。已有作品采用模板新版本时，先查看差异、处理本书局部修改与锁定内容的冲突。</p>
+<p>作者明确执行“另存为模板”或“保存为模板新版本”时，才将选中的本书设定和规范保存到模板库。模板不携带模型密钥，也不默认携带本书正文历史和人物当前状态。</p>
+<p>验收要点：两本书复用同一模板后，修改一本书或更新模板不会影响另一本；模板库面板隐藏后，作品仍可使用已保存的配置。</p>
+</article>
+<article class="requirement" id="fr-03"><h3>FR-03 模型与连接<span class="req-phase">P0 配置基础，P1 真实接入</span></h3>
+<p><strong>用户目标：</strong> 一次配置模型服务，在不同作品中明确选择，并了解连接状态和用量。</p>
+<p>提供连接名称、服务商、模型、任务预设、API Key 配置、连接检测和用量查看。密钥常态仅显示“已配置 / 未配置 / 不可用”，支持会话内使用或由用户选择记住。</p>
+<p>首版每本书绑定一个连接，不同创作阶段可使用其不同任务预设。修改新书默认连接不切换已有作品；运行开始后采用确定的配置，后续全局表单修改不悄悄改变本次运行。</p>
+<p>连接检测由用户触发；若包含会产生费用的试生成，应明确说明并记录用量。连接缺失、认证失败或余额错误时，生成暂停，本地编辑仍可用。搬迁作品后缺少原连接，应重新绑定，不凭同名连接自动认定可用。</p>
+<p>验收要点：不同作品使用不同连接时不混用账号和设置；清除密钥后阻止新的认证请求；项目、模板、备份及普通日志不包含明文密钥。</p>
+</article>
+<article class="requirement" id="fr-04"><h3>FR-04 创作规划与本书设定<span class="req-phase">P1</span></h3>
+<p><strong>用户目标：</strong> 从一句创意逐步形成可写的大纲，并保持关键设定明确。</p>
+<p>采用“全书主线 → 分卷目标 → 近期章纲 → 场景与正文”的规划层级。远期保留方向，近期细化，作者可随时修改。章纲至少包含章节目标、核心冲突、视角人物、时间地点、关键事件、应改变的状态、伏笔推进和章末承接。</p>
+<p>支持人物、别名、关系、世界规则、物品和等级体系等设定的编辑与锁定。锁定内容与当前指令冲突时，必须说明冲突，由作者明确修改设定或调整本次目标。</p>
+<p>验收要点：启用期待感或信息差方法后，章纲能说明“读者期待什么、谁知道什么、什么事件产生障碍、何时给予回报”；不能只以“有悬念”等标签认定方法已落实。</p>
+</article>
+<article class="requirement" id="fr-05"><h3>FR-05 连续生成与运行控制<span class="req-phase">P1</span></h3>
+<p><strong>用户目标：</strong> 一次启动后持续产出，必要时可以停下，并知道系统为何停下。</p>
+<p>运行前必须明确生成范围、目标字数及容差、预算、返工上限、工作稿采纳策略和停止条件。目标字数通过本地统一口径计数，不用模型 token 数直接代替。</p>
+<p>运行按章节顺序推进，每章完成规则应用、生成、检查、有限修正和工作稿保存。界面显示当前章、当前阶段、已完成/计划章数、用量及问题。流式显示的正文仅是生成预览，在内容完整且检查通过前不显示为已完成工作稿。</p>
+<p>同一本书默认只有一个生成任务和一个活动运行工作稿。暂停在安全边界停止；取消用于尽快终止当前请求。取消或失败均保留已经保存的候选和工作稿。重启后展示中断任务，由作者显式恢复，再核对当前内容、配置和剩余预算。</p>
+<p>验收要点：正常通过的 3–5 章无需逐章确认；预算不足、硬冲突、检查失败和返工耗尽能阻止继续；恢复不会重复采纳同一章；应用退出后不继续后台付费生成。</p>
+</article>
+<article class="requirement" id="fr-06"><h3>FR-06 写作编辑、审阅与定稿<span class="req-phase">P0 修订基础，P1 完整流程</span></h3>
+<p><strong>用户目标：</strong> 保留自己的判断和原稿，方便采用 AI 修改或恢复旧版本。</p>
+<p>支持手写、AI 起草、续写、选区改写、版本差异查看和回退。局部改写提供候选差异，由作者决定采用；作者手写内容只标记问题，不自动替换。</p>
+<p>自动模式通过检查的内容进入工作稿，供本次后续章节承接；工作稿与正式稿分别显示。作者可以集中审阅后将从有效正式基础接续的连续章节范围定稿，不能跳过中间依赖章而单独定稿后面的章节。</p>
+<p>定稿前核对工作稿所依据的版本；前文或规范已改变时，先处理冲突。放弃工作稿不改变正式稿。回退正文时同步恢复相应故事状态，并提示对后续内容的影响。</p>
+<p>验收要点：保存、纳入工作稿、人工定稿分别可识别；旧请求返回时不能覆盖作者刚改的内容；定稿同时更新相应正文与故事状态，不出现一半成功。</p>
+</article>
+<article class="requirement" id="fr-07"><h3>FR-07 长期创作要求<span class="req-phase">P0 保存与检测，P1 全流程应用，P2 长篇验证</span></h3>
+<p><strong>用户目标：</strong> 明确说过一次的长期要求，在其适用范围内持续有效。</p>
+<p>每条规则记录内容、可执行解释、适用范围、强度、例外、来源、版本和启停状态。作者明确指定为长期要求时直接保存；仅对某一段的修改意见，默认只作用于该处。</p>
+<p>规则在生成、续写、扩写、润色和修复时反复应用，生成后按同一规则检查。确定可检测的禁词、句式等可作为硬规则；自然感、节奏、人物声音等以软建议和证据呈现，不能伪装为完全准确的判断。</p>
+<p>每项要求分别显示“已保存、已启用、已用于本次生成、检查结果”。检查失败不能显示通过；未消除的硬规则违规阻止该章自动接入后续创作。作者可修改规则或明确记录例外。导出前再次检查所选正文范围，有问题时显示位置和处理提示。</p>
+<p>验收要点：在约定匹配范围内，通过稿的硬规则零命中；重启、改写、修复和切换模型后规则仍有效；规则发生变化后，受影响的旧候选必须重新检查。</p>
+</article>
+<article class="requirement" id="fr-08"><h3>FR-08 写作材料与文风校准<span class="req-phase">P1</span></h3>
+<p><strong>用户目标：</strong> 将手头的课件和样文变成能够指导作品的具体规范。</p>
+<p>首版接收粘贴文本、TXT 和 Markdown。作者指定材料用途，系统保留来源和处理范围，形成可编辑候选；长材料显示已处理与未处理部分。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">路径</th><th scope="col">产物要求</th><th scope="col">作者如何验证</th></tr></thead><tbody>
+<tr><td>课件 → 方法卡</td><td>目标、适用条件、操作步骤、反例、本书落点、检查依据</td><td>查看本书章纲小样，核对方法是否形成具体事件安排</td></tr>
+<tr><td>样文 → 文风规范</td><td>视角、叙述距离、句段节奏、对话/描写方式、正反例</td><td>在相同剧情与事实下对比短样稿，选择、修改或指出偏差</td></tr>
+</tbody></table></div>
+<p>作者采用后形成一个规范版本，可用于本书，也可明确保存到模板库。没有新材料时直接使用已有方案；试写可跳过，不要求每次运行重做。</p>
+<p>验收要点：方法卡能定位材料来源；“自然、细腻”等笼统评价不能作为唯一产物；只提炼文风时，不自动带入样文人物、情节或整段文字。材料中的命令和链接只作为资料内容处理。</p>
+</article>
+<article class="requirement" id="fr-09"><h3>FR-09 故事记忆与改稿影响<span class="req-phase">P1 基础，P2 长篇增强</span></h3>
+<p><strong>用户目标：</strong> 让续写承接已发生的故事，并在修改后知道哪里需要复核。</p>
+<p>维护章节摘要、人物状态、关系、关键事件和伏笔，并记录其来源章节与版本。生成时选择与本章相关的有效记忆，避免把未接受候选、未来规划或其他作品的信息当成既成事实。</p>
+<p>正式故事状态来自作者确认的设定和正式稿；自动运行另有工作稿状态，仅在通过检查后推进。放弃工作稿时，其事实不会遗留在正式故事状态中。事实提取缺少正文证据或触及锁定项时，需要作为问题处理。</p>
+<p>P2 增强历史状态、倒叙/插叙、角色知情范围和伏笔追踪。改写早期章节时，按对应故事阶段读取事实。改动关键事件后提示受影响内容，保留后续原文，不自动批量重写。</p>
+<p>验收要点：人物改名后引用仍可追溯；未检查候选不影响续写；修改前文使关联摘要与检查结果标为待更新；文学质量评分不直接决定事实是否成立。</p>
+</article>
+<article class="requirement" id="fr-10"><h3>FR-10 反馈与持续改进<span class="req-phase">P1 保留校准反馈，P2 完善改进候选</span></h3>
+<p><strong>用户目标：</strong> 作者的反复修改能够减少以后相同的问题，并可撤销不合适的总结。</p>
+<p>记录批注、样稿选择和修改前后对比。作者明确提出的长期要求按指定范围生效；从反馈中推断的长期偏好先形成改进候选，展示来源、建议范围、原因、可能冲突和试写验证结果。</p>
+<p>例如删去一处心理解释，不能自动变成所有作品禁止心理描写。作者一次启用候选后持续应用，并可停用或回退。规范变更对运行中的影响在检查点处理，不直接重写正式稿。</p>
+<p>验收要点：局部意见不会被自动扩大到所有作品；启用和回退有记录；用未参与校准的段落验证改进效果。界面以“规范已保存/启用”描述结果，不声称模型权重已学习或永久改变。</p>
+</article>
+<article class="requirement" id="fr-11"><h3>FR-11 从参考小说提炼模板<span class="req-phase">P3 可独立排期</span></h3>
+<p><strong>用户目标：</strong> 从完整小说或作品集合中提炼可复用方案，用于初始化不同新书。</p>
+<p>入口位于创作模板库，流程为“选择本地小说 → 选择维度与分析范围 → 逐书提炼 → 按维度组合 → 编辑并命名保存模板 → 在新书中选用”。可以只生成模板，不立即建书。</p>
+<p>支持世界观、力量/职业体系、人物体系、剧情方法、文风等维度。多书组合时分别指定各维度的主要参考，展示冲突；同名人物和设定不自动合并。先交付单书分析，再增加多书组合。</p>
+<p>分析进度显示实际处理范围、来源和用量，支持预算限制与中断恢复。参考作品历史保留在来源中，采用的内容转换为新书设定；原书人物生死、已回收伏笔等不自动成为新书开局事实。</p>
+<p>验收要点：只选择文风时不继承世界观和人物；仅抽样分析时不声称完整分析；删除来源文件后，已保存模板和本书配置仍可用；初始化失败不产生可误用的半成品作品。</p></article></section>
+<section class="doc-section" id="section-6" aria-labelledby="heading-6"><span class="section-count">PRODUCT REQUIREMENTS / 06</span><h2 id="heading-6">6. 状态、异常与用户控制</h2>
+<figure class="figure" aria-labelledby="state-heading"><div class="figure-head"><div><span class="figure-index">FIG. 04 / CONTENT STATES</span><h3 class="figure-title" id="state-heading">保存了，不等于已经定稿</h3><p class="figure-desc">内容状态与保存状态、任务状态分别记录。</p></div></div><div class="version-flow"><div class="version-item"><small>生成或改写所得</small><h4>候选稿</h4><p>可能不完整或尚未检查<br>不作为已确认故事事实</p><span class="state-label">必要检查 + 策略采纳 →</span></div><div class="version-item"><small>系统在授权范围内采纳</small><h4>工作稿</h4><p>用于本次后续章节承接<br>与正式故事状态分开</p><span class="state-label">作者审阅 + 连续范围定稿 →</span></div><div class="version-item"><small>作者明确决定</small><h4>正式稿</h4><p>正式正文与故事状态同步<br>可以追溯、修订与回退</p><span class="state-label">作者保留最终决定权</span></div></div><figcaption class="figure-note">放弃工作稿不改变正式稿。前文或规范变化时，旧候选需复核后才能继续使用。</figcaption></figure>
+<h3>6.1 三类状态分别显示</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">状态类别</th><th scope="col">可见状态示例</th><th scope="col">用户需要理解的区别</th></tr></thead><tbody>
+<tr><td>保存状态</td><td>保存中、已保存、保存失败</td><td>内容是否已经安全写入本地</td></tr>
+<tr><td>内容状态</td><td>不完整候选、待检查、待处理问题、工作稿、正式稿</td><td>内容是否完整、可承接、已经人工定稿</td></tr>
+<tr><td>任务状态</td><td>排队、运行中、已暂停、待处理、提交中、完成、已取消、失败、中断待恢复</td><td>本次任务处于什么阶段，是否还会继续请求模型</td></tr>
+</tbody></table></div>
+<p>“已保存”可以对应尚未定稿的内容；“任务完成”可以对应一批尚待作者审阅的工作稿。界面不得将三类状态合并成一个含义不清的“完成”。</p>
+<h3>6.2 主要异常处理</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">触发情况</th><th scope="col">产品行为</th><th scope="col">作者的下一步</th></tr></thead><tbody>
+<tr><td>未配置连接或密钥不可用</td><td>阻止新的生成请求，保留编辑功能</td><td>配置/重新绑定连接后继续</td></tr>
+<tr><td>临时网络错误或服务限流</td><td>有限重试，显示进度；耗尽后保留结果</td><td>检查连接，选择恢复</td></tr>
+<tr><td>正文流中断</td><td>保存已收到内容并标注不完整</td><td>查看候选后恢复或重新生成</td></tr>
+<tr><td>预算不足或用量不确定</td><td>不启动无法在当前预算规则下安全预留的新请求</td><td>查看记录，调整预算或停止</td></tr>
+<tr><td>硬规则违规、事实冲突</td><td>有限修正；无法消除时暂停并定位</td><td>修改内容、调整要求或明确例外</td></tr>
+<tr><td>检查服务失败</td><td>显示未完成检查，阻止自动接入续写</td><td>重试检查或处理故障</td></tr>
+<tr><td>前文或规则在请求期间改变</td><td>结果保留为待复核候选，不覆盖新内容</td><td>重新检查或放弃候选</td></tr>
+<tr><td>本地保存失败</td><td>显示失败并保留待保存内容；不得以成功提交继续</td><td>排除存储问题后重试</td></tr>
+<tr><td>关闭小说工作区</td><td>默认取消本书前台生成，保留已保存状态</td><td>重新打开后检查并恢复</td></tr>
+<tr><td>隐藏模板或连接面板</td><td>保留资产和服务；已启动的独立分析仍受预算管理</td><td>在相应面板查看或停止任务</td></tr>
+<tr><td>退出应用后再次打开</td><td>展示最近保存内容和中断任务，不自动发起付费请求</td><td>明确选择恢复</td></tr>
+</tbody></table></div>
+<p>面向用户的问题提示应包含“发生了什么、影响什么、已保留什么、现在能做什么”，并提供具体操作入口。</p></section>
+<section class="doc-section" id="section-7" aria-labelledby="heading-7"><span class="section-count">PRODUCT REQUIREMENTS / 07</span><h2 id="heading-7">7. 用量、数据与可靠性要求</h2><h3>7.1 用量与预算</h3>
+<p>每次生成、材料提炼、试写和参考分析都有明确范围与预算，费用分别统计。界面显示已知用量、估算费用、剩余预算、返工次数和未能确认的用量。</p>
+<p>启动新请求前应把预计输入、输出上限、在途请求与重试计入预留。达到上限后停止新增请求；提高预算后继续运行是作者的明确操作。</p>
+<p>预算用于约束客户端运行，不构成服务商账单绝对封顶的承诺。网络中断时，服务商可能已执行请求并产生费用；未收到用量时应标为未知或估计，不能记作零费用。具体价格和能力随连接配置维护，不能固定宣称每章相同费用。</p>
+<h3>7.2 数据归属与迁移</h3>
+<p>作品保存在用户选择的本地位置；模板、连接配置和近期项目在插件用户数据中管理，不随插件文件替换而覆盖。作品备份包含继续创作所需的已采用规范、正文、历史和保存状态；共享模板库另行导出/备份。</p>
+<p>密钥不进入作品、模板、导出和备份，迁移后在本机重新配置。普通 TXT/Markdown 导出只包含作者选择的作品内容；来源材料是否随备份携带由作者选择。</p>
+<p>模型生成会将本次选择的作品片段和规范发给所配置的服务商。产品应明确这一使用方式，不将本地保存描述成全部处理都离线。</p>
+<h3>7.3 可靠性与体验底线</h3>
+<ul>
+<li>长任务期间仍可阅读、定位问题和操作暂停/取消，保存进度可见。</li>
+<li>已成功保存的工作稿与对应记忆保持一致，失败不能被显示为完成。</li>
+<li>异常退出后恢复最近已持久化的内容；尚未保存的每个输入不作零丢失承诺。</li>
+<li>本书关闭不取消另一本书的任务；隐藏共享面板不导致资产失效。</li>
+<li>更新或迁移前保留可恢复备份；无法识别的较新项目版本不得盲目写入。</li>
+<li>本地编辑、检索和导出不依赖模型服务在线，启动应用不自动调用付费模型。</li>
+</ul>
+<p>响应时间、自动保存间隔和并发默认值由实施阶段测量后确定；本文件不将未测试的数值写成服务承诺。</p></section>
+<section class="doc-section" id="section-8" aria-labelledby="heading-8"><span class="section-count">PRODUCT REQUIREMENTS / 08</span><h2 id="heading-8">8. 首版范围与暂不纳入内容</h2><p>首个可用版本对应 P1，包含 P0 基础。它必须同时具备：本地小说项目、模板和连接复用、创意到连续正文、长期规则、短材料提炼、文风试写、基础故事记忆、审阅定稿、预算控制与恢复。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">范围</th><th scope="col">首版处理</th></tr></thead><tbody>
+<tr><td>连续创作</td><td>支持有范围和预算的自动运行，保留逐章协作</td></tr>
+<tr><td>材料格式</td><td>粘贴、TXT、Markdown；PDF、PPT 和图片后续按需增加</td></tr>
+<tr><td>输出</td><td>项目备份及 TXT/Markdown；EPUB、DOCX 等后续增加</td></tr>
+<tr><td>参考作品</td><td>首版可提炼短材料；完整单书/多书分析另行交付</td></tr>
+<tr><td>使用环境</td><td>单机、单用户；不包含多人实时协作、多设备同步</td></tr>
+<tr><td>发布和传播</td><td>不包含自动采集网站、自动发布到网文平台、封面、配音和视频</td></tr>
+<tr><td>跨插件工作流</td><td>小说创作独立使用；Workflow 集成按后续需求增加</td></tr>
+<tr><td>模型学习</td><td>保存和应用外部规范与反馈；不包含模型训练和权重更新</td></tr>
+<tr><td>质量承诺</td><td>提供检查证据与人工评测；不承诺签约、收益、零矛盾或稳定商业质量</td></tr>
+</tbody></table></div>
+<p>首版安装不要求作者额外部署数据库服务、容器或本地模型运行环境。首版商业模式、售价、账号体系和渠道合作不在现有设计中，本文不另行设定。</p></section>
+<section class="doc-section" id="section-9" aria-labelledby="heading-9"><span class="section-count">PRODUCT REQUIREMENTS / 09</span><h2 id="heading-9">9. 产品验收与效果衡量</h2><h3>9.1 首版验收场景</h3>
+<p>以下是待执行的验收要求，不是本次测试结果。常规异常与恢复验证可以使用可控模型替身；真实文本质量需要单独的小规模模型样稿评测。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">编号</th><th scope="col">场景</th><th scope="col">通过条件</th><th scope="col">关联需求</th></tr></thead><tbody>
+<tr><td>A01</td><td>无密钥、无网络打开项目</td><td>能创建/编辑/保存并导出已有内容，生成入口说明配置缺项</td><td>FR-01、03</td></tr>
+<tr><td>A02</td><td>两本书采用同一模板</td><td>修改本书配置、升级或归档模板后，两书内容互不覆盖</td><td>FR-02</td></tr>
+<tr><td>A03</td><td>使用已有连接连续创作</td><td>简要输入和明确预算后完成 3–5 章工作稿，正常章节不逐章确认</td><td>FR-03、04、05</td></tr>
+<tr><td>A04</td><td>多作品使用不同连接</td><td>配置、用量、认证信息和任务归属不混用</td><td>FR-03、05</td></tr>
+<tr><td>A05</td><td>同一硬规则用于生成和改写</td><td>在约定检测范围内，通过稿零命中；未修复违规阻止推进</td><td>FR-07</td></tr>
+<tr><td>A06</td><td>重启或切换模型后继续</td><td>已启用规则仍应用并检查，失效连接要求重新绑定</td><td>FR-03、07</td></tr>
+<tr><td>A07</td><td>检查失败或事实冲突</td><td>不标记通过，不自动接入下一章，已有结果可查看</td><td>FR-05、07、09</td></tr>
+<tr><td>A08</td><td>课件提炼并用于章纲</td><td>有来源和适用条件，能指出具体事件如何应用方法</td><td>FR-04、08</td></tr>
+<tr><td>A09</td><td>样文校准</td><td>有可编辑规范、同题样稿和作者反馈，后续采用明确版本</td><td>FR-08</td></tr>
+<tr><td>A10</td><td>请求过程中修改前文或规则</td><td>迟到结果不覆盖当前稿，不绕过重新检查继续创作</td><td>FR-06、07、09</td></tr>
+<tr><td>A11</td><td>达到预算或修正上限</td><td>停止新增请求并解释原因，保留当前候选和工作稿</td><td>FR-05</td></tr>
+<tr><td>A12</td><td>断流、取消及应用中断</td><td>部分正文有不完整标记；重启不自动计费；恢复不重复采纳</td><td>FR-01、05</td></tr>
+<tr><td>A13</td><td>本地保存失败</td><td>显示失败，保留待恢复内容，不能以保存成功继续推进</td><td>FR-01、05</td></tr>
+<tr><td>A14</td><td>批量定稿、回退及放弃工作稿</td><td>连续依赖检查有效，正文和记忆同步；放弃不改变正式稿</td><td>FR-06、09</td></tr>
+<tr><td>A15</td><td>导出与迁移</td><td>可明确选工作稿/正式稿，所选范围重新检查；备份可恢复且无明文密钥</td><td>FR-01、03、07</td></tr>
+<tr><td>A16</td><td>关闭工作区或隐藏工具面板</td><td>本书任务按约定停止，其他书和已保存共享资产不受影响</td><td>FR-02、03、05</td></tr>
+</tbody></table></div>
+<p>首版验收需要覆盖真实宿主中的完整使用流程，独立预览界面成功不能代替交付验收。</p>
+<h3>9.2 长篇与扩展验收</h3>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">阶段</th><th scope="col">验证重点</th><th scope="col">需要保留的证据</th></tr></thead><tbody>
+<tr><td>P2 长期规则</td><td>第 1 章与第 30–50 章窗口、重启和改写后持续执行</td><td>规则版本、检查位置、违规与修复记录、误报和暂停情况</td></tr>
+<tr><td>P2 文学质量</td><td>人物声音、设定连续性、重复表达、章末承接、写法应用</td><td>作者样稿评价、可接受正文比例、修改时间和实际用量</td></tr>
+<tr><td>P2 反馈改进</td><td>新规范是否改善未参与校准的正文，是否过度扩大局部意见</td><td>修改前后样稿、候选来源、采用/回退记录</td></tr>
+<tr><td>P3 参考模板</td><td>单书分析、按维度组合、冲突处理与新书隔离</td><td>实际覆盖范围、来源证据、采用情况、初始化失败与恢复记录</td></tr>
+</tbody></table></div>
+<h3>9.3 建议跟踪的产品指标</h3>
+<p>以下指标用于建立基线和比较版本，尚无实测结果或已承诺的业务达标值。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">指标</th><th scope="col">建议口径</th><th scope="col">用途</th></tr></thead><tbody>
+<tr><td>首次成果耗时</td><td>连接可用后，从提交创意到首章通过必要检查的时间；初次配置耗时另记</td><td>衡量首次使用门槛和等待成本</td></tr>
+<tr><td>连续任务完成率</td><td>达到预设章节目标的任务数 / 有效启动任务数；区分主动取消与故障</td><td>衡量自动创作是否可靠</td></tr>
+<tr><td>硬规则执行</td><td>在约定检测范围内，分别记录原始违规率、修复成功率、通过稿残留和误报</td><td>发现规则装配、检测与修复问题</td></tr>
+<tr><td>正文可接受比例</td><td>作者审阅后标记为可直接使用或仅需轻改的生成字数 / 已审阅生成字数</td><td>衡量对实际创作的帮助</td></tr>
+<tr><td>修改成本</td><td>作者为达到可用标准投入的有效修改时间 / 最终采用字数，按每千字记录</td><td>防止生成更快却返工更多</td></tr>
+<tr><td>长篇一致性问题</td><td>人工确认的设定、时间、角色知情或伏笔问题数，按审阅章数归一</td><td>衡量长篇连续性</td></tr>
+<tr><td>有效产出费用</td><td>同一评测范围内规划、起草、检查和返工总费用 / 最终采用字数；未知费用单列</td><td>比较完整流程的成本</td></tr>
+<tr><td>模板复用效果</td><td>采用模板的新书配置耗时、局部调整量和作者评价</td><td>验证模板是否减少重复配置</td></tr>
+<tr><td>恢复效果</td><td>可恢复中断任务的恢复成功率、重复采纳数、已保存内容丢失数</td><td>衡量作者能否放心长期使用</td></tr>
+</tbody></table></div>
+<p>评测时尽量固定创意、大纲、规则和篇幅，对照不同流程或规范版本。材料分析与试写费用单列；需要比较总投入时再纳入。模型自评分不能替代作者评阅，不要求为了指标默认上传原始作品和批注。</p></section>
+<section class="doc-section" id="section-10" aria-labelledby="heading-10"><span class="section-count">PRODUCT REQUIREMENTS / 10</span><h2 id="heading-10">10. 版本路线与退出条件</h2>
+<figure class="figure" aria-labelledby="roadmap-heading"><span class="figure-index">FIG. 05 / PRODUCT ROADMAP</span><h3 class="figure-title" id="roadmap-heading">先跑通创作，再验证长篇质量</h3><div class="roadmap"><div class="roadmap-item"><span>P0</span><h4>本地基础</h4><p>项目与保存<br>模板、连接、规则、修订</p><small>验证：离线可用与资产隔离</small></div><div class="roadmap-item focus"><span>P1</span><h4>首个可用版本</h4><p>3–5 章连续创作<br>材料、文风、预算与定稿</p><small>验证：完整使用流程与样稿</small></div><div class="roadmap-item"><span>P2</span><h4>长篇质量</h4><p>30–50 章验证<br>历史状态与反馈改进</p><small>验证：长期执行与修改成本</small></div><div class="roadmap-item"><span>P3</span><h4>按需求扩展</h4><p>参考小说提炼模板<br>更多格式与跨插件工作流</p><small>验证：新增能力的实际收益</small></div></div><figcaption class="figure-note">路线为规划阶段，不表示当前进度或已承诺的交付日期。</figcaption></figure>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">阶段</th><th scope="col">产品交付重点</th><th scope="col">退出条件</th></tr></thead><tbody>
+<tr><td>P0 本地基础</td><td>小说项目、模板与连接基本入口、规则保存、修订与工作稿、备份导出</td><td>无网络可编辑；重启后状态有效；模板跨书隔离；真实宿主可用</td></tr>
+<tr><td>P1 首个可用版本</td><td>真实模型接入、自动规划与 3–5 章连续正文、规则检查、材料提炼、文风校准、基础记忆、预算及批量定稿</td><td>第 9.1 节关键场景通过，并有真实样稿、作者修改成本及用量记录</td></tr>
+<tr><td>P2 长篇质量与持续改进</td><td>30–50 章验证、历史状态和知情范围、改稿影响、反馈改进、恢复与迁移增强</td><td>长期规则持续执行；故事和文风问题有人工评测；恢复与改进过程可追溯</td></tr>
+<tr><td>P3 按需求扩展</td><td>参考小说建模板、更多材料和导出格式、跨插件工作流、可选高级检索与可视化</td><td>每项能力有实际用户收益，能独立验收，不增加无必要的安装负担</td></tr>
+</tbody></table></div>
+<p>完整参考小说分析可以在 P1 稳定后单独排期，不必等待所有 P3 功能一起交付。先验证单本分析到命名模板、再初始化新书的流程，再扩展多本按维度组合。</p>
+<p>上述阶段没有承诺交付日期。仅提供聊天窗口、单章生成按钮或一段“已记住要求”的回复，不能满足 P1 的产品目标。</p></section>
+<section class="doc-section" id="section-11" aria-labelledby="heading-11"><span class="section-count">PRODUCT REQUIREMENTS / 11</span><h2 id="heading-11">11. 产品风险与待验证事项</h2><div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">风险或假设</th><th scope="col">对产品的影响</th><th scope="col">验证和处理方式</th></tr></thead><tbody>
+<tr><td>规则检测通过但文字不好读</td><td>自动完成率可能掩盖高返工成本</td><td>同时评测接受比例、修改时间和作者偏好</td></tr>
+<tr><td>规则冲突、误报过多</td><td>频繁暂停，削弱连续创作体验</td><td>明确检测范围、例外、强弱规则，并记录误报</td></tr>
+<tr><td>材料提炼只有概念总结</td><td>用户无法感到“教过的方法”有效</td><td>用本书章纲与正文中的具体事件验证</td></tr>
+<tr><td>文风校准过拟合少量样本</td><td>所有场景写法雷同</td><td>用不同场景和未参与校准的段落复核</td></tr>
+<tr><td>自动运行遇到不确定用量</td><td>费用显示不准确或无法继续</td><td>标明未知用量，保守预留并暂停后续请求</td></tr>
+<tr><td>改稿后记忆过期</td><td>后文沿用已被修改的事件</td><td>展示来源版本、待更新状态和受影响范围</td></tr>
+<tr><td>首版功能过宽</td><td>核心创作流程难以交付</td><td>以 P1 验收为主，完整参考小说和多媒体解析独立排期</td></tr>
+</tbody></table></div>
+<p>后续通过少量代表性资料和样稿确定以下事项：首批题材及目标读者、默认章节字数和容差、预算与返工默认值、文风偏好样例、自动保存与历史保留设置，以及各项质量指标的初始基线。它们不阻塞本次产品文档整理和本地基础设计。</p></section>
+<section class="doc-section" id="section-12" aria-labelledby="heading-12"><span class="section-count">PRODUCT REQUIREMENTS / 12</span><h2 id="heading-12">12. 依据与需求追溯</h2><p>本轮使用本地已有资料和当前模板源码整理产品需求，没有重新核验设计文档所引用的外部项目、模型型号或价目，也没有调用付费模型。</p>
+<div class="table-wrap" role="region" aria-label="文档表格，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">依据</th><th scope="col">支持的内容</th></tr></thead><tbody>
+<tr><td><a href="../design/novel-generation-plugin-design.md">插件设计方案</a>第 1、4 节</td><td>产品定位、需求反馈、自动模式与能力边界</td></tr>
+<tr><td><a href="../design/novel-generation-plugin-design.md">插件设计方案</a>第 6、7 节</td><td>工作区与共享面板、模板实例化、连接配置、项目保存和备份</td></tr>
+<tr><td><a href="../design/novel-generation-plugin-design.md">插件设计方案</a>第 8 节</td><td>规划、长期规则、故事记忆、材料方法化、文风、反馈与参考模板</td></tr>
+<tr><td><a href="../design/novel-generation-plugin-design.md">插件设计方案</a>第 9、10 节</td><td>运行状态、检查与修正、恢复、预算、模型和凭据边界</td></tr>
+<tr><td><a href="../design/novel-generation-plugin-design.md">插件设计方案</a>第 12、13 节</td><td>P0–P3 阶段、质量验收和可调整参数</td></tr>
+<tr><td><a href="../README.md">项目开发说明</a></td><td>当前项目性质、交付环境与尚未实施状态</td></tr>
+<tr><td><a href="../../src/NovelGeneratePlugin.Plugin/Features/Main/MainDocument.cs">主文档源码</a>、<a href="../../src/NovelGeneratePlugin.Plugin/Features/Main/MainView.axaml">主界面</a>、<a href="../../src/NovelGeneratePlugin.Plugin/Plugin/NovelGeneratePluginModule.cs">插件注册</a>、<a href="../../tests/NovelGeneratePlugin.Tests/CompositionTests.cs">注册回归测试</a></td><td>规划时为模板示例；G0001 已清理演示，后续功能完成度以实施档案为准</td></tr>
+</tbody></table></div>
+<p>本文将已有方案中的能力转为产品需求、用户场景与可观察的验收条件。需要实现细节时继续查阅设计方案；后续范围变化应同步修订两份文档的相关结论。</p></section>
+<footer class="page-footer"><span>网络小说创作工作台 · 产品需求文档 v0.1</span><span>正文依据 Markdown 原文 · 示意图用于产品评审</span><a href="#overview">返回顶部 ↑</a></footer></main></div><div class="screen-reader" id="preview-announcement" role="status" aria-live="polite"></div>
+<script>
+(() => {
+ const tabs = [...document.querySelectorAll('[role="tab"]')];
+ function selectTab(tab, focus=false) {
+  tabs.forEach(t => { const on=t===tab; t.setAttribute('aria-selected',String(on)); t.tabIndex=on?0:-1; document.getElementById(t.getAttribute('aria-controls')).hidden=!on; });
+  if(focus) tab.focus();
+ }
+ tabs.forEach((tab,i) => {
+  tab.addEventListener('click',()=>selectTab(tab));
+  tab.addEventListener('keydown',e=>{let n=null; if(e.key==='ArrowRight')n=(i+1)%tabs.length; if(e.key==='ArrowLeft')n=(i+tabs.length-1)%tabs.length; if(e.key==='Home')n=0; if(e.key==='End')n=tabs.length-1; if(n!==null){e.preventDefault();selectTab(tabs[n],true);}});
+ });
+ const chapters=[
+  {title:'第一章　雨夜来客',state:'工作稿 · 已通过检查',copy:['最后一盏街灯熄灭时，有人敲响了账房的门。','林砚放下笔。门外站着一名披灰斗篷的女人，雨水顺着她的袖口落在门槛上。她递来一张收据，签名处只有半枚印章。','那枚印章，他下午才在失踪师傅的抽屉里见过。'],issue:'本章必要检查通过，已保存为工作稿。后续章节可承接该章事件；正式稿尚未改变。'},
+  {title:'第二章　缺失的名字',state:'工作稿 · 已通过检查',copy:['收据编号连着北街的仓库。林砚翻开旧账，在同一页上找到三笔相同的款项。','每笔款项后面，都少了一个名字。纸上没有刮擦，像是落笔的人一开始就留下了空位。','他将空位逐一圈起。第三个圆旁，师傅留下了一枚极小的钟形记号。'],issue:'本章线索承接第 1 章，新的钟楼线索已进入工作稿记忆。尚未人工定稿。'},
+  {title:'第三章　钟楼的回声',state:'候选稿 · 待处理',copy:['钟声停了。林砚把账簿合上，潮湿的纸页黏住了他的指尖。钟楼下，巡夜人的灯正向北街移去。','他将手贴在铜门上，隔着门板，看见了里面的人影。那人怀里抱着的，正是失踪账房的印匣。','可他从未学过这样的术法。'],issue:'主角不具备感知类术法。候选新增能力与本书设定冲突，待作者处理。'}
+ ];
+ const buttons=[...document.querySelectorAll('[data-chapter]')];
+ buttons.forEach(button=>button.addEventListener('click',()=>{
+  const index=Number(button.dataset.chapter),c=chapters[index];
+  buttons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+  document.getElementById('chapter-title').textContent=c.title;
+  document.getElementById('chapter-state').textContent=c.state;
+  const copy=document.getElementById('chapter-copy');copy.replaceChildren();
+  c.copy.forEach((text,i)=>{const p=document.createElement('p');if(index===2&&i===1){const phrase='隔着门板，看见了里面的人影。';const [a,b]=text.split(phrase);p.append(a);const mark=document.createElement('mark');mark.textContent=phrase;p.append(mark,b);}else p.textContent=text;copy.append(p);});
+  const issue=document.getElementById('review-issue');issue.classList.toggle('clear',index<2);issue.querySelector('b').textContent=index<2?'本章 / 检查通过':'01 / 锁定设定冲突';document.getElementById('review-message').textContent=c.issue;
+  document.getElementById('preview-announcement').textContent=c.title+'，'+c.state;
+ }));
+ document.getElementById('print-button').addEventListener('click',()=>window.print());
+ let previousTab;
+ window.addEventListener('beforeprint',()=>{previousTab=tabs.find(t=>t.getAttribute('aria-selected')==='true');document.querySelectorAll('[role="tabpanel"]').forEach(p=>p.hidden=false);});
+ window.addEventListener('afterprint',()=>{if(previousTab)selectTab(previousTab);});
+ const sections=[...document.querySelectorAll('main>section[id]')];
+ const links=[...document.querySelectorAll('.toc a')];let scheduled=false;
+ function updateReading(){scheduled=false;let current='overview';for(const s of sections){if(s.getBoundingClientRect().top<180)current=s.id;}links.forEach(a=>{const on=a.hash==='#'+current;a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','location');else a.removeAttribute('aria-current');});const available=document.documentElement.scrollHeight-innerHeight;const progress=available>0?Math.min(100,Math.max(0,100*scrollY/available)):0;document.getElementById('reading-progress').style.width=progress+'%';document.getElementById('reading-percent').textContent=Math.round(progress)+'%';}
+ addEventListener('scroll',()=>{if(!scheduled){scheduled=true;requestAnimationFrame(updateReading);}}, {passive:true});addEventListener('resize',updateReading);updateReading();
+ document.querySelectorAll('.mobile-nav a').forEach(a=>a.addEventListener('click',()=>document.querySelector('.mobile-nav').open=false));
+})();
+</script></body></html>
