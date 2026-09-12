@@ -1,4 +1,5 @@
 using Avalonia.Platform.Storage;
+using NovelGeneratePlugin.Application.Models;
 using MyAvaloniaManagement.PluginSdk.UI;
 using NovelGeneratePlugin.Application.Projects;
 using NovelGeneratePlugin.Application.Templates;
@@ -21,6 +22,7 @@ public sealed class TestWorkspace : IAsyncDisposable
     public TemplateLibrary Templates { get; }
     public UserCredentialVault Vault { get; }
     public ConnectionService Connections { get; }
+    public ModelRequestService Models { get; }
     public ArtifactService Artifacts { get; }
     public ProjectSessions Sessions { get; }
     public PluginCloseCoordinator Closing { get; }
@@ -29,6 +31,7 @@ public sealed class TestWorkspace : IAsyncDisposable
     {
         Directory.CreateDirectory(Root);
         Paths = new WorkspacePaths(Path.Combine(Root, "user-data"));
+        Models = new ModelRequestService(new ScriptedTextModel(), new ModelRequestStore(Paths));
         Catalog = new CatalogStore(Paths); Recovery = new RecoveryStore(Paths);
         Templates = new TemplateLibrary(new TemplateStore(Paths));
         Vault = new UserCredentialVault(Paths); Connections = new ConnectionService(new ConnectionStore(Paths), Vault);

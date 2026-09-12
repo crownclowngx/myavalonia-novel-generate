@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using NovelGeneratePlugin.Application.Connections;
 using NovelGeneratePlugin.Domain;
 using NovelGeneratePlugin.Application.Projects;
+using NovelGeneratePlugin.Application.Models;
 namespace NovelGeneratePlugin.Features.ModelConnections;
 
 public sealed partial class PresetEditor(string purpose) : ObservableObject
@@ -29,13 +30,22 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private Task _operation = Task.CompletedTask;
     private Task? _initialization;
     private Task<bool>? _closeTask;
-    public ModelConnectionsTool(ConnectionService service, PluginCloseCoordinator shutdown)
+    private readonly ModelRequestService _requests;
+    private CancellationTokenSource? _probeCancellation;
+    public ModelConnectionsTool(ConnectionService service, PluginCloseCoordinator shutdown, ModelRequestService requests)
     {
         _service = service;
         _shutdown = shutdown;
+        _requests = requests;
         foreach (var preset in Presets) preset.PropertyChanged += (_, _) => MarkDirty();
     }
     public ObservableCollection<ModelConnection> Connections { get; } = [];
+    public ObservableCollection<ModelRequestEntry> RecentRequests { get; } = [];
+    [ObservableProperty] private ModelRequestEntry? _selectedRequest;
+    partial void OnSelectedRequestChanged(ModelRequestEntry? value)
+    {
+        if (value is not null) ProbeResult = $"{value}\n{value.PartialText}\n输入 token：{value.Usage.InputTokens?.ToString() ?? "未知"}；输出 token：{value.Usage.OutputTokens?.ToString() ?? "未知"}。候选不等于已接受的工作稿。";
+    }
     public IReadOnlyList<PresetEditor> Presets { get; } = [new("规划"), new("正文"), new("检查")];
     public IReadOnlyList<ModelProvider> Providers { get; } = Enum.GetValues<ModelProvider>();
     [ObservableProperty] private ModelConnection? _selectedConnection;
@@ -53,6 +63,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     public bool CanManage => !_disposed && !IsBusy && !_preparingClose;
     public bool CanNavigate => CanManage && !IsDirty && SecretInput.Length == 0;
     public bool CanUseSaved => CanManage && _current is not null && !IsDirty;
+    public bool CanProbe => CanUseSaved && SecretInput.Length == 0;
+    public bool CanCancelProbe => _probeCancellation is not null;
+    [ObservableProperty] private string _probeResult = "生成检测会发送一条简短样本并消耗当前连接的套餐额度或 API 用量；启动与刷新凭据不会生成。Codex 输出 token 上限为软目标及事后校验。";
     public bool IsApi => Provider == ModelProvider.DeepSeek;
     public Task InitializeAsync() => _initialization ??= RunAsync(() => RefreshCoreAsync(null));
     partial void OnNameChanged(string value) => MarkDirty();
@@ -68,6 +81,7 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         NewConnectionCommand.NotifyCanExecuteChanged(); SaveConfigurationCommand.NotifyCanExecuteChanged(); RefreshCommand.NotifyCanExecuteChanged();
         ResetConfigurationCommand.NotifyCanExecuteChanged(); SaveSecretCommand.NotifyCanExecuteChanged(); ClearSecretCommand.NotifyCanExecuteChanged();
         MakeDefaultCommand.NotifyCanExecuteChanged(); ClearDefaultCommand.NotifyCanExecuteChanged(); ClearInputCommand.NotifyCanExecuteChanged();
+        ProbeCommand.NotifyCanExecuteChanged(); CancelProbeCommand.NotifyCanExecuteChanged(); OnPropertyChanged(nameof(CanProbe)); OnPropertyChanged(nameof(CanCancelProbe));
     }
     partial void OnSelectedConnectionChanged(ModelConnection? oldValue, ModelConnection? newValue)
     {
@@ -84,6 +98,7 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         try
         {
             _current = connection; var settings = connection?.Settings;
+            SelectedRequest = null; RecentRequests.Clear();
             Name = settings?.Name ?? "Codex 开发验证"; Provider = settings?.Provider ?? ModelProvider.CodexCli;
             Endpoint = settings?.Endpoint ?? ""; CodexExecutable = settings?.CodexExecutable ?? "";
             var defaultPreset = new ModelPreset("gpt-6-astra", 8192, "high");
@@ -96,11 +111,12 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
     private ConnectionSettings Capture() => new(Name.Trim(), Provider, IsApi ? Endpoint.Trim().TrimEnd('/') : "", IsApi ? "" : CodexExecutable.Trim(), Presets[0].Capture(), Presets[1].Capture(), Presets[2].Capture());
     private async Task RefreshCoreAsync(Guid? selected)
     {
+        var secretGeneration = _secretGeneration;
         var catalog = await _service.ListAsync();
         _loading = true;
         try { Connections.Clear(); foreach (var item in catalog.Connections) Connections.Add(item); SelectedConnection = Connections.SingleOrDefault(c => c.Id == selected); }
         finally { _loading = false; }
-        if (!IsDirty) Load(SelectedConnection);
+        if (!IsDirty && _secretGeneration == secretGeneration && SecretInput.Length == 0) Load(SelectedConnection);
         DefaultStatus = catalog.Connections.SingleOrDefault(c => c.Id == catalog.DefaultConnectionId) is { } current ? "仅新书默认：" + current.Settings.Name : "新书未设置默认连接";
         await UpdateCredentialStatusAsync();
     }
@@ -118,6 +134,9 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
             CredentialState.ManagedByCodex => "由 Codex CLI 管理登录；本地未检测远程可用性",
             _ => "缺少 API Key；不影响作品打开与编辑"
         };
+        var recent = await _requests.RecentAsync(queried.Id);
+        if (_current?.Id != queried.Id || _current.Version != queried.Version) return;
+        SelectedRequest = null; RecentRequests.Clear(); foreach (var entry in recent) RecentRequests.Add(entry);
     }
     [RelayCommand(CanExecute = nameof(CanNavigate))]
     private void NewConnection() { _loading = true; try { SelectedConnection = null; } finally { _loading = false; } Load(null); }
@@ -149,13 +168,47 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         await UpdateCredentialStatusAsync();
     });
     [RelayCommand(CanExecute = nameof(CanUseSaved))]
-    private Task ClearSecret() => RunAsync(async () => { await _service.ClearSecretAsync(ConnectionService.Bind(_current!)); SecretInput = ""; await UpdateCredentialStatusAsync(); Status = "此连接密钥已清除，后续请求需要重新认证。"; });
+    private Task ClearSecret() => RunAsync(async () =>
+    {
+        var generation = _secretGeneration;
+        await _service.ClearSecretAsync(ConnectionService.Bind(_current!));
+        if (_secretGeneration == generation) SecretInput = "";
+        await UpdateCredentialStatusAsync(); Status = "此连接密钥已清除，后续请求需要重新认证。";
+    });
     [RelayCommand(CanExecute = nameof(CanManage))]
     private void ClearInput() { SecretInput = ""; Status = "仅清空尚未提交的密钥输入。"; }
     [RelayCommand(CanExecute = nameof(CanUseSaved))]
     private Task MakeDefault() => RunAsync(async () => { await _service.SetDefaultAsync(_current!.Id); DefaultStatus = "仅新书默认：" + _current.Settings.Name; });
     [RelayCommand(CanExecute = nameof(CanManage))]
     private Task ClearDefault() => RunAsync(async () => { await _service.SetDefaultAsync(null); DefaultStatus = "新书未设置默认连接"; });
+    [RelayCommand(CanExecute = nameof(CanProbe))]
+    private Task Probe() => RunAsync(async () =>
+    {
+        using var cancellation = new CancellationTokenSource(); _probeCancellation = cancellation; NotifyCommands();
+        var budget = new RequestBudget(Guid.NewGuid(), 1, 200000);
+        try
+        {
+            var frozen = await _service.FreezeAsync(ConnectionService.Bind(_current!), Guid.NewGuid(), ModelTask.Checking);
+            var request = new TextModelRequest(Guid.NewGuid(), frozen, "只输出一句中文小说，不超过 30 个汉字。", "写一句雨夜书店的开场描写。", false);
+            ProbeResult = "正在生成一句检测样本…";
+            var response = await _requests.GenerateAsync(request, budget, null, cancellation.Token);
+            ProbeResult = $"{(response.Completion == ModelCompletion.Complete ? "已连通" : "返回结果超过预设限制，需复核")}：{response.Text}\n输入 token：{response.Usage.InputTokens?.ToString() ?? "未知"}；输出 token：{response.Usage.OutputTokens?.ToString() ?? "未知"}。";
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            ProbeResult = "检测未完成。";
+            var saved = _requests.List(budget.Id).LastOrDefault();
+            if (saved?.PartialText.Length > 0) ProbeResult += " 已保留候选：" + saved.PartialText;
+            throw;
+        }
+        finally
+        {
+            _probeCancellation = null; NotifyCommands();
+            await UpdateCredentialStatusAsync();
+        }
+    });
+    [RelayCommand(CanExecute = nameof(CanCancelProbe))]
+    private void CancelProbe() => _probeCancellation?.Cancel();
     private Task RunAsync(Func<Task> operation)
     { if (!CanManage) return Task.CompletedTask; EnsureCloseRegistration(); return _operation = RunCoreAsync(operation); }
     private async Task RunCoreAsync(Func<Task> operation)
@@ -175,6 +228,7 @@ public sealed partial class ModelConnectionsTool : ObservableObject, IClosePrepa
         _preparingClose = true; NotifyCommands();
         try
         {
+            _probeCancellation?.Cancel();
             await _operation;
             if (SecretInput.Length > 0) { Status = "尚有未提交的密钥，请保存密钥或清空输入后关闭。"; return false; }
             if (IsDirty) await SaveCoreAsync();

@@ -7,6 +7,8 @@ using NovelGeneratePlugin.Application.Connections;
 using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Application.Export;
 using NovelGeneratePlugin.Infrastructure.Export;
+using NovelGeneratePlugin.Application.Models;
+using NovelGeneratePlugin.Infrastructure.Models;
 namespace NovelGeneratePlugin.Plugin;
 
 public static class NovelGeneratePluginServices
@@ -27,6 +29,13 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<ConnectionService>();
         services.AddSingleton<IArtifactFiles, ArtifactFiles>();
         services.AddSingleton<ArtifactService>();
+        services.AddSingleton(_ => DeepSeekTextModel.CreateClient());
+        services.AddSingleton<DeepSeekTextModel>();
+        services.AddSingleton<ICodexProcess, CodexProcess>();
+        services.AddSingleton<CodexTextModel>();
+        services.AddSingleton<ITextModel, TextModelRouter>();
+        services.AddSingleton<IModelRequestStore, ModelRequestStore>();
+        services.AddSingleton<ModelRequestService>();
         return services;
     }
 }

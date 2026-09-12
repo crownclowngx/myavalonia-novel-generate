@@ -7,7 +7,7 @@
 创作流程和版本路线；支持离线阅读与打印。
 
 后续开发按 [G0001–G0028 实施总计划](docs/implementation-plan.md)推进；首个可用版本对应 G0001–G0016。
-阶段状态和归档规则见 [G 编号实施档案](docs/refactoring/README.md)。G0001–G0007 已完成本地实现：可编辑和保存小说项目、恢复失败副本、提交工作稿、人工定稿及回退修订、管理模板、本书独立规范、模型连接、本地规则检查与备份/导出。尚未接入 AI 生成。
+阶段状态和归档规则见 [G 编号实施档案](docs/refactoring/README.md)。G0001–G0008 已完成本地实现：可编辑和保存小说项目、恢复失败副本、提交工作稿、人工定稿及回退修订、管理模板、本书独立规范、模型连接、本地规则检查与备份/导出。已接入模型协议与单句连接检测；完整章节生成由 G0009–G0012 继续实现。
 
 这是由 `myavalonia-plugin` 创建的 Managed Plugin 解决方案。真实交付物是
 `src/NovelGeneratePlugin.Plugin`；`Standalone` 只负责快速预览同一份 View、ViewModel 与业务代码。
@@ -50,3 +50,5 @@ Standalone 的“创作模板库”页可创建和保存版本；作品展开“
 长期规则编辑、草案保护与本地检测见 [G0006 规则契约](docs/refactoring/G0006/writing-rule-contract.md)。
 
 P0 离线能力及未验项见 [G0007 验收矩阵](docs/refactoring/G0007/p0-acceptance-matrix.md)，文件语义见 [备份导出契约](docs/refactoring/G0007/backup-export-contract.md)。
+
+模型接入能力与已知限制见 [G0008 协议记录](docs/refactoring/G0008/model-protocol-and-capabilities.md)，预算及候选恢复见 [请求用量契约](docs/refactoring/G0008/request-usage-contract.md)。

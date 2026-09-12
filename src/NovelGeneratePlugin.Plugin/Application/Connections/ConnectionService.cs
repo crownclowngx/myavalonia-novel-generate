@@ -73,6 +73,15 @@ public sealed class ConnectionService(IConnectionStore store, ICredentialVault v
         var current = RequireCurrent(binding);
         return new FrozenConnection(book.Id, current, task, current.Settings.Preset(task));
     });
+    public Task<FrozenConnection> FreezeAsync(ConnectionBinding binding, Guid ownerId, ModelTask task) => Task.Run(() =>
+    {
+        var current = RequireCurrent(binding); return new FrozenConnection(ownerId, current, task, current.Settings.Preset(task));
+    });
+    public Task ValidateCurrentAsync(FrozenConnection frozen) => Task.Run(() =>
+    {
+        var current = RequireCurrent(Bind(frozen.Connection));
+        if (current != frozen.Connection) throw new InvalidOperationException("冻结连接与已保存配置不一致。");
+    });
     /// <summary>每次发送前重新检查配置和凭据。冻结对象不携带 Key，清除/替换后不能从旧运行缓存取得认证。</summary>
     public Task<string> ReadSecretForRequestAsync(FrozenConnection frozen) => Task.Run(() =>
     {

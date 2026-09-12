@@ -13,12 +13,41 @@ namespace NovelGeneratePlugin.Tests;
 public sealed class ConnectionTests
 {
     [Fact]
+    public async Task 清除旧密钥期间的新输入不丢失()
+    {
+        await using var workspace = new TestWorkspace(); using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var vault = new ControlledVault(workspace.Vault) { BeforeClear = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
+        var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault); await service.SaveAsync(null, Api());
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync(); tool.SelectedConnection = Assert.Single(tool.Connections); await tool.SaveBeforeCloseAsync();
+        var clearing = tool.ClearSecretCommand.ExecuteAsync(null);
+        try { await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SecretInput = "unit-next-secret"; } finally { release.Set(); }
+        await clearing; Assert.Equal("unit-next-secret", tool.SecretInput); Assert.False(await tool.SaveBeforeCloseAsync()); tool.ClearInputCommand.Execute(null);
+    }
+    [Fact]
+    public async Task 初始化读取期间的新密钥输入不被表单加载清空()
+    {
+        await using var workspace = new TestWorkspace(); using var release = new ManualResetEventSlim();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var store = new BlockingReadStore(new ConnectionStore(workspace.Paths), () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); });
+        await using var tool = new ModelConnectionsTool(new(store, workspace.Vault), workspace.Closing, workspace.Models);
+        var loading = tool.InitializeAsync(); try { await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SecretInput = "unit-input-during-load"; } finally { release.Set(); }
+        await loading; Assert.Equal("unit-input-during-load", tool.SecretInput); Assert.False(await tool.SaveBeforeCloseAsync()); tool.ClearInputCommand.Execute(null);
+    }
+    private sealed class BlockingReadStore(IConnectionStore inner, Action beforeRead) : IConnectionStore
+    {
+        public ConnectionCatalog Read() { beforeRead(); return inner.Read(); }
+        public ModelConnection Save(Guid id, long? expectedVersion, ConnectionSettings settings) => inner.Save(id, expectedVersion, settings);
+        public void SetDefault(Guid? id) => inner.SetDefault(id);
+    }
+
+    [Fact]
     public async Task 密钥写入失败保留输入供重试且不伪装保存成功()
     {
         await using var workspace = new TestWorkspace(); var fail = true;
         var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { if (fail) throw new IOException("注入密钥写入失败"); } };
         var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault); await service.SaveAsync(null, Api());
-        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync();
         tool.SelectedConnection = Assert.Single(tool.Connections); await tool.SaveBeforeCloseAsync();
         tool.SecretInput = TestKey; await tool.SaveSecretCommand.ExecuteAsync(null);
         Assert.Equal(TestKey, tool.SecretInput); Assert.Contains("失败", tool.Status); Assert.False(await tool.SaveBeforeCloseAsync());
@@ -46,7 +75,7 @@ public sealed class ConnectionTests
         var vault = new ControlledVault(workspace.Vault) { BeforeSet = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
         var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
         var connection = await service.SaveAsync(null, Api());
-        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync();
         tool.SelectedConnection = Assert.Single(tool.Connections); await tool.SaveBeforeCloseAsync();
         tool.SecretInput = "unit-first-secret"; var saving = tool.SaveSecretCommand.ExecuteAsync(null);
         try { await entered.Task.WaitAsync(TimeSpan.FromSeconds(5)); tool.SecretInput = "unit-next-secret"; }
@@ -63,7 +92,7 @@ public sealed class ConnectionTests
         var vault = new ControlledVault(workspace.Vault) { BeforeState = () => { entered.TrySetResult(); if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException(); } };
         var service = new ConnectionService(new ConnectionStore(workspace.Paths), vault);
         var a = await service.SaveAsync(null, Api("甲")); var b = await service.SaveAsync(null, Api("乙"));
-        await using var tool = new ModelConnectionsTool(service, workspace.Closing); await tool.InitializeAsync();
+        await using var tool = new ModelConnectionsTool(service, workspace.Closing, workspace.Models); await tool.InitializeAsync();
         tool.SelectedConnection = tool.Connections.Single(c => c.Id == a.Id);
         try
         {
@@ -205,7 +234,7 @@ public sealed class ConnectionTests
     [Fact]
     public async Task 面板保存清空密钥并阻止未处理输入退出()
     {
-        await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections, workspace.Closing);
+        await using var workspace = new TestWorkspace(); await using var tool = new ModelConnectionsTool(workspace.Connections, workspace.Closing, workspace.Models);
         await tool.InitializeAsync(); tool.Provider = ModelProvider.DeepSeek; tool.Endpoint = "https://api.deepseek.com"; tool.Name = "表单连接";
         foreach (var preset in tool.Presets) preset.Model = "deepseek-flash";
         tool.SecretInput = TestKey; await tool.SaveConfigurationCommand.ExecuteAsync(null);
@@ -219,9 +248,10 @@ public sealed class ConnectionTests
     {
         public Action? BeforeSet { get; init; }
         public Action? BeforeState { get; init; }
+        public Action? BeforeClear { get; init; }
         public CredentialState State(CredentialTarget target) { BeforeState?.Invoke(); return inner.State(target); }
         public void Set(CredentialTarget target, string secret, bool persist) { BeforeSet?.Invoke(); inner.Set(target, secret, persist); }
-        public void Clear(CredentialTarget target) => inner.Clear(target);
+        public void Clear(CredentialTarget target) { BeforeClear?.Invoke(); inner.Clear(target); }
         public string ReadForRequest(CredentialTarget target) => inner.ReadForRequest(target);
     }
 }

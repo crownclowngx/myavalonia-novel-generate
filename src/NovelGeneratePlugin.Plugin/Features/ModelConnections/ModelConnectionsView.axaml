@@ -41,6 +41,13 @@
           <Button Content="设为新书默认" Command="{Binding MakeDefaultCommand}" Margin="0,0,6,6" />
           <Button Content="清除新书默认" Command="{Binding ClearDefaultCommand}" />
         </WrapPanel>
+        <WrapPanel>
+          <Button Content="生成一句检测（消耗额度）" Command="{Binding ProbeCommand}" Margin="0,0,6,6" />
+          <Button Content="取消检测" Command="{Binding CancelProbeCommand}" />
+        </WrapPanel>
+        <TextBlock Text="{Binding ProbeResult}" TextWrapping="Wrap" />
+        <TextBlock Text="本连接最近 20 条请求（可重开查看候选）" />
+        <ComboBox ItemsSource="{Binding RecentRequests}" SelectedItem="{Binding SelectedRequest}" IsEnabled="{Binding CanManage}" HorizontalAlignment="Stretch" />
         <TextBlock Text="{Binding CredentialStatus}" TextWrapping="Wrap" />
         <StackPanel Spacing="8" IsVisible="{Binding IsApi}" IsEnabled="{Binding CanManage}">
           <TextBox x:Name="SecretEditor" Text="{Binding SecretInput}" PasswordChar="●" MaxLength="8192" PlaceholderText="输入新 API Key（不回显已有密钥）" />
