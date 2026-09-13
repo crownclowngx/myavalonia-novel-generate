@@ -4,7 +4,7 @@
     <ManagedPlugin>true</ManagedPlugin>
     <ManagedPluginId>myavalonia.plugin.novel.generate</ManagedPluginId>
     <ManagedPluginDirectoryName>NovelGeneratePlugin</ManagedPluginDirectoryName>
-    <PluginVersion>1.1.0</PluginVersion>
+    <PluginVersion>1.1.1</PluginVersion>
     <ManagedPluginRuntimeIdentifier>win-x64</ManagedPluginRuntimeIdentifier>
     <ManagedPluginEntryType>NovelGeneratePlugin.Plugin.NovelGeneratePluginModule</ManagedPluginEntryType>
     <ManagedPluginSdkMinInclusive>3.4.0</ManagedPluginSdkMinInclusive>
