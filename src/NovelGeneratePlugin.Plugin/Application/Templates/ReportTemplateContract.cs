@@ -11,7 +11,7 @@ namespace NovelGeneratePlugin.Application.Templates;
 /// </summary>
 public sealed class ReportTemplateContract(ProfileDimensions dimensions, IReadOnlyList<ReportTemplateClaim> available) : IModelOutputContract
 {
-    private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter(allowIntegerValues: false) }, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    private static readonly JsonSerializerOptions Json = new() { Converters = { new JsonStringEnumConverter(allowIntegerValues: false) }, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     public void Validate(JsonElement value) => Read(value.GetRawText());
     public TemplateConversionCandidate Read(string json)
     {

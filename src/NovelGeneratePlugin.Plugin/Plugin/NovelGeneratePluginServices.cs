@@ -53,6 +53,7 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<IAnalysisNodePreparer, NovelAnalysisNodePreparer>();
         services.AddSingleton<NovelAnalysisRunService>();
         services.AddSingleton<NovelAnalysisReportService>();
+        services.AddSingleton<ReportTemplateConversionService>();
         services.AddSingleton<NovelAnalysisActivity>();
         services.AddSingleton<NovelAnalysisCandidateService>();
         services.AddSingleton<IAnalysisReportWriter, AnalysisReportWriter>();

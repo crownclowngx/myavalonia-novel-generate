@@ -187,11 +187,11 @@ G0016 后可继续 P2，也可按实际需求启动 G0021 等扩展。数字较�
 | 阶段 | 改造目标 | 当前状态 |
 | --- | --- | --- |
 | [G0041](novel-analysis-template-conversion-plan.md#g0041) | 保存基线、转换契约与来源模型 | [本地已验证，5/5 项](refactoring/G0041/result.md) |
-| [G0042](novel-analysis-template-conversion-plan.md#g0042) | AI 转换、预算与持久化恢复 | 待实施，0/5 项 |
+| [G0042](novel-analysis-template-conversion-plan.md#g0042) | AI 转换、预算与持久化恢复 | [本地已验证，5/5 项](refactoring/G0042/result.md) |
 | [G0043](novel-analysis-template-conversion-plan.md#g0043) | 报告入口、草案交付与版本采用 | 待实施，0/5 项 |
 | [G0044](novel-analysis-template-conversion-plan.md#g0044) | 全流程验证、文档和目标签收 | 待实施，0/5 项 |
 
-作为一次改造管理，进度统一见[改造进度主表](novel-analysis-template-conversion-plan.md#progress)：1/4 阶段、5/20 工作项，已按用户要求开始实施。承接 G0021-03 的模板提炼及 G0021-05 的采用/恢复验证，具体人物实体和章节大纲初始化仍属于 G0021-04。原 G0035/G0036 的待验项及插件发布保持独立状态。
+作为一次改造管理，进度统一见[改造进度主表](novel-analysis-template-conversion-plan.md#progress)：2/4 阶段、10/20 工作项。承接 G0021-03 的模板提炼及 G0021-05 的采用/恢复验证，具体人物实体和章节大纲初始化仍属于 G0021-04。原 G0035/G0036 的待验项及插件发布保持独立状态。
 
 ## 4. P0：可靠的本地创作基础
 
