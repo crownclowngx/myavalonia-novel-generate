@@ -13,6 +13,7 @@
 | [技术设计](../design/novel-generation-plugin-design.md) | 架构、存储、规则、记忆、任务和接入边界 |
 | [实施总计划](../implementation-plan.md) | G0001–G0028 工作拆分、顺序、依赖、范围与出口 |
 | [整本小说分析专项计划](../novel-analysis-feasibility-plan.md) | G0029–G0036 可行性、工作项、进度、报告与最终目标验收；承接原 G0021 的分析部分 |
+| [分析保存与模板自动接通改造](../novel-analysis-template-conversion-plan.md) | G0041–G0044 的保存现状、转换方案、20 项执行计划和最终目标验收；当前仅计划 |
 | `Gxxxx/plan.md` | 开工时真实基线、该阶段选定范围、工作项和验收计划 |
 | `Gxxxx/implementation.md` | 实际方案、修改位置、职责、数据流、理由与兼容处理 |
 | `Gxxxx/result.md` | 已发生的实现和验证、偏差、限制及未完成事项 |
@@ -44,7 +45,7 @@
 | G0018 | 反馈候选与规范回退 | [计划](../implementation-plan.md#g0018) | 待实施 |
 | G0019 | 长篇性能与迁移恢复 | [计划](../implementation-plan.md#g0019) | 待实施 |
 | G0020 | P2 长篇质量验收 | [计划](../implementation-plan.md#g0020) | 待实施 |
-| G0021 | 单本参考提炼模板 | [计划](../implementation-plan.md#g0021) | 分析部分由 G0029–G0036 承接；模板/初始化待选做 |
+| G0021 | 单本参考提炼模板 | [计划](../implementation-plan.md#g0021) | 分析由 G0029–G0036 承接；模板接通已列入 G0041–G0044 计划，具体新书初始化仍独立 |
 | G0022 | 多本参考组合 | [计划](../implementation-plan.md#g0022) | 待选做 |
 | G0023 | Workflow Provider | [计划](../implementation-plan.md#g0023) | 待选做 |
 | G0024 | 更多材料格式 | [计划](../implementation-plan.md#g0024) | 待选做 |
@@ -62,6 +63,17 @@
 | G0036 | 全文实测、质量与最终目标验收 | [计划](G0036/plan.md) / [方案](G0036/implementation.md) / [结果](G0036/result.md) | 1/5 项；机械审计归档完成，人工/长篇/桌面待验 |
 
 整本分析专项进度以[进度主表](../novel-analysis-feasibility-plan.md#progress)为准：当前 6/8 阶段、35/40 工作项，最终目标未达到。未来阶段在实际开工时建立三件套，不预建完成结果。
+
+2026-09-13 新增一次[分析保存与模板自动接通改造](../novel-analysis-template-conversion-plan.md)，统一按下列阶段推进，当前 0/4 阶段、0/20 工作项。G0037–G0040 的独立修复状态继续见[分析稳定性修复计划](../analysis-reliability-plan.md)。
+
+| 编号 | 改造阶段 | 计划 | 状态 |
+| --- | --- | --- | --- |
+| G0041 | 保存基线、转换契约与来源模型 | [执行计划](../novel-analysis-template-conversion-plan.md#g0041) | 待实施，0/5 项 |
+| G0042 | AI 转换、预算与持久化恢复 | [执行计划](../novel-analysis-template-conversion-plan.md#g0042) | 待实施，0/5 项 |
+| G0043 | 报告入口、草案交付与版本采用 | [执行计划](../novel-analysis-template-conversion-plan.md#g0043) | 待实施，0/5 项 |
+| G0044 | 全流程验证、文档和目标签收 | [执行计划](../novel-analysis-template-conversion-plan.md#g0044) | 待实施，0/5 项 |
+
+各阶段开工时创建计划/方案/结果三件套和专用契约文档，当前仅登记计划，不预填实现或验收结果。
 
 ## 开工与归档规则
 
