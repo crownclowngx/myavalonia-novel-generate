@@ -24,6 +24,7 @@
         <CheckBox Content="显示已归档模板" IsChecked="{Binding ShowArchived}" IsEnabled="{Binding CanNavigate}" />
         <ComboBox ItemsSource="{Binding Templates}" SelectedItem="{Binding SelectedTemplate}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanNavigate}" />
         <TextBlock Text="{Binding VersionStatus}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding SourceStatus}" TextWrapping="Wrap" FontSize="12" />
         <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
           <TextBox x:Name="TemplateNameEditor" Text="{Binding Name}" MaxLength="120" PlaceholderText="模板名称" />
           <TextBox Text="{Binding Tags}" MaxLength="1500" PlaceholderText="标签，用逗号分隔" />

@@ -8,6 +8,9 @@ namespace NovelGeneratePlugin.Features.Main;
 
 public sealed partial class MainDocument
 {
+    private bool _templateSubscribed, _refreshingTemplateChoices;
+    private long _templateChoicesGeneration;
+    private Task _templateRefresh = Task.CompletedTask;
     private (Guid BookId, Guid VersionId, ProfileDimensions Dimensions, WritingProfile Before)? _templatePreview;
     [ObservableProperty] private TemplateChoice? _selectedTemplateChoice;
     [ObservableProperty] private string _profileWorld = "";
@@ -25,7 +28,16 @@ public sealed partial class MainDocument
         (UseMethods ? ProfileDimensions.Methods : 0) | (UseRules ? ProfileDimensions.Rules : 0);
     public bool CanApplyTemplate => CanEdit && _templatePreview is { } preview && _session is not null && SelectedTemplateChoice is not null &&
         preview.BookId == _session.Id && preview.VersionId == SelectedTemplateChoice.VersionId && preview.Dimensions == SelectedDimensions && preview.Before == _session.Current.Profile;
-    partial void OnSelectedTemplateChoiceChanged(TemplateChoice? value) => ClearTemplatePreview();
+    partial void OnSelectedTemplateChoiceChanged(TemplateChoice? value)
+    {
+        if (value is not null && !_refreshingTemplateChoices)
+        {
+            // 空字段自动取消勾选，但不能重新启用作者已取消的维度，否则会覆盖原本要保留的本书规范。
+            UseWorld = UseWorld && value.AvailableDimensions.HasFlag(ProfileDimensions.World); UseStyle = UseStyle && value.AvailableDimensions.HasFlag(ProfileDimensions.Style);
+            UseMethods = UseMethods && value.AvailableDimensions.HasFlag(ProfileDimensions.Methods); UseRules = UseRules && value.AvailableDimensions.HasFlag(ProfileDimensions.Rules);
+        }
+        ClearTemplatePreview();
+    }
     partial void OnUseWorldChanged(bool value) => ClearTemplatePreview();
     partial void OnUseStyleChanged(bool value) => ClearTemplatePreview();
     partial void OnUseMethodsChanged(bool value) => ClearTemplatePreview();
@@ -60,11 +72,23 @@ public sealed partial class MainDocument
     }
     private async Task RefreshTemplateChoicesAsync()
     {
-        var selected = SelectedTemplateChoice?.VersionId;
-        var choices = await templates.ChoicesAsync(); TemplateChoices.Clear();
-        foreach (var choice in choices) TemplateChoices.Add(choice);
-        SelectedTemplateChoice = TemplateChoices.FirstOrDefault(c => c.VersionId == selected);
+        var generation = ++_templateChoicesGeneration; var choices = await templates.ChoicesAsync();
+        if (_disposed || _closing.IsCancellationRequested || generation != _templateChoicesGeneration) return;
+        var selected = SelectedTemplateChoice?.VersionId; _refreshingTemplateChoices = true;
+        try
+        {
+            TemplateChoices.Clear(); foreach (var choice in choices) TemplateChoices.Add(choice);
+            SelectedTemplateChoice = TemplateChoices.FirstOrDefault(c => c.VersionId == selected);
+        }
+        finally { _refreshingTemplateChoices = false; }
     }
+    private void OnTemplateVersionsChanged()
+    {
+        void RefreshIfOpen() { if (!_disposed && !_closing.IsCancellationRequested) _templateRefresh = RefreshPublishedTemplatesAsync(); }
+        if (_ui is null || ReferenceEquals(_ui, SynchronizationContext.Current)) RefreshIfOpen(); else _ui.Post(_ => RefreshIfOpen(), null);
+    }
+    private async Task RefreshPublishedTemplatesAsync()
+    { try { await RefreshTemplateChoicesAsync(); } catch (Exception error) when (error is not OutOfMemoryException) { if (!_disposed) Status = "模板版本已更新，列表刷新失败，请点击刷新模板。"; } }
     [RelayCommand(CanExecute = nameof(CanSwitch))]
     private Task RefreshTemplates() => RunAsync(RefreshTemplateChoicesAsync);
     [RelayCommand(CanExecute = nameof(CanEdit))]
@@ -74,6 +98,7 @@ public sealed partial class MainDocument
         var book = _session!.Current; var dimensions = SelectedDimensions;
         var adopted = await templates.AdoptAsync(book, choice, dimensions);
         var text = new StringBuilder($"准备采用：{choice}\n");
+        if ((dimensions & ~choice.AvailableDimensions) != 0) text.AppendLine("已主动选择空模板字段：采用会清空对应本书内容，请核对下方差异。");
         foreach (var row in new[] { ("世界观", book.Profile.World, adopted.Profile.World), ("文风", book.Profile.Style, adopted.Profile.Style),
             ("方法", book.Profile.Methods, adopted.Profile.Methods), ("规则", book.Profile.Rules, adopted.Profile.Rules) })
         {

@@ -54,6 +54,9 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<NovelAnalysisRunService>();
         services.AddSingleton<NovelAnalysisReportService>();
         services.AddSingleton<ReportTemplateConversionService>();
+        services.AddSingleton<ReportTemplateDeliveryService>();
+        services.AddSingleton<ReportTemplateActivity>();
+        services.AddSingleton<NovelGeneratePlugin.Features.TemplateLibrary.ReportTemplatePanel>();
         services.AddSingleton<NovelAnalysisActivity>();
         services.AddSingleton<NovelAnalysisCandidateService>();
         services.AddSingleton<IAnalysisReportWriter, AnalysisReportWriter>();

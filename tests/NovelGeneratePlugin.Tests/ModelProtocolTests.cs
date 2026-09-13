@@ -156,16 +156,19 @@ public sealed class ModelProtocolTests
     [Fact]
     public async Task 超时取消保留状态并区分原因()
     {
-        await using var workspace = new TestWorkspace(); var store = new ModelRequestStore(workspace.Paths); var service = new ModelRequestService(new WaitingModel(), store);
+        await using var workspace = new TestWorkspace(); var store = new ModelRequestStore(workspace.Paths); var model = new WaitingModel(); var service = new ModelRequestService(model, store);
         var budget = Budget(); var error = await Assert.ThrowsAsync<ModelRequestException>(() => service.GenerateAsync(Request(), budget, null, default, TimeSpan.FromMilliseconds(50)));
         Assert.Equal(ModelFailure.Timeout, error.Failure); Assert.Equal("等待中的片段", Assert.Single(store.List(budget.Id)).PartialText);
-        using var cancellation = new CancellationTokenSource(); budget = Budget(); var running = service.GenerateAsync(Request(), budget, null, cancellation.Token);
-        await Task.Delay(30); cancellation.Cancel(); error = await Assert.ThrowsAsync<ModelRequestException>(() => running); Assert.Equal(ModelFailure.Cancelled, error.Failure);
+        using var cancellation = new CancellationTokenSource(); budget = Budget(); model.Reset(); var running = service.GenerateAsync(Request(), budget, null, cancellation.Token);
+        // 必须等到模型实际开始，再验证在途取消；预留前取消属于未发送场景，不能靠固定延时猜测调度时机。
+        await model.Started.Task.WaitAsync(TimeSpan.FromSeconds(5)); cancellation.Cancel(); error = await Assert.ThrowsAsync<ModelRequestException>(() => running); Assert.Equal(ModelFailure.Cancelled, error.Failure);
     }
     private sealed class WaitingModel : ITextModel
     {
+        public TaskCompletionSource Started { get; private set; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public void Reset() => Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async Task<TextModelResponse> GenerateAsync(TextModelRequest request, IProgress<string>? progress, CancellationToken cancellationToken)
-        { progress?.Report("等待中的片段"); await Task.Delay(Timeout.Infinite, cancellationToken); throw new InvalidOperationException(); }
+        { progress?.Report("等待中的片段"); Started.TrySetResult(); await Task.Delay(Timeout.Infinite, cancellationToken); throw new InvalidOperationException(); }
     }
     [Theory]
     [InlineData(401, ModelFailure.Authentication)]

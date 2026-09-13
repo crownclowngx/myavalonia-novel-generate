@@ -51,6 +51,7 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
         ArgumentNullException.ThrowIfNull(activation); ObjectDisposedException.ThrowIf(_disposed, this); cancellationToken.ThrowIfCancellationRequested();
         if (activation is not NewDocumentActivation) throw new NotSupportedException("请从小说工作区打开 .noveldb 项目。");
         _ui = SynchronizationContext.Current;
+        if (!_templateSubscribed) { templates.VersionsChanged += OnTemplateVersionsChanged; _templateSubscribed = true; }
         EnsureCloseRegistration();
         _presentation = new DocumentPresentationState(string.IsNullOrWhiteSpace(activation.Title) ? "小说创作" : activation.Title);
         PresentationChanged?.Invoke(this, EventArgs.Empty);
@@ -349,7 +350,8 @@ public sealed partial class MainDocument(ProjectSessions sessions, IProjectCatal
     private async Task CloseCoreAsync()
     {
         if (_disposed) return;
-        _closing.Cancel(); NotifyCommands(); await _operation;
+        _closing.Cancel(); if (_templateSubscribed) templates.VersionsChanged -= OnTemplateVersionsChanged;
+        NotifyCommands(); await _operation; await _templateRefresh;
         if (_session is not null) { await _session.DisposeAsync(); _session.StateChanged -= OnSessionStateChanged; }
         _disposed = true; CommandStateChanged = null; _closing.Dispose();
     }

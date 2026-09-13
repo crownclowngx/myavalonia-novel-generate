@@ -17,8 +17,12 @@ public sealed record AnalysisEvidenceChoice(int Fact, AnalysisEvidence Evidence)
 /// 报告阅读状态与运行面板分开。只绑定当前专题和证据附近片段，不把整部来源放进 TextBox。
 /// 切换运行会清空旧报告，异步加载通过代数核对，防止较慢的旧任务覆盖后来选择的报告。
 /// </summary>
-public sealed partial class NovelReportReader(NovelAnalysisReportService reports, IAnalysisReportWriter writer, IPluginWindowInteraction interaction) : ObservableObject
+public sealed partial class NovelReportReader(NovelAnalysisReportService reports, IAnalysisReportWriter writer, IPluginWindowInteraction interaction, ReportTemplatePanel? conversion = null) : ObservableObject
 {
+    public ReportTemplatePanel? Conversion => conversion;
+    public bool HasConversion => conversion is not null;
+    public bool CanConvert => !IsBusy && _report?.IsComplete == true && conversion is not null;
+    [ObservableProperty] private bool _conversionExpanded;
     private NovelAnalysisReport? _report;
     private long _generation;
     [ObservableProperty] private AnalysisTopicChoice? _selectedTopic;
@@ -38,7 +42,7 @@ public sealed partial class NovelReportReader(NovelAnalysisReportService reports
     public bool CanLocate => CanExport && SelectedEvidence is not null;
     public void Clear()
     {
-        _generation++; _report = null; Topics.Clear(); SelectedTopic = null; Evidence.Clear(); SelectedEvidence = null;
+        _generation++; _report = null; conversion?.SetReport(null); Topics.Clear(); SelectedTopic = null; Evidence.Clear(); SelectedEvidence = null;
         TopicText = SourceText = SourceLocation = ""; Summary = "选择运行并读取已保存报告。"; Notify();
     }
     public async Task LoadAsync(Guid runId)
@@ -52,6 +56,11 @@ public sealed partial class NovelReportReader(NovelAnalysisReportService reports
             if (report.Synthesis is not null) Topics.Add(new("综合结论", report.Synthesis));
             foreach (var part in report.Parts) Topics.Add(new(NovelReportRequests.Title(part.Dimension), part.Draft));
             SelectedTopic = Topics.FirstOrDefault(); Status = "报告已从本机保存结果读取，原 TXT 和模型均无需在线。";
+            if (conversion is not null)
+            {
+                conversion.SetReport(report); await conversion.InitializeAsync();
+                if (generation == _generation) await conversion.LoadHistoryAsync();
+            }
         }
         catch (Exception error) when (error is not OutOfMemoryException) { if (generation == _generation) Status = error.Message; }
         finally { IsBusy = false; Notify(); }
@@ -77,8 +86,11 @@ public sealed partial class NovelReportReader(NovelAnalysisReportService reports
     private void Notify()
     {
         OnPropertyChanged(nameof(CanRead)); OnPropertyChanged(nameof(CanExport)); OnPropertyChanged(nameof(CanLocate));
+        OnPropertyChanged(nameof(CanConvert)); ConvertCommand.NotifyCanExecuteChanged();
         LocateCommand.NotifyCanExecuteChanged(); ExportCommand.NotifyCanExecuteChanged();
     }
+    [RelayCommand(CanExecute = nameof(CanConvert))]
+    private void Convert() => ConversionExpanded = true;
     [RelayCommand(CanExecute = nameof(CanLocate))]
     private async Task Locate()
     {

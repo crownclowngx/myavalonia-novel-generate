@@ -3,6 +3,10 @@
  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
   <StackPanel Spacing="8" Margin="0,0,8,8">
    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap" />
+   <Button x:Name="ReportToTemplateButton" Content="从报告生成模板" Command="{Binding ConvertCommand}" IsVisible="{Binding HasConversion}" />
+   <Expander Header="模板生成与转换历史" IsExpanded="{Binding ConversionExpanded}" IsVisible="{Binding HasConversion}" HorizontalAlignment="Stretch">
+    <local:ReportTemplateView DataContext="{Binding Conversion}" />
+   </Expander>
    <ComboBox x:Name="AnalysisTopicSelector" ItemsSource="{Binding Topics}" SelectedItem="{Binding SelectedTopic}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanRead}" />
    <TextBox x:Name="AnalysisReportText" Text="{Binding TopicText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="220" MaxHeight="450" />
    <TextBlock Text="按结论中的 F 编号选择依据" />

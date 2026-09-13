@@ -62,6 +62,7 @@
       <Button Content="开始新的全文分析" Command="{Binding StartCommand}" />
       <TextBlock Text="已保存运行" FontWeight="SemiBold" />
       <ComboBox x:Name="AnalysisRunSelector" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <Button Content="加载更早的已保存运行" Command="{Binding MoreRunsCommand}" IsVisible="{Binding HasMoreRuns}" />
       <WrapPanel>
        <Button Content="读取进度" Command="{Binding ReadRunCommand}" Margin="0,0,6,6" />
        <Button Content="暂停" Command="{Binding PauseCommand}" Margin="0,0,6,6" />

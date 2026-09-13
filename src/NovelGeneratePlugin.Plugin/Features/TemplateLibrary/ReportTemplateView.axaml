@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ xmlns:local="clr-namespace:NovelGeneratePlugin.Features.TemplateLibrary" x:Class="NovelGeneratePlugin.Features.TemplateLibrary.ReportTemplateView" x:DataType="local:ReportTemplatePanel">
+ <StackPanel Spacing="8" Margin="0,8,0,8">
+  <TextBlock Text="{Binding ReportStatus}" TextWrapping="Wrap" />
+  <StackPanel Spacing="6" IsEnabled="{Binding CanEdit}">
+   <TextBox x:Name="ConversionName" Text="{Binding Name}" MaxLength="120" PlaceholderText="新模板名称" />
+   <WrapPanel>
+    <CheckBox Content="世界观" IsChecked="{Binding UseWorld}" Margin="0,0,8,0" />
+    <CheckBox Content="文风" IsChecked="{Binding UseStyle}" Margin="0,0,8,0" />
+    <CheckBox Content="写作方法" IsChecked="{Binding UseMethods}" Margin="0,0,8,0" />
+    <CheckBox Content="长期规则" IsChecked="{Binding UseRules}" />
+   </WrapPanel>
+   <TextBlock Text="模型连接" />
+   <ComboBox x:Name="ConversionConnection" ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" />
+   <Expander Header="本次转换参数与预算" HorizontalAlignment="Stretch">
+    <StackPanel Spacing="6">
+     <TextBlock Text="模型名称" /><TextBox Text="{Binding Model}" />
+     <TextBlock Text="思考强度" /><ComboBox ItemsSource="{Binding ReasoningOptions}" SelectedItem="{Binding Reasoning}" />
+     <TextBlock Text="单次输出上限" /><NumericUpDown Value="{Binding MaximumOutput}" Minimum="256" Maximum="131072" Increment="1024" />
+     <TextBlock Text="单次上下文容量（不会扩大模型真实窗口）" TextWrapping="Wrap" /><NumericUpDown Value="{Binding ContextTokens}" Minimum="8192" Maximum="2000000" Increment="8192" />
+     <TextBlock Text="转换请求总上限（包括纠正和重试）" TextWrapping="Wrap" /><NumericUpDown Value="{Binding MaximumRequests}" Minimum="1" Maximum="1000" />
+     <TextBlock Text="转换 token 总上限" /><NumericUpDown Value="{Binding MaximumTokens}" Minimum="1" Maximum="1000000000" Increment="100000" />
+     <TextBlock Text="继续已有转换使用其已保存模型参数；这里只能提高其总预算。更换模型或单次容量请生成新模板。" TextWrapping="Wrap" />
+    </StackPanel>
+   </Expander>
+  </StackPanel>
+  <WrapPanel>
+   <Button Content="预览转换计划" Command="{Binding PrepareCommand}" Margin="0,0,6,6" />
+   <Button x:Name="GenerateReportTemplate" Content="生成新模板草案" Command="{Binding GenerateCommand}" Margin="0,0,6,6" />
+   <Button Content="刷新连接与历史" Command="{Binding RefreshCommand}" Margin="0,0,6,6" />
+  </WrapPanel>
+  <TextBlock Text="{Binding PlanSummary}" TextWrapping="Wrap" FontSize="12" />
+  <TextBlock Text="此报告的已保存转换" FontWeight="SemiBold" />
+  <ComboBox x:Name="ConversionHistory" ItemsSource="{Binding History}" SelectedItem="{Binding SelectedConversion}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+  <Button Content="加载更早的转换" Command="{Binding MoreCommand}" IsVisible="{Binding HasMore}" />
+  <TextBlock x:Name="ConversionStatus" Text="{Binding Status}" TextWrapping="Wrap" />
+  <TextBlock Text="{Binding UsageSummary}" TextWrapping="Wrap" FontSize="12" />
+  <WrapPanel>
+   <Button Content="取消当前转换" Command="{Binding CancelCommand}" Margin="0,0,6,6" />
+   <Button Content="继续所选转换 / 补保存" Command="{Binding ContinueCommand}" Margin="0,0,6,6" />
+   <Button x:Name="OpenGeneratedTemplate" Content="打开生成草案" Command="{Binding OpenDraftCommand}" Margin="0,0,6,6" />
+  </WrapPanel>
+  <CheckBox Content="已复核失败候选与已知/未知费用，允许继续计入本次预算" IsChecked="{Binding AcknowledgeCosts}" IsEnabled="{Binding CanEdit}" />
+  <Expander Header="失败候选与诊断" HorizontalAlignment="Stretch">
+   <TextBox Text="{Binding FailureCandidate}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="80" MaxHeight="220" />
+  </Expander>
+  <TextBlock Text="生成内容预览（打开草案后可编辑并保存新版本）" TextWrapping="Wrap" FontWeight="SemiBold" />
+  <TextBox x:Name="ConversionPreview" Text="{Binding PreviewText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="120" MaxHeight="350" />
+  <Expander Header="查看来源结论与依据" HorizontalAlignment="Stretch">
+   <StackPanel Spacing="6">
+    <ComboBox ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}" HorizontalAlignment="Stretch" />
+    <TextBox Text="{Binding SourceText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxHeight="250" />
+   </StackPanel>
+  </Expander>
+ </StackPanel>
+</UserControl>

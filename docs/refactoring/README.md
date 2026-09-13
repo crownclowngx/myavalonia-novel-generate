@@ -64,13 +64,13 @@
 
 整本分析专项进度以[进度主表](../novel-analysis-feasibility-plan.md#progress)为准：当前 6/8 阶段、35/40 工作项，最终目标未达到。未来阶段在实际开工时建立三件套，不预建完成结果。
 
-2026-09-13 新增一次[分析保存与模板自动接通改造](../novel-analysis-template-conversion-plan.md)，已获授权开始实施，当前 2/4 阶段、10/20 工作项。G0037–G0040 的独立修复状态继续见[分析稳定性修复计划](../analysis-reliability-plan.md)。
+2026-09-13 新增一次[分析保存与模板自动接通改造](../novel-analysis-template-conversion-plan.md)，已获授权开始实施，当前 3/4 阶段、15/20 工作项。G0037–G0040 的独立修复状态继续见[分析稳定性修复计划](../analysis-reliability-plan.md)。
 
 | 编号 | 改造阶段 | 计划 | 状态 |
 | --- | --- | --- | --- |
 | G0041 | 保存基线、转换契约与来源模型 | [计划](G0041/plan.md) / [方案](G0041/implementation.md) / [结果](G0041/result.md) | 本地已验证，5/5 项；419 项测试通过 |
 | G0042 | AI 转换、预算与持久化恢复 | [计划](G0042/plan.md) / [方案](G0042/implementation.md) / [结果](G0042/result.md) | 本地已验证，5/5 项；430 项测试通过 |
-| G0043 | 报告入口、草案交付与版本采用 | [执行计划](../novel-analysis-template-conversion-plan.md#g0043) | 待实施，0/5 项 |
+| G0043 | 报告入口、草案交付与版本采用 | [计划](G0043/plan.md) / [方案](G0043/implementation.md) / [结果](G0043/result.md) | 本地已验证，5/5 项；439 项测试通过 |
 | G0044 | 全流程验证、文档和目标签收 | [执行计划](../novel-analysis-template-conversion-plan.md#g0044) | 待实施，0/5 项 |
 
 各阶段开工时创建计划/方案/结果三件套和专用契约文档，按实际验证结果归档，不预填后续阶段的验收结果。

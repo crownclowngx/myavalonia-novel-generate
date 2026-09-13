@@ -52,6 +52,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     [ObservableProperty] private string _status = "无需新建创作项目，即可独立分析 TXT 小说。";
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private bool _hasMoreBooks;
+    [ObservableProperty] private bool _hasMoreRuns;
     [ObservableProperty] private AnalysisBookChoice? _selectedBook;
     [ObservableProperty] private AnalysisRunChoice? _selectedRun;
     [ObservableProperty] private AnalysisSectionChoice? _selectedSection;
@@ -100,7 +101,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         return new(Read(AnalysisNodeKind.Extraction), Read(AnalysisNodeKind.Integration), Read(AnalysisNodeKind.Summary), Read(AnalysisNodeKind.Dimension), Read(AnalysisNodeKind.Synthesis));
     }
     partial void OnSelectedBookChanged(AnalysisBookChoice? value)
-    { if (_loading) return; Runs.Clear(); SelectedRun = null; reader.Clear(); Notify(); }
+    { if (_loading) return; Runs.Clear(); HasMoreRuns = false; SelectedRun = null; reader.Clear(); Notify(); }
     partial void OnSelectedRunChanged(AnalysisRunChoice? value)
     {
         if (_loading) return; Nodes.Clear(); CandidateText = ""; AcknowledgeCosts = false; ReviewGuidance = ""; reader.Clear();
@@ -111,6 +112,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         foreach (var name in new[] { nameof(CanEdit), nameof(CanImport), nameof(CanStart), nameof(CanUseRun), nameof(CanChangeRun), nameof(CanResume), nameof(CanStop) }) OnPropertyChanged(name);
         ChooseFileCommand.NotifyCanExecuteChanged(); PreviewCommand.NotifyCanExecuteChanged(); ImportCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged(); MoreBooksCommand.NotifyCanExecuteChanged(); LoadBookCommand.NotifyCanExecuteChanged();
+        MoreRunsCommand.NotifyCanExecuteChanged();
         StartCommand.NotifyCanExecuteChanged(); ReadRunCommand.NotifyCanExecuteChanged(); ResumeCommand.NotifyCanExecuteChanged(); ReviseCommand.NotifyCanExecuteChanged();
         PauseCommand.NotifyCanExecuteChanged(); CancelCommand.NotifyCanExecuteChanged(); ReviewCandidateCommand.NotifyCanExecuteChanged(); AdoptCandidateCommand.NotifyCanExecuteChanged(); ReadReportCommand.NotifyCanExecuteChanged();
     }
@@ -167,10 +169,17 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     {
         var id = SelectedBook?.Book.Id; if (id is null) return; var runs = await Task.Run(() => runner.List(id.Value), ct);
         if (SelectedBook?.Book.Id != id) return;
-        var selected = SelectedRun?.Run.Id; Runs.Clear(); foreach (var run in runs) Runs.Add(new(run));
+        var selected = SelectedRun?.Run.Id; Runs.Clear(); foreach (var run in runs) Runs.Add(new(run)); HasMoreRuns = runs.Count == 100;
         SelectedRun = Runs.FirstOrDefault(r => r.Run.Id == selected) ?? Runs.FirstOrDefault();
         if (SelectedRun is not null) await ReadRunCoreAsync(SelectedRun.Run.Id, ct);
     }
+    [RelayCommand(CanExecute = nameof(CanEdit))]
+    private Task MoreRuns() => RunAsync(async ct =>
+    {
+        if (SelectedBook is null) return; var id = SelectedBook.Book.Id;
+        var values = await Task.Run(() => runner.List(id, Runs.Count), ct); if (SelectedBook?.Book.Id != id) return;
+        foreach (var value in values) if (!Runs.Any(r => r.Run.Id == value.Id)) Runs.Add(new(value)); HasMoreRuns = values.Count == 100;
+    });
     [RelayCommand(CanExecute = nameof(CanStart))]
     private Task Start() => CreateRunAsync(false);
     [RelayCommand(CanExecute = nameof(CanChangeRun))]
@@ -234,7 +243,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         finally { _loading = false; }
         var completed = run.Nodes.Count(n => n.State == AnalysisNodeState.Completed);
         var characters = run.Chunks.Where(c => run.Nodes.Any(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)).Sum(c => c.Body.Length);
-        ProgressSummary = $"{StateName(run.State)} · 已完成 {completed}/{run.Nodes.Length} 节点\n正文覆盖 {characters}/{run.Chunks.Sum(c => c.Body.Length)} UTF-16 字符；{run.Message}";
+        ProgressSummary = $"已保存到本机 · {run.UpdatedAt.LocalDateTime:yyyy-MM-dd HH:mm:ss}\n{StateName(run.State)} · 已完成 {completed}/{run.Nodes.Length} 节点\n正文覆盖 {characters}/{run.Chunks.Sum(c => c.Body.Length)} UTF-16 字符；{run.Message}";
         var known = update.Usage.Where(e => e.Usage.InputTokens is not null && e.Usage.OutputTokens is not null).ToArray();
         var unknown = update.Usage.Except(known).ToArray();
         var estimate = update.Usage.LastOrDefault(e => e.InputEstimate is not null)?.InputEstimate;
@@ -281,7 +290,9 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         {
             await _operation;
             await Task.WhenAll(reader.ExportCommand.ExecutionTask ?? Task.CompletedTask, reader.LocateCommand.ExecutionTask ?? Task.CompletedTask);
-            await activity.DrainAsync(); return true;
+            await activity.DrainAsync();
+            if (reader.Conversion is not null && !await reader.Conversion.SaveBeforeCloseAsync()) { Status = reader.Conversion.Status; return false; }
+            return true;
         }
         catch (Exception error) when (error is not OutOfMemoryException) { Status = "分析关闭收尾失败：" + error.Message; return false; }
         finally { _closing = false; Notify(); }
@@ -292,6 +303,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     {
         if (_disposed) return;
         if (!await SaveBeforeCloseAsync()) throw new IOException(Status);
+        if (reader.Conversion is not null) await reader.Conversion.DisposeAsync();
         _disposed = true; if (_subscribed) activity.Changed -= OnActivityChanged; reader.Clear(); Notify();
     }
     public static string StateName(AnalysisRunState state) => state switch

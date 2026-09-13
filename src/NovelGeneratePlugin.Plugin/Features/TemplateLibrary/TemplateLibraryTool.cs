@@ -43,13 +43,37 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _status = "创建命名模板，保存版本后可供作品采用。";
     [ObservableProperty] private string _versionStatus = "尚无已保存版本";
+    [ObservableProperty] private string _sourceStatus = "手工模板";
     public ObservableCollection<TemplateItem> Templates { get; } = [];
     public ObservableCollection<TemplateRecoveryEntry> Recoveries { get; } = [];
     public bool IsDirty => _editGeneration != _savedGeneration;
     public bool CanManage => !IsBusy && !_disposed && !_preparingClose;
     public bool CanNavigate => CanManage && !IsDirty;
     public bool CanEdit => CanManage && _current?.Archived != true;
-    public Task InitializeAsync() => _initialization ??= RunAsync(async () => { await RefreshCoreAsync(null); if (calibration is not null) await calibration.InitializeAsync(); if (analysis is not null) await analysis.InitializeAsync(); });
+    public Task InitializeAsync() => _initialization ??= RunAsync(async () =>
+    {
+        if (analysis?.Report.Conversion is { } conversion)
+        {
+            conversion.DraftCreatedAsync = RefreshGeneratedListAsync;
+            conversion.OpenDraftAsync = OpenGeneratedDraftAsync;
+        }
+        await RefreshCoreAsync(null); if (calibration is not null) await calibration.InitializeAsync(); if (analysis is not null) await analysis.InitializeAsync();
+    });
+    public Task OpenGeneratedDraftAsync(Guid id)
+    {
+        if (!CanManage || IsDirty) { Status = "生成草案已保存在模板库；请先保存或放弃当前编辑，再打开它。"; return Task.FromException(new InvalidOperationException(Status)); }
+        return RunAsync(async () =>
+        {
+            var asset = await library.ReadAsync(id);
+            Search = ""; if (asset.Archived) ShowArchived = true;
+            await RefreshCoreAsync(id); Status = "已打开生成草案，可编辑后保存新版本。";
+        });
+    }
+    private async Task RefreshGeneratedListAsync(Guid id)
+    {
+        await _operation;
+        if (CanManage) await RunAsync(() => RefreshCoreAsync(_current?.Id));
+    }
     partial void OnNameChanged(string value) => MarkDirty();
     partial void OnTagsChanged(string value) => MarkDirty();
     partial void OnWorldChanged(string value) => MarkDirty();
@@ -88,6 +112,7 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
             World = draft?.Content.World ?? ""; Style = draft?.Content.Style ?? ""; Methods = draft?.Content.Methods ?? ""; Rules = draft?.Content.Rules ?? "";
             _editGeneration = _savedGeneration = 0; _recoveredGeneration = _closeSafeGeneration = -1;
             VersionStatus = asset is null || asset.Versions.IsEmpty ? "尚无已保存版本" : $"已保存 {asset.Versions.Length} 个不可变版本；最新 v{asset.Versions[^1].Number}";
+            SourceStatus = draft?.Provenance is { } source ? $"{draft.Source}\n首次生成 {source.GeneratedAt.LocalDateTime:yyyy-MM-dd HH:mm:ss}；后续编辑与来源分析独立保存。" : draft?.Source ?? "手工模板";
         }
         finally { _loading = false; }
         NotifyCommands();

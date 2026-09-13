@@ -11,6 +11,7 @@ dotnet run --project src/NovelGeneratePlugin.Standalone -c Debug
 ```
 
 独立窗口使用同一份插件代码，适合本地创作与开发预览。真实 Host 中打开“小说创作” Document；共享工具为“创作模板库”和“模型连接”。
+开发版的完整分析报告可通过“从报告生成模板”自动保存独立草案，再编辑并保存版本供作品采用。分析与转换均保留在本机，失败先查看历史和费用再继续；操作见[手册第 9 节](product/novel-workbench-user-manual.md#9-整本小说分析从-txt-到综合报告)，实施状态见[改造进度](novel-analysis-template-conversion-plan.md#progress)。
 填写书名和创意，创建新的 `.noveldb`。目录可新增卷/章，正文输入自动保存；底部分别显示稿件、任务和保存状态。
 打开已有作品不依赖网络或密钥。保存失败先查看恢复提示，不删除原库及迁移前备份。
 
