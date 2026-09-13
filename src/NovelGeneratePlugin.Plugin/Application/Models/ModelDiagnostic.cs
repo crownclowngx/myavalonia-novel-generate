@@ -73,7 +73,7 @@ internal static partial class ModelJsonDiagnostics
             using var first = JsonDocument.ParseValue(ref reader);
             var value = first.RootElement;
             return value.ValueKind == JsonValueKind.Object && value.TryGetProperty("properties", out _) &&
-                value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.GetString() == "object";
+                value.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String && type.GetString() is "object" or "json_object";
         }
         catch (JsonException) { return false; }
     }

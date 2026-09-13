@@ -33,6 +33,7 @@ public sealed class NovelAnalysisNodePreparer : IAnalysisNodePreparer
         }
         if (effectivePreset is not null)
             prepared = new(prepared.Request with { ExecutionPreset = effectivePreset }, CanonicalJson.Hash(new { prepared.InputStamp, ExecutionPreset = effectivePreset }));
+        prepared = prepared with { Request = prepared.Request with { ContextTokenLimit = run.Capacity?.ContextTokens } };
         if (node.ReviewGuidance.Length == 0) return prepared;
         return new(prepared.Request with { SystemPrompt = prepared.Request.SystemPrompt + "\n本次复核后的补充约束：" + node.ReviewGuidance },
             CanonicalJson.Hash(new { prepared.InputStamp, node.ReviewGuidance }));
@@ -43,13 +44,13 @@ public sealed class NovelAnalysisNodePreparer : IAnalysisNodePreparer
 /// 全文调度仅负责节点顺序和恢复，不承担提取提示或数据库 SQL。每个运行一个系统租约、一个总预算。
 /// 先存操作 ID，再发送；请求账本完成而节点未提交时，只在本地重放同一响应，不再调用远端。
 /// </summary>
-public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnalysisRunStore runs, ConnectionService connections,
+public sealed partial class NovelAnalysisRunService(IReferenceSourceStore sources, IAnalysisRunStore runs, ConnectionService connections,
     ModelRequestService requests, IAnalysisNodePreparer preparer)
 {
     public const string PipelineVersion = "novel-analysis-g32-v1";
     public async Task<AnalysisRun> CreateAsync(Guid bookId, ConnectionBinding binding, int maximumRequests, long maximumTokens,
         AnalysisStageReserve reserve, CancellationToken ct, PartitionOptions? partition = null, Guid? previousRunId = null, AnalysisTarget target = AnalysisTarget.Extraction,
-        AnalysisStageSettings? stageSettings = null)
+        AnalysisStageSettings? stageSettings = null, AnalysisCapacityOptions? capacity = null)
     {
         var previous = previousRunId is Guid previousId ? runs.Read(previousId) : null;
         using var revisionLease = previous is null ? null : runs.Acquire(previous.Budget.Id);
@@ -64,6 +65,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         if (partition is not null) input = NovelTextPartitioner.Rechunk(input, partition, ct);
         var frozen = await connections.FreezeAsync(binding, bookId, ModelTask.Checking).ConfigureAwait(false);
         stageSettings?.Validate(frozen.Connection.Settings.Provider);
+        capacity?.Validate();
         if (input.Chunks.Length + reserve.Requests > maximumRequests || maximumRequests > 1000)
             throw new InvalidOperationException("全文单元与后续阶段所需请求超过总额；请调整切分或额度，上限为 1000，尚未发送请求。");
         var id = Guid.NewGuid();
@@ -90,7 +92,15 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                 }));
         var run = new AnalysisRun(id, bookId, input.Source.Id, input.Source.TextHash, PipelineVersion, frozen, new(previous?.Budget.Id ?? id, maximumRequests, maximumTokens), reserve,
             nodes, AnalysisRunState.Queued, "已建立全文提取队列。", 1, DateTimeOffset.UtcNow)
-        { Chunks = input.Chunks, Target = target, AllowFormatRetry = true, StageSettings = stageSettings };
+        {
+            Chunks = input.Chunks,
+            Target = target,
+            AllowFormatRetry = true,
+            StageSettings = stageSettings,
+            Capacity = capacity,
+            AllowAdaptiveSplit = true,
+            Splits = previous is not null && previous.Chunks.SequenceEqual(input.Chunks) ? previous.Splits : []
+        };
         run.Validate();
         // 防止首个请求就侵占后续阶段额度。总 token 不做虚假的精确承诺，每次请求仍按实际账本重新核对。
         var first = preparer.Prepare(run, input, nodes[0], new Dictionary<string, AnalysisNodeResult>());
@@ -152,6 +162,8 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                         // 缺失用量不妨碍恢复真实完整响应，但后续新请求仍由总账本阻止，不能把未知费用当成零。
                         if (entry.State != RequestState.Completed)
                         {
+                            var split = TrySplitNode(run, input, index, ModelDiagnosticCode.OutputLimit, ct, progress);
+                            if (split is not null) { run = split; input = input with { Chunks = run.Chunks }; index--; continue; }
                             var corrected = TryScheduleCorrection(run, index, prepared, ct, progress);
                             if (corrected is not null) { run = corrected; index--; continue; }
                             return SaveState(run, AnalysisRunState.NeedsAttention, entry.Diagnostic?.Message ??
@@ -168,6 +180,12 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                     }
                     if (json is null)
                     {
+                        if (ModelInputCapacity.Estimate(prepared.Request).Exceeded)
+                        {
+                            var split = TrySplitNode(run, input, index, ModelDiagnosticCode.InputLimit, ct, progress);
+                            if (split is not null) { run = split; input = input with { Chunks = run.Chunks }; index--; continue; }
+                            return SaveState(run, AnalysisRunState.NeedsAttention, "单次输入容量不足，或已达到拆分/预算边界；未发送请求，请调整该运行参数。", progress);
+                        }
                         ct.ThrowIfCancellationRequested(); await connections.ValidateCurrentAsync(prepared.Request.Configuration).ConfigureAwait(false);
                         CheckStageBudget(run, node.Kind, prepared.Request);
                         node = node with { State = AnalysisNodeState.Running, InputStamp = prepared.InputStamp };
@@ -180,7 +198,12 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                             if (corrected is null) throw;
                             run = corrected; index--; continue;
                         }
-                        if (response.Completion != ModelCompletion.Complete) return SaveState(run, AnalysisRunState.NeedsAttention, "节点输出截断；候选和费用已保留，请复核切分与模型输出额度。", progress);
+                        if (response.Completion != ModelCompletion.Complete)
+                        {
+                            var split = TrySplitNode(run, input, index, ModelDiagnosticCode.OutputLimit, ct, progress);
+                            if (split is not null) { run = split; input = input with { Chunks = run.Chunks }; index--; continue; }
+                            return SaveState(run, AnalysisRunState.NeedsAttention, "节点输出截断；已达到拆分/预算边界或用量未知，候选和费用保留。", progress);
+                        }
                         json = response.Text;
                     }
                     ModelRequestService.ValidateJson(json, prepared.Request.Contract);
@@ -227,9 +250,14 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         var entries = requests.List(run.Budget.Id);
         if (entries.Any(e => (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null) && !e.RetryAcknowledged) && !acknowledgeUncertain)
             throw new InvalidOperationException("存在需复核的请求；确认额外成本后才能重试。");
-        var nodes = run.Nodes.Select(node => node.State != AnalysisNodeState.Completed && entries.Any(e => e.Id == node.OperationId && e.State != RequestState.Completed)
+        // 已知长度截断保留父操作 ID，让执行器恢复尚未落盘的拆分；仅因点击“继续”不能重发同一份过长输入。
+        // 作者明确补充新约束或关闭自动拆分时，仍按原有的显式重试语义创建新请求。
+        bool RetainForSplit(AnalysisNode node, ModelRequestEntry entry) => string.IsNullOrWhiteSpace(reviewGuidance) &&
+            (run.Capacity?.MaximumSplitDepth ?? 3) > 0 && node.Kind == AnalysisNodeKind.Extraction && run.Nodes.All(n => n.Kind == AnalysisNodeKind.Extraction) &&
+            entry is { State: RequestState.Truncated, Usage.InputTokens: not null, Usage.OutputTokens: not null };
+        var nodes = run.Nodes.Select(node => node.State != AnalysisNodeState.Completed && entries.Any(e => e.Id == node.OperationId && e.State != RequestState.Completed && !RetainForSplit(node, e))
             ? node with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "", ReviewGuidance = string.IsNullOrWhiteSpace(reviewGuidance) ? node.ReviewGuidance : reviewGuidance } : node).ToImmutableArray();
-        var next = run with { Budget = budget, Nodes = nodes, AllowFormatRetry = true, State = AnalysisRunState.Queued, Message = "已准备恢复；旧费用继续计入总额。", Version = run.Version + 1, UpdatedAt = DateTimeOffset.UtcNow };
+        var next = run with { Budget = budget, Nodes = nodes, AllowFormatRetry = true, AllowAdaptiveSplit = true, State = AnalysisRunState.Queued, Message = "已准备恢复；旧费用继续计入总额。", Version = run.Version + 1, UpdatedAt = DateTimeOffset.UtcNow };
         next.Validate(); requests.ReviseBudget(budget, acknowledgeUncertain); runs.Save(next, run.Version); return next;
     }
 
@@ -244,6 +272,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         var position = Enumerable.Range(0, run.Nodes.Length).First(i => run.Nodes[i].State != AnalysisNodeState.Completed); var node = run.Nodes[position];
         var entries = requests.List(run.Budget.Id); var entry = entries.SingleOrDefault(e => e.Id == node.OperationId);
         if (entry is null || entry.State != RequestState.Uncertain || entry.Failure != ModelFailure.Protocol.ToString() || entry.Usage.InputTokens is null || entry.Usage.OutputTokens is null ||
+            entry.Diagnostic is not null && !entry.ResponseComplete ||
             entry.BookId != run.BookId || entry.ConnectionId != run.Connection.Connection.Id || entry.ConnectionVersion != run.Connection.Connection.Version ||
             entries.Any(e => e.Id != node.OperationId && !e.RetryAcknowledged && (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null)))
             throw new InvalidOperationException("候选不是已知用量的本地校验失败，或仍有其他未复核请求。");
@@ -283,7 +312,8 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
             _ => new(0, 0)
         };
         if (entries.Count + 1 + reserve.Requests > run.Budget.MaximumRequests || entries.Sum(e => e.ChargedTokens) + ModelRequestService.EstimateReservation(request) + reserve.Tokens > run.Budget.MaximumTokens)
-            throw new InvalidOperationException("当前阶段额度不足，后续整合和报告的预留不能被提取耗尽。");
+            throw new ModelRequestException(ModelFailure.Local, "当前阶段额度不足，后续整合和报告的预留不能被提取耗尽。")
+            { Diagnostic = new(ModelDiagnosticCode.BudgetLimit) };
     }
 
     /// <summary>
@@ -311,7 +341,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         // 补充说明也占输入容量；此处以实际新提示核对预留，发送前账本还会再次检查。
         var revised = prepared.Request with { SystemPrompt = prepared.Request.SystemPrompt + guidance };
         try { CheckStageBudget(run, node.Kind, revised); }
-        catch (InvalidOperationException) { return null; }
+        catch (ModelRequestException error) when (error.Diagnostic?.Code == ModelDiagnosticCode.BudgetLimit) { return null; }
         requests.ReviseBudget(run.Budget, true);
         return SaveNode(run, index, retry, null, progress);
     }

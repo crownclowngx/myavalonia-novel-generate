@@ -2,7 +2,7 @@
 
 普通作者请优先阅读 [HTML 图文用户说明书](product/novel-workbench-user-manual.html)，包含新书、文风提炼、旧稿续写、手工设定和生成调优五条路线。本文保留本地启动与简要操作索引。
 
-日期：2026-09-12。当前为首版工程候选，尚未正式发布。验收结论见 [G0016](refactoring/G0016/result.md)。
+日期：2026-09-13。当前为工程候选。验收结论见 [G0016](refactoring/G0016/result.md)，整本小说分析故障恢复与参数设置见 [G0037–G0039 稳定性修复](analysis-reliability-plan.md)及[用户说明书](product/novel-workbench-user-manual.md)。
 
 ## 启动和建立作品
 

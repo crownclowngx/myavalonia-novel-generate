@@ -121,6 +121,31 @@ public sealed class NovelReportTests
     }
 
     internal sealed record Context(NovelAnalysisRunService Runner, NovelAnalysisReportService Reports, AnalysisRun Run, AnalysisRunStore Store, string InputPath);
+
+    [Fact]
+    public async Task 五阶段参数实际生效且完整报告修订全部复用原配置成果()
+    {
+        await using var workspace = new TestWorkspace(); var model = new Router(); var context = await Setup(workspace, model);
+        var settings = AnalysisStageSettings.Default(context.Run.Connection);
+        var run = await context.Runner.CreateAsync(context.Run.BookId, ConnectionService.Bind(context.Run.Connection.Connection), context.Run.Budget.MaximumRequests,
+            context.Run.Budget.MaximumTokens, context.Run.ReportReserve, default, previousRunId: context.Run.Id, target: AnalysisTarget.Report, stageSettings: settings);
+        var complete = await context.Runner.ExecuteAsync(run.Id, new(), null, default);
+        Assert.Equal(AnalysisRunState.Completed, complete.State);
+        foreach (var request in model.Requests)
+        {
+            var node = complete.Nodes.Single(n => n.OperationId == request.OperationId);
+            Assert.Equal(settings.For(node.Kind), request.EffectivePreset);
+        }
+        var report = context.Reports.Read(run.Id); Assert.Contains("实际执行配置", NovelReportMarkdown.Format(report));
+        Assert.Equal(5, report.ExecutionSummary.Length);
+        var before = model.Requests.Count;
+        var next = await context.Runner.CreateAsync(run.BookId, ConnectionService.Bind(run.Connection.Connection), run.Budget.MaximumRequests, run.Budget.MaximumTokens,
+            run.ReportReserve, default, previousRunId: run.Id, target: AnalysisTarget.Report,
+            stageSettings: settings with { Summary = settings.Summary with { MaxOutputTokens = 32768 } });
+        Assert.Equal(AnalysisRunState.Completed, (await context.Runner.ExecuteAsync(next.Id, new(), null, default)).State);
+        Assert.Equal(before, model.Requests.Count);
+        Assert.Equal(report.ExecutionSummary.ToArray(), context.Reports.Read(next.Id).ExecutionSummary.ToArray());
+    }
     internal static async Task<Context> Setup(TestWorkspace workspace, ITextModel model, int chapters = 3)
     {
         var input = Path.Combine(workspace.Root, "报告样本.txt"); await File.WriteAllTextAsync(input, string.Concat(Enumerable.Range(1, chapters).Select(i => $"第{i}章\n林远来到雾港，走进城门。\n")));

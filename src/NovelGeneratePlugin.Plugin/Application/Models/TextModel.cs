@@ -6,6 +6,7 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
     public IModelOutputContract? Contract { get; init; }
     public bool AllowJsonWrapperRepair { get; init; }
     public ModelPreset? ExecutionPreset { get; init; }
+    public long? ContextTokenLimit { get; init; }
     public ModelPreset EffectivePreset => ExecutionPreset ?? Configuration.Preset;
     public void Validate()
     {
@@ -27,6 +28,7 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
             using var schema = System.Text.Json.JsonDocument.Parse(Contract.JsonSchema, new System.Text.Json.JsonDocumentOptions { MaxDepth = 32 });
             if (schema.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) throw new InvalidDataException("结构化契约必须是 JSON Schema 对象。");
         }
+        ModelInputCapacity.Check(this);
     }
 }
 public enum ModelCompletion { Complete, Truncated }

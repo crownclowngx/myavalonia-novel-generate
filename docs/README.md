@@ -30,6 +30,8 @@ G0016 工程验收与真实三章样稿已完成；P1 产品验收仍待作者�
 
 ## 项目结构
 
+DeepSeek 格式错误、分阶段参数、保留进度修订与局部拆分的进度见 [G0037–G0039 稳定性修复计划](analysis-reliability-plan.md)。该修复独立验证，原产品人工质量验收状态保持不变。
+
 ```text
 NovelGeneratePlugin/
 ├─ NovelGeneratePlugin.slnx

@@ -42,17 +42,21 @@ public sealed class DeepSeekTextModel(ConnectionService connections, HttpClient 
         if (response.Content.Headers.ContentType?.MediaType != "text/event-stream") throw new ModelRequestException(ModelFailure.Protocol, "模型未返回 SSE 文本流。");
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var reader = new StreamReader(stream, new UTF8Encoding(false, true));
-        return await ReadEventsAsync(reader, progress, cancellationToken).ConfigureAwait(false);
+        return await ReadEventsAsync(reader, progress, cancellationToken, request.EffectivePreset.MaxOutputTokens).ConfigureAwait(false);
     }
-    public static async Task<TextModelResponse> ReadEventsAsync(TextReader reader, IProgress<string>? progress, CancellationToken cancellationToken)
+    public static async Task<TextModelResponse> ReadEventsAsync(TextReader reader, IProgress<string>? progress, CancellationToken cancellationToken, int maximumOutputTokens = 65536)
     {
+        if (maximumOutputTokens is < 256 or > 131072) throw new ArgumentOutOfRangeException(nameof(maximumOutputTokens));
+        // SSE 每个 token 可能带独立 JSON 信封，字符开销远大于正文。按配置给有界余量，
+        // 保留单事件/正文限制与请求超时，不再把所有输出额度都压在固定 8M 信封字符上。
+        var streamLimit = Math.Min(128L * 1024 * 1024, Math.Max(8000000L, maximumOutputTokens * 1024L + 65536));
         var text = new StringBuilder(); var data = new StringBuilder(); string? finish = null; var usage = new ModelUsage(null, null);
         var done = false; long total = 0; var lastReport = DateTimeOffset.MinValue;
         try
         {
             while (await BoundedLines.ReadAsync(reader, 262144, cancellationToken).ConfigureAwait(false) is { } line)
             {
-                total += line.Length; if (total > 8000000) throw Protocol(ModelDiagnosticCode.StreamLimit);
+                total += line.Length; if (total > streamLimit) throw Protocol(ModelDiagnosticCode.StreamLimit);
                 if (line.StartsWith(':')) continue;
                 if (line.Length > 0)
                 {

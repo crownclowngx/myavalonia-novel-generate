@@ -38,16 +38,24 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
     public AnalysisTarget Target { get; init; }
     public bool AllowFormatRetry { get; init; }
     public AnalysisStageSettings? StageSettings { get; init; }
+    public AnalysisCapacityOptions? Capacity { get; init; }
+    public bool AllowAdaptiveSplit { get; init; }
+    public ImmutableArray<AnalysisSplit> Splits { get; init; } = [];
     public void Validate()
     {
         Connection.Connection.Validate(); Connection.Preset.Validate();
         StageSettings?.Validate(Connection.Connection.Settings.Provider);
+        Capacity?.Validate();
+        if (Splits.IsDefault || Splits.Length > 999 || Splits.Any(s => s is null || s.Parent is null || s.Original is null || s.Children.IsDefault || s.Children.Length != 2 ||
+            s.Depth is < 1 or > 8 || s.Reason is not (ModelDiagnosticCode.InputLimit or ModelDiagnosticCode.OutputLimit)))
+            throw new InvalidDataException("拆分历史无效。");
         if (Id == Guid.Empty || BookId == Guid.Empty || SourceId == Guid.Empty || SourceHash?.Length != 64 || string.IsNullOrWhiteSpace(PipelineVersion) ||
             Connection.BookId != BookId || Connection.Task != ModelTask.Checking || Connection.Preset != Connection.Connection.Settings.Preset(Connection.Task) ||
             Budget.Id == Guid.Empty || Budget.MaximumRequests is < 1 or > 1000 || Budget.MaximumTokens < 1 || ReportReserve.Requests < 0 || ReportReserve.Tokens < 0 ||
             ReportReserve.Requests >= Budget.MaximumRequests || ReportReserve.Tokens >= Budget.MaximumTokens || Version < 1 ||
             !Enum.IsDefined(State) || !Enum.IsDefined(Target) || Message is null || Message.Length > 2000 || Nodes.IsDefaultOrEmpty || Nodes.Length > 1000 ||
-            Chunks.IsDefaultOrEmpty || Chunks.Length != Nodes.Count(n => n.Kind == AnalysisNodeKind.Extraction) || Chunks.Select(c => c.Id).Distinct().Count() != Chunks.Length)
+            Nodes.Any(n => n is null) || Chunks.IsDefaultOrEmpty || Chunks.Any(c => c is null) || Chunks.Length != Nodes.Count(n => n.Kind == AnalysisNodeKind.Extraction) ||
+            Nodes.Where(n => n.Kind == AnalysisNodeKind.Extraction).Select(n => n.ChunkId).Distinct().Count() != Chunks.Length || Chunks.Select(c => c.Id).Distinct().Count() != Chunks.Length)
             throw new InvalidDataException("分析运行身份、预算或状态无效。");
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var operations = new HashSet<Guid>();

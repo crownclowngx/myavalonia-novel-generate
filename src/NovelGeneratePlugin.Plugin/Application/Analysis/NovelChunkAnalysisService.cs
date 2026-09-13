@@ -58,8 +58,18 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         var prompt = JsonSerializer.Serialize(new { Body = chunk.Body, Context = chunk.Context, Passages = passages },
             new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
         var system = Prompt(promptVersion);
-        var stamp = CanonicalJson.Hash(new { input.Source.Id, input.Source.TextHash, chunk.Body, chunk.Context, frozen, Version = ChunkAnalysisContract.Version, SystemPrompt = system, prompt });
-        var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages);
+        var stamp = CanonicalJson.Hash(new
+        {
+            input.Source.Id,
+            input.Source.TextHash,
+            chunk.Body,
+            chunk.Context,
+            frozen,
+            Version = promptVersion == "v4" ? "novel-chunk-v4" : ChunkAnalysisContract.Version,
+            SystemPrompt = system,
+            prompt
+        });
+        var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages, promptVersion == "v4");
         return new(new(operationId, frozen, system, prompt, true) { Contract = contract, AllowJsonWrapperRepair = true }, contract, stamp);
     }
 }

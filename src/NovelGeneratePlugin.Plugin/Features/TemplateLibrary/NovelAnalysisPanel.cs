@@ -39,6 +39,9 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     [ObservableProperty] private long _maximumTokens = 8000000;
     [ObservableProperty] private bool _acknowledgeCosts;
     [ObservableProperty] private bool _useStageSettings = true;
+    [ObservableProperty] private long _contextTokens;
+    [ObservableProperty] private int _maximumSplitDepth = 3;
+    [ObservableProperty] private string _capacitySummary = "单次容量预检使用保守估算；实际 token 以请求用量为准。";
     public ObservableCollection<AnalysisStageEditor> StageParameters { get; } = [];
     [ObservableProperty] private string _reviewGuidance = "";
     [ObservableProperty] private string _previewSummary = "选择 TXT，预览编码、分章和全文范围后导入。";
@@ -179,7 +182,8 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         if (old is not null && runner.Usage(old.Id).Any(e => !e.RetryAcknowledged && (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null)))
             await Task.Run(() => runner.Resume(old.Id, AcknowledgeCosts, MaximumRequests, MaximumTokens, ReviewGuidance), ct);
         var run = await runner.CreateAsync(SelectedBook.Book.Id, ConnectionService.Bind(SelectedConnection), MaximumRequests, MaximumTokens,
-            old?.ReportReserve ?? new(32, 1200000), ct, revision ? new(ChunkCharacters) : null, old?.Id, AnalysisTarget.Report, BuildStageSettings());
+            old?.ReportReserve ?? new(32, 1200000), ct, revision ? new(ChunkCharacters) : null, old?.Id, AnalysisTarget.Report, BuildStageSettings(),
+            new(ContextTokens == 0 ? null : ContextTokens, MaximumSplitDepth));
         Runs.Insert(0, new(run)); SelectedRun = Runs[0]; Begin(run.Id); Status = "全文分析已开始，隐藏面板不影响任务。";
     });
     private void Begin(Guid id) { _ = ObserveAsync(activity.StartAsync(id), id); Notify(); }
@@ -207,6 +211,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         {
             Apply(snapshot); MaximumRequests = snapshot.Run.Budget.MaximumRequests; MaximumTokens = snapshot.Run.Budget.MaximumTokens;
             UseStageSettings = snapshot.Run.StageSettings is not null;
+            ContextTokens = snapshot.Run.Capacity?.ContextTokens ?? 0; MaximumSplitDepth = snapshot.Run.Capacity?.MaximumSplitDepth ?? 3;
             LoadStageParameters(snapshot.Run.StageSettings ?? AnalysisStageSettings.Default(snapshot.Run.Connection));
         }
     }
@@ -232,6 +237,10 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         ProgressSummary = $"{StateName(run.State)} · 已完成 {completed}/{run.Nodes.Length} 节点\n正文覆盖 {characters}/{run.Chunks.Sum(c => c.Body.Length)} UTF-16 字符；{run.Message}";
         var known = update.Usage.Where(e => e.Usage.InputTokens is not null && e.Usage.OutputTokens is not null).ToArray();
         var unknown = update.Usage.Except(known).ToArray();
+        var estimate = update.Usage.LastOrDefault(e => e.InputEstimate is not null)?.InputEstimate;
+        CapacitySummary = $"已局部拆分 {run.Splits.Length} 次；最多 {run.Capacity?.MaximumSplitDepth ?? 3} 层。\n" +
+            (estimate is null ? "尚无单次请求估算记录。" :
+            $"最近单次保守输入估算 {estimate.EstimatedInputTokens}，输出预留 {estimate.MaximumOutputTokens}，上下文容量 {(estimate.ContextTokens?.ToString() ?? "未配置")} token；估算不是实测用量。");
         UsageSummary = $"全部累计请求 {update.Usage.Count}/{run.Budget.MaximumRequests}，已知用量 {known.Sum(e => e.ChargedTokens)} token；未知 {unknown.Length} 次，保守预留 {unknown.Sum(e => e.ReservedTokens)} token。\n已知加预留 {update.Usage.Sum(e => e.ChargedTokens)}/{run.Budget.MaximumTokens} token；金额未知。";
         Nodes.Clear(); foreach (var node in run.Nodes)
         {

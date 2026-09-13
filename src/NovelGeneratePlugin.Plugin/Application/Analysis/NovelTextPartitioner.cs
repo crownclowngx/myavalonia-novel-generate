@@ -19,6 +19,28 @@ public sealed record PartitionOptions(int ChunkCharacters = 6000, int ContextCha
 /// </summary>
 public static partial class NovelTextPartitioner
 {
+    /// <summary>仅二分指定单元。换行优先且不拆 Unicode 代理对；子上下文限制在原父上下文内。</summary>
+    public static ReferenceImport Split(ReferenceImport input, Guid chunkId, int minimum)
+    {
+        input.Validate();
+        if (minimum is < 200 or > 6000) throw new InvalidDataException("子单元最小正文需为 200–6000 字符。");
+        var parent = input.Chunks.Single(c => c.Id == chunkId);
+        if (parent.Body.Length < minimum * 2) throw new InvalidDataException("问题单元已达到最小拆分大小。");
+        var desired = parent.Body.Start + parent.Body.Length / 2;
+        var middle = Boundary(input.Source.Text, parent.Body.Start, desired);
+        if (middle - parent.Body.Start < minimum || parent.Body.End - middle < minimum) middle = SafeLeft(input.Source.Text, desired);
+        if (middle - parent.Body.Start < minimum || parent.Body.End - middle < minimum) throw new InvalidDataException("完整字符边界无法满足最小拆分大小。");
+        var leftPadding = parent.Body.Start - parent.Context.Start; var rightPadding = parent.Context.End - parent.Body.End;
+        AnalysisChunk Child(int start, int end)
+        {
+            var contextStart = SafeLeft(input.Source.Text, Math.Max(parent.Context.Start, start - leftPadding));
+            var contextEnd = SafeRight(input.Source.Text, Math.Min(parent.Context.End, end + rightPadding));
+            return new(Guid.NewGuid(), parent.SectionId, 0, new(start, end - start), new(contextStart, contextEnd - contextStart));
+        }
+        var children = new[] { Child(parent.Body.Start, middle), Child(middle, parent.Body.End) };
+        var chunks = input.Chunks.SelectMany(c => c.Id == chunkId ? children : [c]).Select((c, i) => c with { Number = i + 1 }).ToImmutableArray();
+        var result = input with { Chunks = chunks }; result.Validate(); return result;
+    }
     [GeneratedRegex(@"^[\t 　]*(?:第[零〇一二三四五六七八九十百千万两\d]+[章回节卷部篇集](?:[^\r\n]*)|[Cc][Hh][Aa][Pp][Tt][Ee][Rr][\t ]+\d+[^\r\n]*)[\t ]*\r?$", RegexOptions.Multiline, 1000)]
     private static partial Regex Heading();
 

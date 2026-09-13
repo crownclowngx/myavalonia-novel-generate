@@ -27,7 +27,7 @@ public sealed record ChunkOutput(string Summary, ImmutableArray<MentionOutput> E
 /// 避免模型抄写引文时纠正错别字或标点。段号错误直接拒绝，原文存在与语义支持仍分别校验。
 /// </summary>
 public sealed class ChunkAnalysisContract
-    (SourceSnapshot source, AnalysisChunk chunk, Guid operationId, string inputStamp, ImmutableArray<AnalysisPassage> passages) : IModelOutputContract
+    (SourceSnapshot source, AnalysisChunk chunk, Guid operationId, string inputStamp, ImmutableArray<AnalysisPassage> passages, bool includeGapEvidenceSchema = false) : IModelOutputContract
 {
     public const string Version = "novel-chunk-v2";
     private static readonly JsonSerializerOptions Options = new()
@@ -125,6 +125,14 @@ public sealed class ChunkAnalysisContract
         get
         {
             var evidence = List(Object(new() { ["Passage"] = new { type = "integer" } }));
+            // 新提示明确声明缺口的可选证据；旧提示继续生成原 schema，保留历史输入指纹。
+            object gap = includeGapEvidenceSchema ? new
+            {
+                type = "object",
+                additionalProperties = false,
+                required = new[] { "Dimension", "Reason" },
+                properties = new Dictionary<string, object> { ["Dimension"] = EnumSchema<AnalysisDimension>(), ["Reason"] = Text, ["Evidence"] = evidence }
+            } : Object(new() { ["Dimension"] = EnumSchema<AnalysisDimension>(), ["Reason"] = Text });
             return JsonSerializer.Serialize(Object(new()
             {
                 ["Summary"] = Text,
@@ -140,7 +148,7 @@ public sealed class ChunkAnalysisContract
                     ["Narration"] = EnumSchema<NarrativeSource>(),
                     ["Evidence"] = evidence
                 })),
-                ["Gaps"] = List(Object(new() { ["Dimension"] = EnumSchema<AnalysisDimension>(), ["Reason"] = Text }))
+                ["Gaps"] = List(gap)
             }));
         }
     }

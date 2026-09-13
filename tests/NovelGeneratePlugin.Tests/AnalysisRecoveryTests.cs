@@ -51,6 +51,10 @@ public sealed class AnalysisRecoveryTests
         var contract = new ChunkAnalysisContract(input.Source, chunk, Guid.NewGuid(), "test", ChunkAnalysisContract.Passages(input.Source, chunk));
         var echo = Assert.Throws<ModelRequestException>(() => ModelRequestService.ValidateJson(contract.JsonSchema + Good().Text, contract));
         Assert.Equal(ModelDiagnosticCode.SchemaEcho, echo.Diagnostic!.Code);
+        // 实际响应把服务端 response_format 的 json_object 混进了 Schema；分类仍需指出回显，而非笼统报 JSON 错误。
+        var mixed = JsonNode.Parse(contract.JsonSchema)!; mixed["type"] = "json_object";
+        var mixedEcho = Assert.Throws<ModelRequestException>(() => ModelRequestService.ValidateJson(mixed.ToJsonString() + Good().Text, contract));
+        Assert.Equal(ModelDiagnosticCode.SchemaEcho, mixedEcho.Diagnostic!.Code);
         var bad = JsonNode.Parse(Good().Text)!; bad["Findings"]![0]!["Kind"] = "CharacterClaim";
         var error = Assert.Throws<ModelRequestException>(() => ModelRequestService.ValidateJson(bad.ToJsonString(), contract));
         Assert.Equal(ModelDiagnosticCode.ContractMismatch, error.Diagnostic!.Code);
@@ -159,20 +163,52 @@ public sealed class AnalysisRecoveryTests
         Assert.Empty(model.Requests);
     }
 
-    [Fact]
-    public async Task 旧运行库升级前创建一致性备份且旧记录仍可读()
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task 旧运行库升级前创建一致性备份且旧记录仍可读(int version)
     {
         await using var workspace = new TestWorkspace();
         var fixture = new Fixture(workspace, new ScriptedTextModel(_ => Good())); var run = await fixture.Create();
         using (var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + fixture.Runs.DatabasePath + ";Pooling=False"))
         {
-            connection.Open(); using var command = connection.CreateCommand(); command.CommandText = "PRAGMA user_version=1"; command.ExecuteNonQuery();
+            connection.Open(); using var command = connection.CreateCommand(); command.CommandText = $"PRAGMA user_version={version}"; command.ExecuteNonQuery();
         }
         Assert.Equal(run.Id, fixture.Runs.Read(run.Id).Id);
-        var backup = Assert.Single(Directory.GetFiles(Path.Combine(workspace.Paths.Root, "Backups"), "reference-runs-schema1-*.db"));
+        var backup = Assert.Single(Directory.GetFiles(Path.Combine(workspace.Paths.Root, "Backups"), $"reference-runs-schema{version}-*.db"));
         using var copied = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + backup + ";Mode=ReadOnly;Pooling=False"); copied.Open();
-        using var read = copied.CreateCommand(); read.CommandText = "PRAGMA user_version"; Assert.Equal(1L, read.ExecuteScalar());
+        using var read = copied.CreateCommand(); read.CommandText = "PRAGMA user_version"; Assert.Equal((long)version, read.ExecuteScalar());
         read.CommandText = "SELECT count(*) FROM runs"; Assert.Equal(1L, read.ExecuteScalar());
         fixture.Runs.Read(run.Id); Assert.Single(Directory.GetFiles(Path.Combine(workspace.Paths.Root, "Backups")));
+    }
+
+    private sealed class CompleteBodyBrokenStream : ITextModel
+    {
+        public Task<TextModelResponse> GenerateAsync(TextModelRequest request, IProgress<string>? progress, CancellationToken cancellationToken)
+        {
+            progress?.Report(Good().Text);
+            throw new ModelRequestException(ModelFailure.Protocol, "断流")
+            { ObservedUsage = new(100, 200), Diagnostic = new(ModelDiagnosticCode.StreamIncomplete) };
+        }
+    }
+    [Fact]
+    public async Task 断流即使已有合法JSON和用量也不能误采纳为完整响应()
+    {
+        await using var workspace = new TestWorkspace();
+        var fixture = new Fixture(workspace, new CompleteBodyBrokenStream()); var run = await fixture.Create();
+        await fixture.Service.ExecuteAsync(run.Id, new(), null, default);
+        Assert.Throws<InvalidOperationException>(() => fixture.Service.AdoptReviewedCandidate(run.Id));
+        Assert.Empty(fixture.Service.ReadExtractions(run.Id));
+    }
+
+    [Fact]
+    public async Task 长SSE信封不会被固定八百万字符限制误判而低额度仍有限制()
+    {
+        var envelope = ": " + new string('x', 8000) + "\n\n";
+        var body = string.Concat(Enumerable.Repeat(envelope, 1001)) +
+            """data: {"choices":[{"index":0,"delta":{"content":"完成"},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}""" + "\n\ndata: [DONE]\n\n";
+        Assert.Equal("完成", (await DeepSeekTextModel.ReadEventsAsync(new StringReader(body), null, default, 16384)).Text);
+        var error = await Assert.ThrowsAsync<ModelRequestException>(() => DeepSeekTextModel.ReadEventsAsync(new StringReader(body), null, default, 256));
+        Assert.Equal(ModelDiagnosticCode.StreamLimit, error.Diagnostic!.Code);
     }
 }

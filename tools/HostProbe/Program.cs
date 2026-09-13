@@ -87,6 +87,14 @@ await session.Dispatch<bool>(async () =>
             var analysisView = new NovelAnalysisView { DataContext = analysis }; window.Content = analysisView; analysisView.FindControl<TabControl>("AnalysisTabs")!.SelectedIndex = 2;
             Dispatcher.UIThread.RunJobs(); window.UpdateLayout(); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
             using var reportFrame = window.CaptureRenderedFrame(); reportFrame!.Save(Path.Combine(root, "host-analysis-report.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            analysisView.FindControl<TabControl>("AnalysisTabs")!.SelectedIndex = 1;
+            analysisView.FindControl<Expander>("AnalysisParameters")!.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            Check(analysis.StageParameters.Count == 5 && analysisView.FindControl<NumericUpDown>("AnalysisSplitDepth")!.Value == 3, "five stage parameters and split depth bindings");
+            analysisView.FindControl<NumericUpDown>("AnalysisContextTokens")!.Value = 131072;
+            Check(analysis.ContextTokens == 131072, "context capacity two-way binding"); analysis.ContextTokens = 0;
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs();
+            using var parametersFrame = window.CaptureRenderedFrame(); parametersFrame!.Save(Path.Combine(root, "host-analysis-parameters.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         }
         // 创建全新的小型来源，使共享连接的挂起请求不命中已有真实结果缓存；从 View 隐藏和文档关闭一路验证到插件 Shutdown。
         var analysisInput = Path.Combine(root, "Host分析关闭样本.txt"); await File.WriteAllTextAsync(analysisInput, "第1章\n林远来到雾港，走进城门。\n");

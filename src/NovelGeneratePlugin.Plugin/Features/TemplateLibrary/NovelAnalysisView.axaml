@@ -33,7 +33,7 @@
       <Button Content="读取该书的分析记录" Command="{Binding LoadBookCommand}" />
       <TextBlock Text="模型连接（提供服务地址与认证）" TextWrapping="Wrap" />
       <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
-      <Expander Header="分析专用参数" HorizontalAlignment="Stretch">
+      <Expander x:Name="AnalysisParameters" Header="分析专用参数" HorizontalAlignment="Stretch">
        <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
         <CheckBox Content="按阶段设置模型、思考强度与单次输出上限" IsChecked="{Binding UseStageSettings}" />
         <TextBlock Text="不勾选时沿用连接的检查预设。修改只在新建或修订时生效；已有成功节点保留原参数。这里的单次输出与下面的全过程预算不同。" TextWrapping="Wrap" />
@@ -49,6 +49,10 @@
           </DataTemplate>
          </ItemsControl.ItemTemplate>
         </ItemsControl>
+        <TextBlock Text="单次上下文容量（0 为已知模型自动识别，其他模型需自行填写；不会扩大模型真实窗口）" TextWrapping="Wrap" />
+        <NumericUpDown x:Name="AnalysisContextTokens" Value="{Binding ContextTokens}" Minimum="0" Maximum="2000000" Increment="8192" />
+        <TextBlock Text="问题单元最多拆分层数（0 关闭自动拆分，每个子单元至少 200 字符）" TextWrapping="Wrap" />
+        <NumericUpDown x:Name="AnalysisSplitDepth" Value="{Binding MaximumSplitDepth}" Minimum="0" Maximum="8" Increment="1" />
        </StackPanel>
       </Expander>
       <TextBlock Text="全过程请求上限（包含失败与重试）" TextWrapping="Wrap" />
@@ -65,6 +69,7 @@
       </WrapPanel>
       <TextBlock x:Name="AnalysisProgress" Text="{Binding ProgressSummary}" TextWrapping="Wrap" />
       <TextBlock Text="{Binding UsageSummary}" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding CapacitySummary}" TextWrapping="Wrap" />
       <Expander Header="节点明细" HorizontalAlignment="Stretch"><ListBox ItemsSource="{Binding Nodes}" Height="180" /></Expander>
       <Expander Header="恢复与失败复核" HorizontalAlignment="Stretch">
        <StackPanel Spacing="8">
