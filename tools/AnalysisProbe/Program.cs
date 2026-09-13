@@ -12,7 +12,7 @@ using NovelGeneratePlugin.Infrastructure.Credentials;
 using NovelGeneratePlugin.Infrastructure.Models;
 
 // 显式开发工具，不纳入普通测试或生产包。输入与输出必须由调用者给出；本工具的 import/benchmark 不访问网络。
-if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report" or "audit" or "replay"))
+if (args.Length != 3 || args[0] is not ("import" or "benchmark" or "chunk" or "protocol" or "extract" or "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report" or "audit" or "replay" or "diagnose-candidate"))
     throw new ArgumentException("用法：AnalysisProbe <import|benchmark|chunk> <TXT路径或-> <新的输出目录>；chunk 从标准输入读取本次密钥");
 var output = Path.GetFullPath(args[2]);
 var resuming = args[0] is "retry-extract" or "revise-extract" or "validate-extract" or "integrate" or "adopt-continue" or "report" or "retry-guided" or "retry-report" or "audit";
@@ -21,6 +21,7 @@ if (resuming && !File.Exists(Path.Combine(output, "run-id.txt"))) throw new Inva
 Directory.CreateDirectory(output);
 var input = args[1];
 if (args[0] == "replay") { Console.WriteLine(ResponseReplay.Run(Path.GetFullPath(input), output)); return; }
+if (args[0] == "diagnose-candidate") { Console.WriteLine(CandidateReplay.Run(Path.GetFullPath(input), output)); return; }
 if (args[0] == "audit")
 {
     Console.WriteLine(await ReportAudit.RunAsync(new WorkspacePaths(output), Guid.Parse(await File.ReadAllTextAsync(Path.Combine(output, "run-id.txt"))))); return;

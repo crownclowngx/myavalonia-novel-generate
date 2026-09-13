@@ -12,7 +12,7 @@ using NovelGeneratePlugin.Infrastructure.Persistence;
 /// </summary>
 internal static class ResponseReplay
 {
-    public static string Run(string sourceRoot, string output)
+    internal static WorkspacePaths CopyWorkspace(string sourceRoot, string output)
     {
         var copied = Path.Combine(output, "workspace"); Directory.CreateDirectory(copied);
         foreach (var name in new[] { "reference-analysis.db", "reference-runs.db", "model-requests.db" })
@@ -21,7 +21,11 @@ internal static class ResponseReplay
             using var destination = ProjectStore.Connect(Path.Combine(copied, name), SqliteOpenMode.ReadWriteCreate);
             source.BackupDatabase(destination);
         }
-        var paths = new WorkspacePaths(copied); var sources = new ReferenceSourceStore(paths); var runs = new AnalysisRunStore(paths);
+        return new(copied);
+    }
+    public static string Run(string sourceRoot, string output)
+    {
+        var paths = CopyWorkspace(sourceRoot, output); var sources = new ReferenceSourceStore(paths); var runs = new AnalysisRunStore(paths);
         var ledger = new ModelRequestStore(paths); var preparer = new NovelAnalysisNodePreparer(); var outcomes = new List<object>();
         foreach (var book in sources.List())
         {

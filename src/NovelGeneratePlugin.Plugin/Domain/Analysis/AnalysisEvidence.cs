@@ -12,6 +12,7 @@ public enum NarrativeSource { Narration, CharacterClaim, Rumor, Dream, Recollect
 /// </summary>
 public sealed record AnalysisEvidence(Guid SourceId, string TextHash, SourceRange Range, string Quote)
 {
+    public const int MaximumPerObservation = 8;
     public void Validate(SourceSnapshot source, SourceRange? allowed = null)
     {
         if (SourceId != source.Id || TextHash != source.TextHash || Range is null || string.IsNullOrWhiteSpace(Quote) || Quote.Length > 2000)
@@ -32,7 +33,7 @@ public sealed record AnalysisFinding(Guid Id, AnalysisDimension Dimension, strin
     public void Validate(SourceSnapshot source, SourceRange? allowed = null)
     {
         if (Id == Guid.Empty || !Enum.IsDefined(Dimension) || !Enum.IsDefined(Kind) || string.IsNullOrWhiteSpace(Subject) || Subject.Length > 200 ||
-            string.IsNullOrWhiteSpace(Statement) || Statement.Length > 4000 || Evidence.IsDefaultOrEmpty || Evidence.Length > 8 ||
+            string.IsNullOrWhiteSpace(Statement) || Statement.Length > 4000 || Evidence.IsDefaultOrEmpty || Evidence.Length > AnalysisEvidence.MaximumPerObservation ||
             RelatedSubjects.IsDefault || RelatedSubjects.Length > 10 || RelatedSubjects.Any(s => string.IsNullOrWhiteSpace(s) || s.Length > 200) ||
             TimeHint is null || TimeHint.Length > 500 || !Enum.IsDefined(Narration))
             throw new InvalidDataException("分析结论缺少维度、判断类型或有界证据。");

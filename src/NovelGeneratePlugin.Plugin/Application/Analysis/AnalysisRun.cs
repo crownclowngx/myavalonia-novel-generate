@@ -73,7 +73,7 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
                 node.Selection.Any(id => id < 1) || node.Selection.Distinct().Count() != node.Selection.Length || node.Dimension is { } dimension && !Enum.IsDefined(dimension) ||
                 node.Kind == AnalysisNodeKind.Integration && node.Selection.IsEmpty || node.Kind == AnalysisNodeKind.Dimension && node.Dimension is null ||
                 node.FormatRetries is < 0 or > 1 ||
-                node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3" or "v4")))
+                node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3" or "v4" or "v5")))
                 throw new InvalidDataException("分析节点身份、依赖顺序或输入指纹无效。");
         }
         if (State == AnalysisRunState.Completed && Nodes.Any(n => n.State != AnalysisNodeState.Completed) ||

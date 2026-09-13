@@ -41,10 +41,10 @@ public sealed class NovelChunkAnalysisTests
     {
         var input = ReferenceSourceTests.Create(); var chunk = input.Chunks[0];
         var contract = new ChunkAnalysisContract(input.Source, chunk, Guid.NewGuid(), "stamp", ChunkAnalysisContract.Passages(input.Source, chunk));
-        Assert.Throws<InvalidDataException>(() => contract.Read(Json(Output(999))));
+        Assert.Throws<ModelContractException>(() => contract.Read(Json(Output(999))));
         var output = Output();
-        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Gaps = [] })));
-        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Findings = [output.Findings[0] with { Evidence = [new(999)] }] })));
+        Assert.Throws<ModelContractException>(() => contract.Read(Json(output with { Gaps = [] })));
+        Assert.Throws<ModelContractException>(() => contract.Read(Json(output with { Findings = [output.Findings[0] with { Evidence = [new(999)] }] })));
         var json = Json(output).Replace("\"Kind\":\"Explicit\",", "", StringComparison.Ordinal);
         Assert.Throws<JsonException>(() => contract.Read(json));
         Assert.Throws<JsonException>(() => contract.Read(Json(output).Replace("\"Summary\":", "\"Unexpected\":", StringComparison.Ordinal)));
@@ -57,7 +57,7 @@ public sealed class NovelChunkAnalysisTests
         var contract = new ChunkAnalysisContract(input.Source, chunk, Guid.NewGuid(), "stamp", ChunkAnalysisContract.Passages(input.Source, chunk));
         var output = Output() with { Gaps = [.. Output().Gaps, new(AnalysisDimension.World, "力量代价未知。"), new(AnalysisDimension.World, "地理范围未知。")] };
         Assert.Equal(7, contract.Read(Json(output)).Gaps.Length);
-        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Gaps = Enumerable.Repeat(new GapOutput(AnalysisDimension.World, "未知。"), 25).ToImmutableArray() })));
+        Assert.Throws<ModelContractException>(() => contract.Read(Json(output with { Gaps = Enumerable.Repeat(new GapOutput(AnalysisDimension.World, "未知。"), 25).ToImmutableArray() })));
     }
 
     [Fact]

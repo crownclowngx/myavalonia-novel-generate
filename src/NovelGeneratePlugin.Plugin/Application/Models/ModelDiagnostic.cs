@@ -18,11 +18,14 @@ public sealed class ModelStreamCancellationException(ModelUsage usage, Cancellat
 public sealed record ModelDiagnostic(ModelDiagnosticCode Code, string Path = "", string? FinishReason = null,
     long StreamCharacters = 0, long OutputCharacters = 0, bool ResponseComplete = false)
 {
+    public ModelContractIssue? ContractIssue { get; init; }
     public string Message => Code switch
     {
         ModelDiagnosticCode.SchemaEcho => "模型返回了 JSON 格式定义；需要返回一个分析结果对象。",
         ModelDiagnosticCode.InvalidJson => "响应不是单个完整 JSON 对象；请检查多余内容或字符串截断。",
-        ModelDiagnosticCode.ContractMismatch => $"结构化字段、枚举、引用或容量不符合契约{(Path.Length == 0 ? "" : "，位置：" + Path)}。",
+        ModelDiagnosticCode.ContractMismatch => ContractIssue is not null
+            ? $"结构校验失败{(Path.Length == 0 ? "" : "，位置：" + Path)}：{ContractIssue.Description}"
+            : $"结构化字段、枚举、引用或容量不符合契约{(Path.Length == 0 ? "" : "，位置：" + Path)}。",
         ModelDiagnosticCode.StreamIncomplete => "模型响应流未完整结束；保留候选和已收到用量，需复核后继续。",
         ModelDiagnosticCode.StreamLimit => "模型响应流达到本地容量限制；请降低输出规模或思考强度。",
         ModelDiagnosticCode.UnsupportedFinish => "模型以非正常原因结束；请复核候选及用量。",

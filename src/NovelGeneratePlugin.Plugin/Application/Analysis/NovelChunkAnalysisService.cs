@@ -21,7 +21,7 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         "描述和结论使用中文，枚举使用契约规定名称。" +
         "摘要不超过500字，实体最多25条，结论最多36条，每条优先1条简短证据；文风必须依据原句，推断必须标记。只输出符合契约的JSON。";
 
-    public const string CurrentPromptVersion = "v4";
+    public const string CurrentPromptVersion = "v5";
     /// <summary>保留旧提示供历史运行重放。Kind 是确定性，Narration 是叙述来源，两组枚举不能混用。</summary>
     public static string Prompt(string version) => version switch
     {
@@ -33,6 +33,9 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         "v4" => Prompt("v3") + "只返回一个分析结果对象，不要输出JSON Schema、Markdown或解释。顶层只能有Summary、Entities、Findings、Gaps。" +
             "Gaps优先只填写Dimension和Reason。数量是上限而非配额，不凑满、不重复扩写。短片段可只提取少量实际信息。" +
             """结果结构示例（内容仅说明格式，不是本次小说事实）：{"Summary":"片段信息有限","Entities":[],"Findings":[],"Gaps":[{"Dimension":"World","Reason":"未说明世界规则"},{"Dimension":"Characters","Reason":"未交代人物"},{"Dimension":"Goals","Reason":"未交代目标"},{"Dimension":"Plot","Reason":"缺少事件"},{"Dimension":"Style","Reason":"原句不足"},{"Dimension":"Theme","Reason":"主题尚不明确"}]}""",
+        "v5" => Prompt("v4") + "Evidence不是全部出现位置的索引。Entities、Findings每一项优先选择1–3条最有力的证据，任何Evidence数组必须为1–8条，不能超过8条。" +
+            "Gaps可以省略Evidence；若填写同样必须为1–8条，不填空数组。选用本次Passages中的有效段号，不虚构新段号。" +
+            "逐项核对Schema中的minItems、maxItems、minLength、maxLength和段号范围；同一人物出现多次，也不要把所有出现段号堆进Evidence。",
         _ => throw new NotSupportedException("提取提示版本不受支持，历史内容保留。")
     };
 
@@ -65,11 +68,11 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
             chunk.Body,
             chunk.Context,
             frozen,
-            Version = promptVersion == "v4" ? "novel-chunk-v4" : ChunkAnalysisContract.Version,
+            Version = promptVersion switch { "v5" => "novel-chunk-v5", "v4" => "novel-chunk-v4", _ => ChunkAnalysisContract.Version },
             SystemPrompt = system,
             prompt
         });
-        var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages, promptVersion == "v4");
+        var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages, promptVersion is "v4" or "v5", promptVersion == "v5");
         return new(new(operationId, frozen, system, prompt, true) { Contract = contract, AllowJsonWrapperRepair = true }, contract, stamp);
     }
 }

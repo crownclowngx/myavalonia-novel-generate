@@ -145,6 +145,12 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
             if (json.RootElement.ValueKind != JsonValueKind.Object || !json.RootElement.EnumerateObject().Any()) throw new JsonException();
             CheckDuplicates(json.RootElement); contract?.Validate(json.RootElement);
         }
+        catch (ModelContractException error)
+        {
+            var diagnostic = new ModelDiagnostic(ModelDiagnosticCode.ContractMismatch, ModelJsonDiagnostics.SafePath(error.Path, contract?.JsonSchema))
+            { ContractIssue = error.Issue };
+            throw new ModelRequestException(ModelFailure.Protocol, diagnostic.Message) { Diagnostic = diagnostic };
+        }
         catch (Exception error) when (error is JsonException or InvalidDataException or ArgumentException or InvalidOperationException or KeyNotFoundException or OverflowException)
         {
             var path = ModelJsonDiagnostics.SafePath((error as JsonException)?.Path, contract?.JsonSchema);

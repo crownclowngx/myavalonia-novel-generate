@@ -38,7 +38,7 @@ public sealed class AnalysisRecoveryTests
         json["Gaps"]![0]!["Evidence"] = JsonNode.Parse("""[{"Passage":2}]""");
         Assert.Single(contract.Read(json.ToJsonString()).Gaps[0].Evidence);
         json["Gaps"]![0]!["Evidence"]![0]!["Passage"] = 999;
-        Assert.Throws<InvalidDataException>(() => contract.Read(json.ToJsonString()));
+        Assert.Throws<ModelContractException>(() => contract.Read(json.ToJsonString()));
         json["Gaps"]![0]!["Evidence"]![0]!["Passage"] = 2;
         json["Gaps"]![0]!["Unexpected"] = "不能静默丢弃";
         Assert.Throws<JsonException>(() => contract.Read(json.ToJsonString()));
