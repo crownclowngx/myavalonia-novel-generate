@@ -86,10 +86,12 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
         return run;
     }
 
-    public IReadOnlyList<AnalysisRun> List(Guid bookId)
+    public IReadOnlyList<AnalysisRun> List(Guid bookId, int offset = 0, int limit = 100)
     {
+        if (bookId == Guid.Empty || offset < 0 || limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(offset), "运行分页范围无效。");
         using var connection = Open(); using var command = connection.CreateCommand();
-        command.CommandText = "SELECT snapshot FROM runs WHERE book=$book ORDER BY rowid DESC LIMIT 100"; command.Parameters.AddWithValue("$book", bookId.ToString());
+        command.CommandText = "SELECT snapshot FROM runs WHERE book=$book ORDER BY rowid DESC LIMIT $limit OFFSET $offset";
+        command.Parameters.AddWithValue("$book", bookId.ToString()); command.Parameters.AddWithValue("$limit", limit); command.Parameters.AddWithValue("$offset", offset);
         using var reader = command.ExecuteReader(); var results = new List<AnalysisRun>();
         while (reader.Read()) results.Add(Parse(reader.GetString(0))); return results;
     }

@@ -94,7 +94,8 @@ public sealed partial class TemplateLibraryTool(Application.Templates.TemplateLi
     }
     private TemplateDraft CaptureDraft() => new(string.IsNullOrWhiteSpace(Name) ? "未命名模板" : Name.Trim(),
         Tags.Split([',', '，', ';', '；'], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).Distinct().ToImmutableArray(),
-        new WritingProfile(World, Style, Methods, Rules), _current?.Draft.Source ?? "手工创建");
+        new WritingProfile(World, Style, Methods, Rules), _current?.Draft.Source ?? "手工创建")
+    { Provenance = _current?.Draft.Provenance };
     private void Filter()
     {
         if (_loading) return;

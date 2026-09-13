@@ -92,7 +92,7 @@ public sealed class AnalysisCapacityTests
         public IDisposable Acquire(Guid id) => inner.Acquire(id);
         public void Create(AnalysisRun run) => inner.Create(run);
         public AnalysisRun Read(Guid id) => inner.Read(id);
-        public IReadOnlyList<AnalysisRun> List(Guid id) => inner.List(id);
+        public IReadOnlyList<AnalysisRun> List(Guid id, int offset = 0, int limit = 100) => inner.List(id, offset, limit);
         public AnalysisNodeResult? ReadResult(Guid id, string key) => inner.ReadResult(id, key);
         public AnalysisNodeResult? FindCached(string stamp) => inner.FindCached(stamp);
         public void Save(AnalysisRun run, long version, AnalysisNodeResult? result = null)

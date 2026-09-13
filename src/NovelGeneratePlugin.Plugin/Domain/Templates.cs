@@ -21,8 +21,16 @@ public sealed record WritingProfile(string World, string Style, string Methods, 
             dimensions.HasFlag(ProfileDimensions.Rules) ? source.Rules : Rules);
     }
 }
-public sealed record TemplateDraft(string Name, ImmutableArray<string> Tags, WritingProfile Content, string Source);
-public sealed record TemplateVersion(Guid Id, int Number, string PublishedName, WritingProfile Content, string Source, DateTimeOffset PublishedAt);
+public sealed record TemplateDraft(string Name, ImmutableArray<string> Tags, WritingProfile Content, string Source)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TemplateProvenance? Provenance { get; init; }
+}
+public sealed record TemplateVersion(Guid Id, int Number, string PublishedName, WritingProfile Content, string Source, DateTimeOffset PublishedAt)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public TemplateProvenance? Provenance { get; init; }
+}
 public sealed record TemplateAsset(Guid Id, long Revision, TemplateDraft Draft, ImmutableArray<TemplateVersion> Versions, bool Archived)
 {
     public static TemplateAsset Create(TemplateDraft draft)
@@ -33,7 +41,7 @@ public sealed record TemplateAsset(Guid Id, long Revision, TemplateDraft Draft, 
     {
         Validate();
         if (Archived) throw new InvalidOperationException("已归档模板不能保存新版本，请先恢复归档。");
-        return this with { Versions = Versions.Add(new TemplateVersion(Guid.NewGuid(), Versions.Length + 1, Draft.Name, Draft.Content, Draft.Source, DateTimeOffset.UtcNow)) };
+        return this with { Versions = Versions.Add(new TemplateVersion(Guid.NewGuid(), Versions.Length + 1, Draft.Name, Draft.Content, Draft.Source, DateTimeOffset.UtcNow) { Provenance = Draft.Provenance }) };
     }
     public void Validate()
     {
@@ -41,13 +49,13 @@ public sealed record TemplateAsset(Guid Id, long Revision, TemplateDraft Draft, 
             Draft.Tags.IsDefault || Draft.Tags.Length > 30 || Draft.Tags.Any(t => string.IsNullOrWhiteSpace(t) || t.Length > 50) || Draft.Source is null || Versions.IsDefault)
             throw new InvalidDataException("模板身份、名称、标签或版本无效。");
         if (Draft.Content is null) throw new InvalidDataException("模板规范不能为空。");
-        Draft.Content.Validate(); var ids = new HashSet<Guid>();
+        Draft.Content.Validate(); Draft.Provenance?.Validate(); var ids = new HashSet<Guid>();
         for (var i = 0; i < Versions.Length; i++)
         {
             var version = Versions[i];
             if (version is null || version.Id == Guid.Empty || !ids.Add(version.Id) || version.Number != i + 1 || version.Content is null || version.PublishedName is null || version.Source is null)
                 throw new InvalidDataException("模板版本序号或身份无效。");
-            version.Content.Validate();
+            version.Content.Validate(); version.Provenance?.Validate();
         }
     }
 }

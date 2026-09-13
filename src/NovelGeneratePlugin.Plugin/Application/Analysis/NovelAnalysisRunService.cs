@@ -115,7 +115,7 @@ public sealed partial class NovelAnalysisRunService(IReferenceSourceStore source
     }
 
     public AnalysisRun Read(Guid runId) => runs.Read(runId);
-    public IReadOnlyList<AnalysisRun> List(Guid bookId) => runs.List(bookId);
+    public IReadOnlyList<AnalysisRun> List(Guid bookId, int offset = 0, int limit = 100) => runs.List(bookId, offset, limit);
     public IReadOnlyList<ModelRequestEntry> Usage(Guid runId) => requests.List(runs.Read(runId).Budget.Id);
 
     public NovelIntegrationSnapshot ReadIntegrated(Guid runId)

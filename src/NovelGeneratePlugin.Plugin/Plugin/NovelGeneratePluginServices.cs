@@ -26,6 +26,7 @@ public static class NovelGeneratePluginServices
         services.AddSingleton<ProjectSessions>();
         services.AddSingleton<ITemplateStore, TemplateStore>();
         services.AddSingleton<TemplateLibrary>();
+        services.AddSingleton<IReportTemplateConversionStore, ReportTemplateConversionStore>();
         services.AddSingleton<IConnectionStore, ConnectionStore>();
         services.AddSingleton<ICredentialVault, UserCredentialVault>();
         services.AddSingleton<ConnectionService>();

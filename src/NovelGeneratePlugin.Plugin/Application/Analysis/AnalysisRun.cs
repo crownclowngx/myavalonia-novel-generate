@@ -89,7 +89,7 @@ public interface IAnalysisRunStore
     IDisposable Acquire(Guid runId);
     void Create(AnalysisRun run);
     AnalysisRun Read(Guid runId);
-    IReadOnlyList<AnalysisRun> List(Guid bookId);
+    IReadOnlyList<AnalysisRun> List(Guid bookId, int offset = 0, int limit = 100);
     void Save(AnalysisRun run, long expectedVersion, AnalysisNodeResult? result = null);
     AnalysisNodeResult? ReadResult(Guid runId, string key);
     AnalysisNodeResult? FindCached(string inputStamp);
