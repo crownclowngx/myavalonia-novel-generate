@@ -97,7 +97,10 @@ public sealed class ReportTemplateWorkflowTests
         Assert.Equal("作者当前输入", tool.World); Assert.True(tool.IsDirty);
         var generated = Assert.Single(await workspace.Templates.ListAsync()); Assert.Empty(generated.Versions);
         await Assert.ThrowsAsync<InvalidOperationException>(() => tool.OpenGeneratedDraftAsync(generated.Id));
-        await tool.SaveDraftCommand.ExecuteAsync(null); await tool.OpenGeneratedDraftAsync(generated.Id);
+        await conversion.OpenDraftCommand.ExecuteAsync(null);
+        Assert.Contains("请先保存", conversion.Status);
+        await tool.SaveDraftCommand.ExecuteAsync(null); await conversion.OpenDraftCommand.ExecuteAsync(null);
+        Assert.Equal("已打开生成草案，可编辑后保存新版本。", conversion.Status);
         Assert.Equal(generated.Draft.Content.Style, tool.Style); Assert.Contains("报告版本", tool.SourceStatus);
         await using var first = workspace.CreateDocument(); await first.InitializeAsync(new MyAvaloniaManagement.PluginSdk.NewDocumentActivation("甲"), default);
         await tool.PublishVersionCommand.ExecuteAsync(null);

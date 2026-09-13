@@ -53,3 +53,5 @@ dotnet run --project src/NovelGeneratePlugin.Standalone -c Debug
 宽窗侧栏并排；窄窗通过右上按钮切换正文/侧栏。工作区内没有新的全局快捷键，普通小说 Document 不依赖 Host Ctrl+S 信封保存。
 
 完整桌面 Host、作者质量签收和后续长篇功能的边界见[已知限制](refactoring/G0016/known-limitations.md)。
+
+本次报告转模板的工程与原生交互验收见[G0044](refactoring/G0044/acceptance-matrix.md)。其中 Host 退出前排空的修复位于宿主源码，后续交付需配套更新宿主；当前未覆盖安装目录。真实模型转换与作者内容评阅尚未执行。

@@ -32,6 +32,9 @@ using System.Reflection;
 using NovelGeneratePlugin.Application.Analysis;
 using NovelGeneratePlugin.Infrastructure.Import;
 [assembly: AvaloniaTestApplication(typeof(ProbeApp))]
+// 原生模式由 bin 下的显式测试配置启用，默认执行路径仍是无窗口的组合探针。
+// 单独 STA 线程避免顶层异步 Main 的线程池续体破坏 Windows 桌面生命周期。
+if (DesktopProbe.TryRun() is { } desktopResult) return desktopResult;
 var session = HeadlessUnitTestSession.GetOrStartForAssembly(Assembly.GetExecutingAssembly());
 await session.Dispatch<bool>(async () =>
 {
@@ -110,6 +113,7 @@ await session.Dispatch<bool>(async () =>
     await hostLifecycle.ShutdownAllAsync(); scopes.CloseAll();
     Console.WriteLine("PASS actual Host Provider/Registry/Activator/DocumentScope/Dock view adapter; two books, two singleton tools, save/reopen, command target, close/shutdown. System picker replaced; full desktop Dock not claimed."); return true;
 }, default);
+return 0;
 static void Check(bool condition, string label) { if (!condition) throw new InvalidOperationException(label); Console.WriteLine("PASS " + label); }
 public sealed class ProbeApp : Avalonia.Application { public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<ProbeApp>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }); public override void Initialize() => Styles.Add(new FluentTheme()); }
 sealed class IsolatedModule(WorkspacePaths paths, ITextModel model) : IPluginModule { public void Configure(IPluginRegistration registration) { registration.Services.AddSingleton(paths); new NovelGeneratePluginModule().Configure(registration); registration.Services.AddSingleton(model); } }

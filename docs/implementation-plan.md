@@ -182,16 +182,16 @@ G0016 后可继续 P2，也可按实际需求启动 G0021 等扩展。数字较�
 
 ### 3.5 整本分析保存与模板自动接通改造（G0041–G0044）
 
-2026-09-13 用户要求将已保存小说报告自动提炼为模板，并确认分析保存能力。已建立[改造执行计划](novel-analysis-template-conversion-plan.md)并获授权开始实施，G0041 已完成本地验证。分析来源、运行、节点和综合结论已有本地存储；此次补齐保存可见性、历史访问及报告转模板的持久化、恢复和采用链路。
+2026-09-13 用户要求将已保存小说报告自动提炼为模板，并确认分析保存能力。已按[改造执行计划](novel-analysis-template-conversion-plan.md)完成 G0041–G0043 及 G0044 工程/原生验收，真实转换质量待验。分析来源、运行、节点和综合结论已有本地存储；此次补齐保存可见性、历史访问及报告转模板的持久化、恢复和采用链路。
 
 | 阶段 | 改造目标 | 当前状态 |
 | --- | --- | --- |
 | [G0041](novel-analysis-template-conversion-plan.md#g0041) | 保存基线、转换契约与来源模型 | [本地已验证，5/5 项](refactoring/G0041/result.md) |
 | [G0042](novel-analysis-template-conversion-plan.md#g0042) | AI 转换、预算与持久化恢复 | [本地已验证，5/5 项](refactoring/G0042/result.md) |
 | [G0043](novel-analysis-template-conversion-plan.md#g0043) | 报告入口、草案交付与版本采用 | [本地已验证，5/5 项](refactoring/G0043/result.md) |
-| [G0044](novel-analysis-template-conversion-plan.md#g0044) | 全流程验证、文档和目标签收 | 待实施，0/5 项 |
+| [G0044](novel-analysis-template-conversion-plan.md#g0044) | 全流程验证、文档和目标签收 | [4/5 项，真实模型与内容评阅待验](refactoring/G0044/result.md) |
 
-作为一次改造管理，进度统一见[改造进度主表](novel-analysis-template-conversion-plan.md#progress)：3/4 阶段、15/20 工作项。承接 G0021-03 的模板提炼及 G0021-05 的采用/恢复验证，具体人物实体和章节大纲初始化仍属于 G0021-04。原 G0035/G0036 的待验项及插件发布保持独立状态。
+作为一次改造管理，进度统一见[改造进度主表](novel-analysis-template-conversion-plan.md#progress)：3/4 阶段、19/20 工作项。承接 G0021-03 的模板提炼及 G0021-05 的采用/恢复验证，具体人物实体和章节大纲初始化仍属于 G0021-04。原 G0035/G0036 的待验项及插件发布保持独立状态。
 
 ## 4. P0：可靠的本地创作基础
 

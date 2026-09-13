@@ -197,7 +197,12 @@ public sealed partial class ReportTemplatePanel(ReportTemplateConversionService 
     });
     [RelayCommand(CanExecute = nameof(CanCancel))] private void Cancel() { activity.Cancel(SelectedConversion!.Value.Id); Status = "已请求取消；成功步骤仍会保留。"; }
     [RelayCommand(CanExecute = nameof(CanOpen))]
-    private Task OpenDraft() => RunAsync(() => OpenDraftAsync!(SelectedConversion!.Value.TemplateId));
+    private Task OpenDraft() => RunAsync(async () =>
+    {
+        await OpenDraftAsync!(SelectedConversion!.Value.TemplateId);
+        // 打开成功后清除上一次编辑保护的提示，避免仍显示“请先保存”而让作者误以为打开失败。
+        Status = "已打开生成草案，可编辑后保存新版本。";
+    });
     [RelayCommand(CanExecute = nameof(CanEdit))]
     private Task Refresh() => RunAsync(async () => { await RefreshConnectionsCoreAsync(); await LoadHistoryAsync(); });
     [RelayCommand(CanExecute = nameof(CanEdit))]
