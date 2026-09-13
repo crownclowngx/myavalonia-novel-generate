@@ -21,12 +21,12 @@ public sealed class DeepSeekTextModel(ConnectionService connections, HttpClient 
         var system = request.SystemPrompt + (request.JsonOutput ? "\n只返回合法 JSON 对象。" + (request.Contract?.JsonSchema ?? "") : "");
         message.Content = new StringContent(JsonSerializer.Serialize(new
         {
-            model = request.Configuration.Preset.Model,
+            model = request.EffectivePreset.Model,
             messages = new[] { new { role = "system", content = system }, new { role = "user", content = request.UserPrompt } },
-            max_tokens = request.Configuration.Preset.MaxOutputTokens,
+            max_tokens = request.EffectivePreset.MaxOutputTokens,
             // 显式发送思考开关，避免 none 仍继承服务端默认思考；旧 medium 按官方兼容映射规范化为 high。
-            thinking = new { type = request.Configuration.Preset.ReasoningEffort == "none" ? "disabled" : "enabled" },
-            reasoning_effort = request.Configuration.Preset.ReasoningEffort == "medium" ? "high" : request.Configuration.Preset.ReasoningEffort,
+            thinking = new { type = request.EffectivePreset.ReasoningEffort == "none" ? "disabled" : "enabled" },
+            reasoning_effort = request.EffectivePreset.ReasoningEffort == "medium" ? "high" : request.EffectivePreset.ReasoningEffort,
             response_format = new { type = request.JsonOutput ? "json_object" : "text" },
             stream = true,
             stream_options = new { include_usage = true }

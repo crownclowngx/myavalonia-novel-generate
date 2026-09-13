@@ -31,8 +31,26 @@
       </WrapPanel>
       <ComboBox x:Name="AnalysisBookSelector" ItemsSource="{Binding Books}" SelectedItem="{Binding SelectedBook}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
       <Button Content="读取该书的分析记录" Command="{Binding LoadBookCommand}" />
-      <TextBlock Text="模型连接（使用连接中的检查预设）" TextWrapping="Wrap" />
+      <TextBlock Text="模型连接（提供服务地址与认证）" TextWrapping="Wrap" />
       <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <Expander Header="分析专用参数" HorizontalAlignment="Stretch">
+       <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
+        <CheckBox Content="按阶段设置模型、思考强度与单次输出上限" IsChecked="{Binding UseStageSettings}" />
+        <TextBlock Text="不勾选时沿用连接的检查预设。修改只在新建或修订时生效；已有成功节点保留原参数。这里的单次输出与下面的全过程预算不同。" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding StageParameters}" IsEnabled="{Binding UseStageSettings}">
+         <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="local:AnalysisStageEditor">
+           <StackPanel Spacing="4" Margin="0,0,0,10">
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+            <TextBox Text="{Binding Model}" PlaceholderText="模型名称" MaxLength="120" />
+            <ComboBox ItemsSource="{Binding ReasoningOptions}" SelectedItem="{Binding Reasoning}" HorizontalAlignment="Stretch" />
+            <NumericUpDown Value="{Binding MaximumOutput}" Minimum="256" Maximum="131072" Increment="1024" />
+           </StackPanel>
+          </DataTemplate>
+         </ItemsControl.ItemTemplate>
+        </ItemsControl>
+       </StackPanel>
+      </Expander>
       <TextBlock Text="全过程请求上限（包含失败与重试）" TextWrapping="Wrap" />
       <NumericUpDown Value="{Binding MaximumRequests}" Minimum="1" Maximum="1000" Increment="10" IsEnabled="{Binding CanEdit}" />
       <TextBlock Text="全过程 token 上限" />
@@ -59,7 +77,7 @@
          <Button Content="复核采纳已有候选" Command="{Binding AdoptCandidateCommand}" Margin="0,0,6,6" />
          <Button Content="按当前连接和切分新建修订" Command="{Binding ReviseCommand}" Margin="0,0,6,6" />
         </WrapPanel>
-        <TextBlock Text="修订继承累计预算；有效旧结果按依赖复用。采纳仅在当前契约通过且用量已知时可用，不发出新请求。" TextWrapping="Wrap" />
+        <TextBlock Text="修订继承累计预算；范围不变的成功节点保留原参数和结果，尚未完成节点使用当前参数。改变切分会使相关下游重新计算。采纳仅在当前契约通过且用量已知时可用。" TextWrapping="Wrap" />
        </StackPanel>
       </Expander>
      </StackPanel>

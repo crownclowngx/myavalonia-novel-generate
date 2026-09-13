@@ -7,7 +7,10 @@ namespace NovelGeneratePlugin.Application.Analysis;
 public sealed record NovelReportPart(AnalysisDimension Dimension, NovelReportDraft Draft);
 public sealed record NovelAnalysisReport(Guid RunId, string Version, string Name, string FileName, Guid SourceId, string ByteHash, string TextHash,
     int SourceCharacters, int CoveredCharacters, bool IsComplete, string QualityStatus, string Model, ImmutableArray<NovelReportPart> Parts,
-    NovelReportDraft? Synthesis, NovelIntegrationSnapshot Integrated, ImmutableArray<ReferenceSection> Sections);
+    NovelReportDraft? Synthesis, NovelIntegrationSnapshot Integrated, ImmutableArray<ReferenceSection> Sections)
+{
+    public ImmutableArray<string> ExecutionSummary { get; init; } = [];
+}
 public sealed record AnalysisEvidenceLocation(string Section, int Number, int AbsoluteStart, int Length, string Excerpt, int SelectionStart, string SourceHash);
 
 /// <summary>
@@ -44,7 +47,16 @@ public sealed class NovelAnalysisReportService(IReferenceSourceStore sources, IA
         var complete = run.State == AnalysisRunState.Completed && covered == input.Source.Text.Length && parts.Count == 6 && synthesis is not null && run.Nodes.All(n => n.State == AnalysisNodeState.Completed);
         var version = CanonicalJson.Hash(new { run.SourceId, run.SourceHash, run.Connection, Results = run.Nodes.Where(n => results.ContainsKey(n.Key)).Select(n => new { n.Key, n.InputStamp, results[n.Key].Hash }).ToArray() });
         return new(runId, version, input.Book.Name, input.Source.FileName, input.Source.Id, input.Source.ByteHash, input.Source.TextHash, input.Source.Text.Length, covered,
-            complete, "AI 分析候选；语义准确率、召回率与文风评价待人工评阅", run.Connection.Preset.Model, parts.ToImmutable(), synthesis, integrated, input.Sections);
+            complete, "AI 分析候选；语义准确率、召回率与文风评价待人工评阅",
+            string.Join("、", run.Nodes.Where(n => n.State == AnalysisNodeState.Completed).Select(n => (n.ExecutionPreset ?? (n.ExecutionConnection ?? run.Connection).Preset).Model).Distinct()),
+            parts.ToImmutable(), synthesis, integrated, input.Sections)
+        {
+            ExecutionSummary = [.. run.Nodes.Where(n => n.State == AnalysisNodeState.Completed).Select(n =>
+            {
+                var connection = n.ExecutionConnection ?? run.Connection; var preset = n.ExecutionPreset ?? connection.Preset;
+                return $"{n.Kind} · {preset.Model} · {preset.ReasoningEffort} · 单次输出 {preset.MaxOutputTokens} · 连接 {connection.Connection.Id:N}/v{connection.Connection.Version}";
+            }).GroupBy(s => s).Select(g => $"{g.Key} · 已完成 {g.Count()} 节点")]
+        };
     }
 
     public AnalysisEvidenceLocation Locate(Guid runId, AnalysisEvidence evidence)

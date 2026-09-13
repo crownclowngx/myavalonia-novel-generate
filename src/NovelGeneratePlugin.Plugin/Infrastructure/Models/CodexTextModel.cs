@@ -76,8 +76,8 @@ public sealed class CodexTextModel(ICodexProcess process) : ITextModel
         try
         {
             var arguments = new List<string> { "exec", "--ignore-user-config", "--ephemeral", "--skip-git-repo-check", "--sandbox", "read-only", "--json",
-                "-m", request.Configuration.Preset.Model, "-c", "approval_policy=\"never\"", "-c", "web_search=\"disabled\"",
-                "-c", "model_reasoning_effort=" + JsonSerializer.Serialize(request.Configuration.Preset.ReasoningEffort), "-c", "project_doc_max_bytes=0" };
+                "-m", request.EffectivePreset.Model, "-c", "approval_policy=\"never\"", "-c", "web_search=\"disabled\"",
+                "-c", "model_reasoning_effort=" + JsonSerializer.Serialize(request.EffectivePreset.ReasoningEffort), "-c", "project_doc_max_bytes=0" };
             foreach (var feature in DisabledFeatures) { arguments.Add("--disable"); arguments.Add(feature); }
             if (request.JsonOutput)
             {
@@ -91,7 +91,7 @@ public sealed class CodexTextModel(ICodexProcess process) : ITextModel
             arguments.Add("-");
             var text = ""; var usage = new ModelUsage(null, null); var completed = false; var messages = 0; var overLocalLimit = false;
             var prompt = "你是只返回文本的小说处理器。仅使用以下提供的内容；不要调用工具、读取文件、联网或执行命令。不要汇报过程。" +
-                $"最终输出目标上限 {request.Configuration.Preset.MaxOutputTokens} tokens。\n" + request.SystemPrompt +
+                $"最终输出目标上限 {request.EffectivePreset.MaxOutputTokens} tokens。\n" + request.SystemPrompt +
                 (request.JsonOutput ? "\n最终只输出合法 JSON 对象。" : "") + "\n\n任务内容：\n" + request.UserPrompt;
             var code = await process.RunAsync(request.Configuration.Connection.Settings.CodexExecutable, directory, arguments, prompt, line =>
             {
@@ -108,7 +108,7 @@ public sealed class CodexTextModel(ICodexProcess process) : ITextModel
                         // CLI 不提供稳定的正文 token delta。本阶段只显示最终消息，不能把思考或过程消息拼成小说。
                         if (++messages > 1) throw new ModelRequestException(ModelFailure.Protocol, "Codex 返回多条正文消息，需人工复核。");
                         text = item.GetProperty("text").GetString() ?? "";
-                        overLocalLimit = text.Length > Math.Min(1000000, request.Configuration.Preset.MaxOutputTokens * 4L);
+                        overLocalLimit = text.Length > Math.Min(1000000, request.EffectivePreset.MaxOutputTokens * 4L);
                         // 软限制超出仍保存候选；绝对容量只保留有界前缀，最终标记截断而不是把候选丢掉。
                         if (text.Length > 1000000) text = text[..1000000];
                         progress?.Report(text);
@@ -121,7 +121,7 @@ public sealed class CodexTextModel(ICodexProcess process) : ITextModel
                 }
             }, cancellationToken).ConfigureAwait(false);
             if (code != 0 || !completed || string.IsNullOrWhiteSpace(text)) throw new ModelRequestException(ModelFailure.Service, "Codex 没有返回完整正文。");
-            return new(text, overLocalLimit || usage.OutputTokens > request.Configuration.Preset.MaxOutputTokens ? ModelCompletion.Truncated : ModelCompletion.Complete, usage);
+            return new(text, overLocalLimit || usage.OutputTokens > request.EffectivePreset.MaxOutputTokens ? ModelCompletion.Truncated : ModelCompletion.Complete, usage);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

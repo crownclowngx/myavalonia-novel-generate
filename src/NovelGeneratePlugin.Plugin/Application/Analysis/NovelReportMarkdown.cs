@@ -13,6 +13,12 @@ public static class NovelReportMarkdown
         text.AppendLine(report.IsComplete ? "状态：提供文件的全文分析候选已齐全。" : "状态：部分报告；专题或综合结论尚未齐全，不代表分析完成。").AppendLine();
         text.AppendLine($"提取覆盖：{report.CoveredCharacters}/{report.SourceCharacters} 个 UTF-16 字符。范围：完整提供文件，原著完整性未经确认。").AppendLine();
         text.AppendLine(Escape(report.QualityStatus) + "。模型：" + Escape(report.Model) + "。").AppendLine();
+        if (!report.ExecutionSummary.IsEmpty)
+        {
+            text.AppendLine("各阶段实际执行配置（修订可保留旧参数的成功节点）：").AppendLine();
+            foreach (var item in report.ExecutionSummary) text.AppendLine("- " + Escape(item));
+            text.AppendLine();
+        }
         text.AppendLine($"来源文件：{Escape(report.FileName)}  ").AppendLine($"原始字节 SHA-256：`{report.ByteHash}`  ")
             .AppendLine($"文本 SHA-256：`{report.TextHash}`  ").AppendLine($"报告版本：`{report.Version}`").AppendLine();
         if (report.Synthesis is not null) Section("综合结论", report.Synthesis);

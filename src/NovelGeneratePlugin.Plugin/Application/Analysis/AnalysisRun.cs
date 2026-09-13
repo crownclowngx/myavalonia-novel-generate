@@ -20,6 +20,8 @@ public sealed record AnalysisNode(string Key, AnalysisNodeKind Kind, Guid? Chunk
     public int Layer { get; init; }
     public string ReviewGuidance { get; init; } = "";
     public int FormatRetries { get; init; }
+    public FrozenConnection? ExecutionConnection { get; init; }
+    public ModelPreset? ExecutionPreset { get; init; }
 }
 public sealed record AnalysisStageReserve(int Requests, long Tokens);
 public sealed record AnalysisNodeResult(string Key, string InputStamp, string Json, string Hash);
@@ -35,9 +37,11 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
     public ImmutableArray<AnalysisChunk> Chunks { get; init; } = [];
     public AnalysisTarget Target { get; init; }
     public bool AllowFormatRetry { get; init; }
+    public AnalysisStageSettings? StageSettings { get; init; }
     public void Validate()
     {
         Connection.Connection.Validate(); Connection.Preset.Validate();
+        StageSettings?.Validate(Connection.Connection.Settings.Provider);
         if (Id == Guid.Empty || BookId == Guid.Empty || SourceId == Guid.Empty || SourceHash?.Length != 64 || string.IsNullOrWhiteSpace(PipelineVersion) ||
             Connection.BookId != BookId || Connection.Task != ModelTask.Checking || Connection.Preset != Connection.Connection.Settings.Preset(Connection.Task) ||
             Budget.Id == Guid.Empty || Budget.MaximumRequests is < 1 or > 1000 || Budget.MaximumTokens < 1 || ReportReserve.Requests < 0 || ReportReserve.Tokens < 0 ||
@@ -49,6 +53,11 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
         var operations = new HashSet<Guid>();
         foreach (var node in Nodes)
         {
+            if (node is null) throw new InvalidDataException("分析节点不能为空。");
+            var frozen = node.ExecutionConnection ?? Connection;
+            frozen.Connection.Validate(); frozen.Preset.Validate(); node.ExecutionPreset?.Validate();
+            if (frozen.BookId != BookId || frozen.Task != ModelTask.Checking || frozen.Preset != frozen.Connection.Settings.Checking)
+                throw new InvalidDataException("节点冻结身份或检查预设不一致。");
             if (node is null || string.IsNullOrWhiteSpace(node.Key) || node.Key.Length > 100 || !Enum.IsDefined(node.Kind) || !Enum.IsDefined(node.State) ||
                 node.Dependencies.IsDefault || node.Dependencies.Any(key => !seen.Contains(key)) || !seen.Add(node.Key) ||
                 node.OperationId == Guid.Empty || !operations.Add(node.OperationId) || node.InputStamp is null ||

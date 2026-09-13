@@ -38,6 +38,8 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     [ObservableProperty] private int _maximumRequests = 200;
     [ObservableProperty] private long _maximumTokens = 8000000;
     [ObservableProperty] private bool _acknowledgeCosts;
+    [ObservableProperty] private bool _useStageSettings = true;
+    public ObservableCollection<AnalysisStageEditor> StageParameters { get; } = [];
     [ObservableProperty] private string _reviewGuidance = "";
     [ObservableProperty] private string _previewSummary = "选择 TXT，预览编码、分章和全文范围后导入。";
     [ObservableProperty] private string _previewText = "";
@@ -75,7 +77,25 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     partial void OnChunkCharactersChanged(int value) => InvalidatePreview();
     private void InvalidatePreview() { _preview = null; Sections.Clear(); SelectedSection = null; PreviewText = ""; PreviewSummary = "输入已变化，请重新预览。"; Notify(); }
     partial void OnIsBusyChanged(bool value) => Notify();
-    partial void OnSelectedConnectionChanged(ModelConnection? value) => Notify();
+    partial void OnSelectedConnectionChanged(ModelConnection? value)
+    {
+        if (value is not null && !_loading)
+            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), value, ModelTask.Checking, value.Settings.Checking)));
+        Notify();
+    }
+    private void LoadStageParameters(AnalysisStageSettings settings)
+    {
+        StageParameters.Clear();
+        foreach (var kind in Enum.GetValues<AnalysisNodeKind>()) StageParameters.Add(new(kind, settings.For(kind)));
+    }
+    private AnalysisStageSettings? BuildStageSettings()
+    {
+        if (!UseStageSettings) return null;
+        if (StageParameters.Count == 0 && SelectedConnection is not null)
+            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), SelectedConnection, ModelTask.Checking, SelectedConnection.Settings.Checking)));
+        ModelPreset Read(AnalysisNodeKind kind) => StageParameters.Single(p => p.Kind == kind).Build();
+        return new(Read(AnalysisNodeKind.Extraction), Read(AnalysisNodeKind.Integration), Read(AnalysisNodeKind.Summary), Read(AnalysisNodeKind.Dimension), Read(AnalysisNodeKind.Synthesis));
+    }
     partial void OnSelectedBookChanged(AnalysisBookChoice? value)
     { if (_loading) return; Runs.Clear(); SelectedRun = null; reader.Clear(); Notify(); }
     partial void OnSelectedRunChanged(AnalysisRunChoice? value)
@@ -159,7 +179,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         if (old is not null && runner.Usage(old.Id).Any(e => !e.RetryAcknowledged && (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null)))
             await Task.Run(() => runner.Resume(old.Id, AcknowledgeCosts, MaximumRequests, MaximumTokens, ReviewGuidance), ct);
         var run = await runner.CreateAsync(SelectedBook.Book.Id, ConnectionService.Bind(SelectedConnection), MaximumRequests, MaximumTokens,
-            old?.ReportReserve ?? new(32, 1200000), ct, revision ? new(ChunkCharacters) : null, old?.Id, AnalysisTarget.Report);
+            old?.ReportReserve ?? new(32, 1200000), ct, revision ? new(ChunkCharacters) : null, old?.Id, AnalysisTarget.Report, BuildStageSettings());
         Runs.Insert(0, new(run)); SelectedRun = Runs[0]; Begin(run.Id); Status = "全文分析已开始，隐藏面板不影响任务。";
     });
     private void Begin(Guid id) { _ = ObserveAsync(activity.StartAsync(id), id); Notify(); }
@@ -183,7 +203,12 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     private async Task ReadRunCoreAsync(Guid id, CancellationToken ct)
     {
         var snapshot = await Task.Run(() => new AnalysisActivityUpdate(runner.Read(id), runner.Usage(id), activity.IsActive(id)), ct);
-        if (SelectedRun?.Run.Id == id) { Apply(snapshot); MaximumRequests = snapshot.Run.Budget.MaximumRequests; MaximumTokens = snapshot.Run.Budget.MaximumTokens; }
+        if (SelectedRun?.Run.Id == id)
+        {
+            Apply(snapshot); MaximumRequests = snapshot.Run.Budget.MaximumRequests; MaximumTokens = snapshot.Run.Budget.MaximumTokens;
+            UseStageSettings = snapshot.Run.StageSettings is not null;
+            LoadStageParameters(snapshot.Run.StageSettings ?? AnalysisStageSettings.Default(snapshot.Run.Connection));
+        }
     }
     private void OnActivityChanged(AnalysisActivityUpdate update)
     {
@@ -211,7 +236,8 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         Nodes.Clear(); foreach (var node in run.Nodes)
         {
             var failed = update.Usage.Any(e => e.Id == node.OperationId && e.State is RequestState.Uncertain or RequestState.Truncated or RequestState.Rejected);
-            Nodes.Add($"{NodeName(node.Kind)} · {node.Key} · {(node.State == AnalysisNodeState.Completed ? "已保存" : failed ? "失败/待复核" : node.State == AnalysisNodeState.Running ? "正在处理/待核对" : "未处理")}");
+            var preset = node.ExecutionPreset ?? (node.ExecutionConnection ?? run.Connection).Preset;
+            Nodes.Add($"{NodeName(node.Kind)} · {node.Key} · {(node.State == AnalysisNodeState.Completed ? "已保存" : failed ? "失败/待复核" : node.State == AnalysisNodeState.Running ? "正在处理/待核对" : "未处理")} · {preset.Model}/{preset.ReasoningEffort}/{preset.MaxOutputTokens}");
         }
         Status = update.Error ?? (update.Active ? "分析仍在运行，可以切换书目或隐藏工具。" : run.Message); Notify();
     }

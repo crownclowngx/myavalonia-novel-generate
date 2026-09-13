@@ -108,4 +108,71 @@ public sealed class AnalysisRecoveryTests
         Assert.Equal(AnalysisRunState.NeedsAttention, (await fixture.Service.ExecuteAsync(run.Id, new(), null, default)).State);
         Assert.Single(model.Requests); Assert.False(Assert.Single(fixture.Requests.List(run.Budget.Id)).RetryAcknowledged);
     }
+
+    [Fact]
+    public async Task 修订仅为未完成节点使用新参数并保留前三个成功结果()
+    {
+        await using var workspace = new TestWorkspace();
+        var model = new ScriptedTextModel(_ => Good(), _ => Good(), _ => Good(), _ => throw new IOException("断流"),
+            request => { Assert.Equal(16384, request.EffectivePreset.MaxOutputTokens); Assert.Equal("none", request.EffectivePreset.ReasoningEffort); return Good(); });
+        var fixture = new Fixture(workspace, model); var original = await fixture.Create(4);
+        await fixture.Service.ExecuteAsync(original.Id, new(), null, default);
+        var saved = fixture.Runs.Read(original.Id); var stamps = saved.Nodes.Take(3).Select(n => n.InputStamp).ToArray();
+        fixture.Service.Resume(original.Id, true, 100, 8000000);
+        var old = original.Connection.Connection;
+        var changed = await workspace.Connections.SaveAsync(old, old.Settings with { Checking = new("deepseek-flash", 32768, "high") });
+        var frozen = new FrozenConnection(original.BookId, changed, ModelTask.Checking, changed.Settings.Checking);
+        var revision = await fixture.Service.CreateAsync(original.BookId, ConnectionService.Bind(changed), 100, 8000000, original.ReportReserve,
+            default, previousRunId: original.Id, stageSettings: AnalysisStageSettings.Default(frozen));
+        var result = await fixture.Service.ExecuteAsync(revision.Id, new(), null, default);
+        Assert.Equal(AnalysisRunState.ExtractionCompleted, result.State); Assert.Equal(5, model.Requests.Count);
+        Assert.Equal(stamps, result.Nodes.Take(3).Select(n => n.InputStamp));
+        Assert.All(result.Nodes.Take(3), n => Assert.Equal(old, n.ExecutionConnection!.Connection));
+        Assert.Equal(changed, result.Nodes[3].ExecutionConnection!.Connection);
+        Assert.Equal(original.Budget.Id, result.Budget.Id); Assert.Equal(5, fixture.Service.Usage(result.Id).Count);
+    }
+
+    [Fact]
+    public async Task 旧运行缺少阶段设置时请求和输入指纹不变()
+    {
+        await using var workspace = new TestWorkspace();
+        var fixture = new Fixture(workspace, new ScriptedTextModel(_ => Good())); var run = await fixture.Create();
+        var node = run.Nodes[0] with { ExecutionConnection = null, ExecutionPreset = null, ExtractionPromptVersion = "v3" };
+        var old = run with { Nodes = [node], StageSettings = null }; var input = fixture.Sources.Read(run.BookId);
+        var actual = new NovelAnalysisNodePreparer().Prepare(old, input, node, new Dictionary<string, AnalysisNodeResult>());
+        var expected = NovelChunkAnalysisService.Prepare(input, input.Chunks[0], run.Connection, node.OperationId, "v3");
+        Assert.Equal(expected.InputStamp, actual.InputStamp); Assert.Equal(run.Connection.Preset, actual.Request.EffectivePreset);
+    }
+
+    [Fact]
+    public async Task 阶段参数不伪造授权连接且失效连接不能发送()
+    {
+        await using var workspace = new TestWorkspace();
+        var model = new ScriptedTextModel(_ => Good()); var fixture = new Fixture(workspace, model); var seed = await fixture.Create();
+        var settings = AnalysisStageSettings.Default(seed.Connection);
+        var run = await fixture.Service.CreateAsync(seed.BookId, ConnectionService.Bind(seed.Connection.Connection), 100, 8000000,
+            seed.ReportReserve, default, stageSettings: settings);
+        var prepared = new NovelAnalysisNodePreparer().Prepare(run, fixture.Sources.Read(run.BookId), run.Nodes[0], new Dictionary<string, AnalysisNodeResult>());
+        Assert.Equal(seed.Connection, prepared.Request.Configuration); Assert.Equal(settings.Extraction, prepared.Request.EffectivePreset); prepared.Request.Validate();
+        await workspace.Connections.SaveAsync(seed.Connection.Connection, seed.Connection.Connection.Settings with { Endpoint = "https://changed.example" });
+        Assert.Equal(AnalysisRunState.NeedsAttention, (await fixture.Service.ExecuteAsync(run.Id, new(), null, default)).State);
+        Assert.Empty(model.Requests);
+    }
+
+    [Fact]
+    public async Task 旧运行库升级前创建一致性备份且旧记录仍可读()
+    {
+        await using var workspace = new TestWorkspace();
+        var fixture = new Fixture(workspace, new ScriptedTextModel(_ => Good())); var run = await fixture.Create();
+        using (var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + fixture.Runs.DatabasePath + ";Pooling=False"))
+        {
+            connection.Open(); using var command = connection.CreateCommand(); command.CommandText = "PRAGMA user_version=1"; command.ExecuteNonQuery();
+        }
+        Assert.Equal(run.Id, fixture.Runs.Read(run.Id).Id);
+        var backup = Assert.Single(Directory.GetFiles(Path.Combine(workspace.Paths.Root, "Backups"), "reference-runs-schema1-*.db"));
+        using var copied = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=" + backup + ";Mode=ReadOnly;Pooling=False"); copied.Open();
+        using var read = copied.CreateCommand(); read.CommandText = "PRAGMA user_version"; Assert.Equal(1L, read.ExecuteScalar());
+        read.CommandText = "SELECT count(*) FROM runs"; Assert.Equal(1L, read.ExecuteScalar());
+        fixture.Runs.Read(run.Id); Assert.Single(Directory.GetFiles(Path.Combine(workspace.Paths.Root, "Backups")));
+    }
 }

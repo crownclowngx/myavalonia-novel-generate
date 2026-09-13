@@ -5,7 +5,7 @@
 | 阶段 | 目标 | 进度 |
 | --- | --- | --- |
 | [G0037](refactoring/G0037/plan.md) | 响应诊断、结构化输出、一次定向纠正 | [本地已验证，5/5](refactoring/G0037/result.md) |
-| [G0038](refactoring/G0038/plan.md) | 分阶段参数与修订成果复用 | 计划中 |
+| [G0038](refactoring/G0038/plan.md) | 分阶段参数与修订成果复用 | [本地已验证，5/5](refactoring/G0038/result.md) |
 | [G0039](refactoring/G0039/plan.md) | 容量预检、局部拆分、恢复验收 | 计划中 |
 
 已完成分析成果及历史费用保留。运行配置变化与来源变化分别处理，旧结果不能伪装为新模型执行结果。

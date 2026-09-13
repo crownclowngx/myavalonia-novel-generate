@@ -12,6 +12,7 @@ public sealed record ModelRequestEntry(Guid Id, Guid BudgetId, Guid BookId, Guid
     public bool RetryAcknowledged { get; init; }
     public ModelDiagnostic? Diagnostic { get; init; }
     public bool ResponseComplete { get; init; }
+    public NovelGeneratePlugin.Domain.ModelPreset? ExecutionPreset { get; init; }
     public long ChargedTokens => Usage.InputTokens is long input && Usage.OutputTokens is long output ? checked(input + output) : ReservedTokens;
     public override string ToString() => $"{UpdatedAt.LocalDateTime:MM-dd HH:mm:ss} · {Model} · {State switch { RequestState.Completed => "完成", RequestState.Truncated => "截断", RequestState.Rejected => "拒绝", RequestState.Uncertain => "结果不确定", _ => "未确认结束" }}";
 }
@@ -53,8 +54,9 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
         // UTF-8 字节数用于保守输入预留，不冒充服务商 tokenizer。Codex 还包含 CLI 固定上下文，留出独立余量。
         var reserved = EstimateReservation(request);
         var entry = new ModelRequestEntry(request.OperationId, budget.Id, request.Configuration.BookId, request.Configuration.Connection.Id,
-            request.Configuration.Connection.Version, request.Configuration.Preset.Model, reserved, RequestState.Reserved,
-            new(null, null), "", null, DateTimeOffset.UtcNow);
+            request.Configuration.Connection.Version, request.EffectivePreset.Model, reserved, RequestState.Reserved,
+            new(null, null), "", null, DateTimeOffset.UtcNow)
+        { ExecutionPreset = request.EffectivePreset };
         await Task.Run(() => store.Reserve(entry, budget), cancellationToken).ConfigureAwait(false);
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); deadline.CancelAfter(duration);
         var gate = new object(); var lastNotification = DateTimeOffset.MinValue;
@@ -125,7 +127,7 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
     /// <summary>供运行调度预留后续阶段额度；真正发送仍在账本事务中重新核验，预估不能替代付款边界。</summary>
     public static long EstimateReservation(TextModelRequest request) => Encoding.UTF8.GetByteCount(request.SystemPrompt) +
         Encoding.UTF8.GetByteCount(request.UserPrompt) + Encoding.UTF8.GetByteCount(request.Contract?.JsonSchema ?? "") +
-        (long)request.Configuration.Preset.MaxOutputTokens + 16384;
+        (long)request.EffectivePreset.MaxOutputTokens + 16384;
     /// <summary>仅去掉 BOM、外围空白和完整的单层 JSON 代码围栏，不补字段、不猜引号、不修补截断内容；原始响应仍在请求账本。</summary>
     public static string RepairJsonWrapper(string text)
     {

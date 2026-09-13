@@ -5,12 +5,19 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
 {
     public IModelOutputContract? Contract { get; init; }
     public bool AllowJsonWrapperRepair { get; init; }
+    public ModelPreset? ExecutionPreset { get; init; }
+    public ModelPreset EffectivePreset => ExecutionPreset ?? Configuration.Preset;
     public void Validate()
     {
         if (OperationId == Guid.Empty || Configuration is null || Configuration.BookId == Guid.Empty ||
             string.IsNullOrWhiteSpace(SystemPrompt) || string.IsNullOrWhiteSpace(UserPrompt) ||
             SystemPrompt.Length + UserPrompt.Length > 250000) throw new InvalidDataException("模型请求身份或提示内容无效（总长度上限 25 万字符）。");
         Configuration.Connection.Validate(); Configuration.Preset.Validate();
+        EffectivePreset.Validate();
+        if (ExecutionPreset is not null && Configuration.Task != ModelTask.Checking)
+            throw new InvalidDataException("独立阶段参数仅用于分析检查任务。");
+        if (Configuration.Connection.Settings.Provider == ModelProvider.CodexCli && EffectivePreset.ReasoningEffort is "none" or "max")
+            throw new InvalidDataException("当前 Codex 任务不支持该思考强度。");
         if (Configuration.Preset != Configuration.Connection.Settings.Preset(Configuration.Task)) throw new InvalidDataException("请求预设与冻结连接不一致。");
         if ((Contract is not null || AllowJsonWrapperRepair) && !JsonOutput) throw new InvalidDataException("结构化契约必须使用 JSON 输出。");
         if (Contract is not null)

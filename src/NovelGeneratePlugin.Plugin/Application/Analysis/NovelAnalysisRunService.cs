@@ -18,6 +18,9 @@ public sealed class NovelAnalysisNodePreparer : IAnalysisNodePreparer
 {
     public PreparedAnalysisNode Prepare(AnalysisRun run, ReferenceImport input, AnalysisNode node, IReadOnlyDictionary<string, AnalysisNodeResult> dependencies)
     {
+        // 完成节点可以来自旧修订。保留其原执行身份，不能用新参数重写缓存来源。
+        var effectivePreset = node.ExecutionPreset;
+        run = run with { Connection = node.ExecutionConnection ?? run.Connection };
         PreparedAnalysisNode prepared;
         if (node.Kind == AnalysisNodeKind.Integration) prepared = NovelIntegrationRequests.Prepare(run, input, node, dependencies);
         else if (node.Kind is AnalysisNodeKind.Summary or AnalysisNodeKind.Dimension or AnalysisNodeKind.Synthesis) prepared = NovelReportRequests.Prepare(run, input, node, dependencies);
@@ -28,6 +31,8 @@ public sealed class NovelAnalysisNodePreparer : IAnalysisNodePreparer
             var extracted = NovelChunkAnalysisService.Prepare(input, chunk, run.Connection, node.OperationId, node.ExtractionPromptVersion);
             prepared = new(extracted.Request, extracted.InputStamp);
         }
+        if (effectivePreset is not null)
+            prepared = new(prepared.Request with { ExecutionPreset = effectivePreset }, CanonicalJson.Hash(new { prepared.InputStamp, ExecutionPreset = effectivePreset }));
         if (node.ReviewGuidance.Length == 0) return prepared;
         return new(prepared.Request with { SystemPrompt = prepared.Request.SystemPrompt + "\n本次复核后的补充约束：" + node.ReviewGuidance },
             CanonicalJson.Hash(new { prepared.InputStamp, node.ReviewGuidance }));
@@ -43,7 +48,8 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
 {
     public const string PipelineVersion = "novel-analysis-g32-v1";
     public async Task<AnalysisRun> CreateAsync(Guid bookId, ConnectionBinding binding, int maximumRequests, long maximumTokens,
-        AnalysisStageReserve reserve, CancellationToken ct, PartitionOptions? partition = null, Guid? previousRunId = null, AnalysisTarget target = AnalysisTarget.Extraction)
+        AnalysisStageReserve reserve, CancellationToken ct, PartitionOptions? partition = null, Guid? previousRunId = null, AnalysisTarget target = AnalysisTarget.Extraction,
+        AnalysisStageSettings? stageSettings = null)
     {
         var previous = previousRunId is Guid previousId ? runs.Read(previousId) : null;
         using var revisionLease = previous is null ? null : runs.Acquire(previous.Budget.Id);
@@ -57,6 +63,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         if (previous is not null) input = input with { Chunks = previous.Chunks };
         if (partition is not null) input = NovelTextPartitioner.Rechunk(input, partition, ct);
         var frozen = await connections.FreezeAsync(binding, bookId, ModelTask.Checking).ConfigureAwait(false);
+        stageSettings?.Validate(frozen.Connection.Settings.Provider);
         if (input.Chunks.Length + reserve.Requests > maximumRequests || maximumRequests > 1000)
             throw new InvalidOperationException("全文单元与后续阶段所需请求超过总额；请调整切分或额度，上限为 1000，尚未发送请求。");
         var id = Guid.NewGuid();
@@ -64,16 +71,26 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         {
             // 修订可以只加强未完成单元的提示，已完成且范围不变的单元仍引用原提示版本，避免重新付费。
             ExtractionPromptVersion = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ExtractionPromptVersion ?? NovelChunkAnalysisService.CurrentPromptVersion,
-            ReviewGuidance = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ReviewGuidance ?? ""
+            ReviewGuidance = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ReviewGuidance ?? "",
+            ExecutionConnection = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed) is { } completed ? completed.ExecutionConnection ?? previous.Connection : frozen,
+            ExecutionPreset = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed) is { } saved ? saved.ExecutionPreset : stageSettings?.Extraction
         }).ToImmutableArray();
         // 同源同冻结配置且全部提取已完成时，修订的下层输入确定不变，可继承已有整合计划与逐节点复核说明。
         // 来源切分或模型改变则重新规划；每个继承节点仍要按当前依赖指纹校验缓存，不能仅凭旧状态跳过。
-        if (target != AnalysisTarget.Extraction && previous is not null && previous.PipelineVersion == PipelineVersion && previous.Connection == frozen &&
+        if (target != AnalysisTarget.Extraction && previous is not null && previous.PipelineVersion == PipelineVersion &&
             previous.Chunks.SequenceEqual(input.Chunks) && previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Extraction).All(n => n.State == AnalysisNodeState.Completed))
-            nodes = nodes.AddRange(previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Integration).Select(n => n with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "" }));
+            nodes = nodes.AddRange(previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Integration || target == AnalysisTarget.Report && n.Kind != AnalysisNodeKind.Extraction)
+                .Select(n => n with
+                {
+                    OperationId = Guid.NewGuid(),
+                    State = AnalysisNodeState.Pending,
+                    InputStamp = "",
+                    ExecutionConnection = n.State == AnalysisNodeState.Completed ? n.ExecutionConnection ?? previous.Connection : frozen,
+                    ExecutionPreset = n.State == AnalysisNodeState.Completed ? n.ExecutionPreset : stageSettings?.For(n.Kind)
+                }));
         var run = new AnalysisRun(id, bookId, input.Source.Id, input.Source.TextHash, PipelineVersion, frozen, new(previous?.Budget.Id ?? id, maximumRequests, maximumTokens), reserve,
             nodes, AnalysisRunState.Queued, "已建立全文提取队列。", 1, DateTimeOffset.UtcNow)
-        { Chunks = input.Chunks, Target = target, AllowFormatRetry = true };
+        { Chunks = input.Chunks, Target = target, AllowFormatRetry = true, StageSettings = stageSettings };
         run.Validate();
         // 防止首个请求就侵占后续阶段额度。总 token 不做虚假的精确承诺，每次请求仍按实际账本重新核对。
         var first = preparer.Prepare(run, input, nodes[0], new Dictionary<string, AnalysisNodeResult>());
@@ -140,7 +157,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                             return SaveState(run, AnalysisRunState.NeedsAttention, entry.Diagnostic?.Message ??
                                 "此节点存在未完成、截断或失败请求。请复核候选和费用后明确重试，未自动重发。", progress);
                         }
-                        if (entry.BookId != run.BookId || entry.ConnectionId != run.Connection.Connection.Id || entry.ConnectionVersion != run.Connection.Connection.Version || entry.Model != run.Connection.Preset.Model)
+                        if (entry.BookId != run.BookId || entry.ConnectionId != prepared.Request.Configuration.Connection.Id || entry.ConnectionVersion != prepared.Request.Configuration.Connection.Version || entry.Model != prepared.Request.EffectivePreset.Model)
                             throw new InvalidDataException("请求账本与分析节点不一致。");
                         json = ModelRequestService.RepairJsonWrapper(entry.PartialText);
                     }
@@ -151,7 +168,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                     }
                     if (json is null)
                     {
-                        ct.ThrowIfCancellationRequested(); await connections.ValidateCurrentAsync(run.Connection).ConfigureAwait(false);
+                        ct.ThrowIfCancellationRequested(); await connections.ValidateCurrentAsync(prepared.Request.Configuration).ConfigureAwait(false);
                         CheckStageBudget(run, node.Kind, prepared.Request);
                         node = node with { State = AnalysisNodeState.Running, InputStamp = prepared.InputStamp };
                         run = SaveNode(run, index, node, null, progress);
@@ -178,6 +195,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                 if (plan.IsEmpty && run.Target == AnalysisTarget.Report)
                     plan = NovelReportPlanner.Next(run, NovelIntegrationSnapshot.Build(run, fullIndex, completed), completed);
                 if (plan.IsEmpty) break;
+                plan = [.. plan.Select(n => n with { ExecutionConnection = run.Connection, ExecutionPreset = run.StageSettings?.For(n.Kind) })];
                 var remaining = plan[0].Kind is AnalysisNodeKind.Integration or AnalysisNodeKind.Summary ? Math.Min(7, run.ReportReserve.Requests) : plan[0].Kind == AnalysisNodeKind.Dimension ? 1 : 0;
                 if (run.Nodes.Length + plan.Length > 1000 || requests.List(run.Budget.Id).Count + plan.Length + remaining > run.Budget.MaximumRequests)
                     throw new InvalidOperationException("下一阶段节点超过剩余额度，请复核预算后继续。");

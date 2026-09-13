@@ -27,6 +27,7 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
         var connection = ProjectStore.Connect(DatabasePath, SqliteOpenMode.ReadWriteCreate);
         try
         {
+            BackupLegacy(connection);
             using var transaction = connection.BeginTransaction(); using var command = connection.CreateCommand(); command.Transaction = transaction;
             command.CommandText = "PRAGMA application_id"; var application = Convert.ToInt32(command.ExecuteScalar());
             command.CommandText = "PRAGMA user_version"; var version = Convert.ToInt32(command.ExecuteScalar());
@@ -38,14 +39,31 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
                     CREATE TABLE runs(id TEXT PRIMARY KEY,book TEXT NOT NULL,version INTEGER NOT NULL,snapshot TEXT NOT NULL);
                     CREATE TABLE results(run TEXT NOT NULL REFERENCES runs(id),key TEXT NOT NULL,stamp TEXT NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(run,key));
                     CREATE INDEX result_stamp ON results(stamp);
-                    PRAGMA application_id={ApplicationId}; PRAGMA user_version=1;
+                    PRAGMA application_id={ApplicationId}; PRAGMA user_version=2;
                     """;
                 command.ExecuteNonQuery();
             }
-            else if (application != ApplicationId || version != 1) throw new NotSupportedException("运行库标识或版本不受支持，未写入。");
+            else if (application != ApplicationId || version is not (1 or 2)) throw new NotSupportedException("运行库标识或版本不受支持，未写入。");
+            else if (version == 1)
+            {
+                // 新字段影响执行身份，旧程序不能忽略后继续发送；版本升级在一致性备份成功后进行。
+                command.CommandText = "PRAGMA user_version=2"; command.ExecuteNonQuery();
+            }
             transaction.Commit(); ProjectStore.Execute(connection, "PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;"); return connection;
         }
         catch { connection.Dispose(); throw; }
+    }
+
+    private void BackupLegacy(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand(); command.CommandText = "PRAGMA application_id";
+        if (Convert.ToInt32(command.ExecuteScalar()) != ApplicationId) return;
+        command.CommandText = "PRAGMA user_version"; if (Convert.ToInt32(command.ExecuteScalar()) != 1) return;
+        // SQLite Backup API 包含已提交的 WAL 内容。备份失败直接阻止升级，不用文件复制猜测数据库状态。
+        var directory = Path.Combine(paths.Root, "Backups"); Directory.CreateDirectory(directory);
+        var backupPath = Path.Combine(directory, "reference-runs-schema1-" + Guid.NewGuid().ToString("N") + ".db");
+        using var backup = ProjectStore.Connect(backupPath, SqliteOpenMode.ReadWriteCreate);
+        connection.BackupDatabase(backup);
     }
 
     public void Create(AnalysisRun run)
@@ -88,7 +106,7 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
         using var connection = Open(); using var transaction = connection.BeginTransaction(); using var command = connection.CreateCommand(); command.Transaction = transaction;
         command.CommandText = "SELECT snapshot FROM runs WHERE id=$id"; command.Parameters.AddWithValue("$id", run.Id.ToString());
         var previous = Parse(command.ExecuteScalar() as string ?? throw new FileNotFoundException("分析运行不存在。"));
-        if (previous.SourceHash != run.SourceHash || previous.Connection != run.Connection || previous.ReportReserve != run.ReportReserve || !previous.Chunks.SequenceEqual(run.Chunks) || previous.Budget.Id != run.Budget.Id ||
+        if (previous.SourceHash != run.SourceHash || previous.Connection != run.Connection || previous.StageSettings != run.StageSettings || previous.ReportReserve != run.ReportReserve || !previous.Chunks.SequenceEqual(run.Chunks) || previous.Budget.Id != run.Budget.Id ||
             previous.Target != run.Target || run.Budget.MaximumRequests < previous.Budget.MaximumRequests || run.Budget.MaximumTokens < previous.Budget.MaximumTokens || previous.Nodes.Length > run.Nodes.Length)
             throw new InvalidDataException("不能改写运行的来源、冻结配置、节点计划或降低预算。");
         if (run.Nodes.Length > previous.Nodes.Length && (previous.Nodes.Any(n => n.State != AnalysisNodeState.Completed) || run.Nodes.Skip(previous.Nodes.Length).Any(n => n.State != AnalysisNodeState.Pending)))
@@ -98,6 +116,7 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
             var old = previous.Nodes[i]; var next = run.Nodes[i];
             if (old.Key != next.Key || old.Kind != next.Kind || old.ChunkId != next.ChunkId || old.ExtractionPromptVersion != next.ExtractionPromptVersion ||
                 old.Dimension != next.Dimension || old.Layer != next.Layer || !old.Selection.SequenceEqual(next.Selection) || !old.Dependencies.SequenceEqual(next.Dependencies) ||
+                old.ExecutionConnection != next.ExecutionConnection || old.ExecutionPreset != next.ExecutionPreset ||
                 next.FormatRetries < old.FormatRetries || next.FormatRetries > old.FormatRetries && (next.State != AnalysisNodeState.Pending || old.OperationId == next.OperationId) ||
                 old.ReviewGuidance != next.ReviewGuidance && (old.State == AnalysisNodeState.Completed || next.State != AnalysisNodeState.Pending || old.OperationId == next.OperationId) ||
                 old.State == AnalysisNodeState.Completed && CanonicalJson.Hash(old) != CanonicalJson.Hash(next) ||
