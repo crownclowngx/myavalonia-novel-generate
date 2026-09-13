@@ -24,7 +24,10 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
 }
 public enum ModelCompletion { Complete, Truncated }
 public sealed record ModelUsage(long? InputTokens, long? OutputTokens);
-public sealed record TextModelResponse(string Text, ModelCompletion Completion, ModelUsage Usage);
+public sealed record TextModelResponse(string Text, ModelCompletion Completion, ModelUsage Usage)
+{
+    public ModelDiagnostic? Diagnostic { get; init; }
+}
 /// <summary>由具体任务定义字段、类型和取值边界；服务商的 JSON 模式不能替代业务校验。</summary>
 public interface IModelOutputContract
 {
@@ -36,6 +39,8 @@ public enum ModelFailure { Authentication, Balance, RateLimit, Service, Protocol
 public sealed class ModelRequestException(ModelFailure failure, string message) : Exception(message)
 {
     public ModelFailure Failure { get; } = failure;
+    public ModelDiagnostic? Diagnostic { get; init; }
+    public ModelUsage? ObservedUsage { get; init; }
 }
 /// <summary>模型只返回文本候选，不取得数据库或文件操作权限。未知用量为 null，不把缺失计数伪装成零。</summary>
 public interface ITextModel

@@ -51,6 +51,11 @@ public sealed record AnalysisFinding(Guid Id, AnalysisDimension Dimension, strin
 public sealed record AnalysisSection(AnalysisDimension Dimension, string Summary, ImmutableArray<AnalysisFinding> Findings);
 
 public sealed record ReferenceMention(Guid Id, string Name, StoryEntityKind Kind, ImmutableArray<string> Aliases, string Description, ImmutableArray<AnalysisEvidence> Evidence);
-public sealed record DimensionGap(AnalysisDimension Dimension, string Reason);
+public sealed record DimensionGap(AnalysisDimension Dimension, string Reason)
+{
+    /// <summary>缺口可以附带已核实的出处，但不把“没有足够依据”转换成事实结论。</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public ImmutableArray<AnalysisEvidence> Evidence { get; init; }
+}
 public sealed record ChunkAnalysisResult(Guid OperationId, Guid ChunkId, Guid SourceId, string InputStamp, string Summary,
     ImmutableArray<ReferenceMention> Entities, ImmutableArray<AnalysisFinding> Findings, ImmutableArray<DimensionGap> Gaps);

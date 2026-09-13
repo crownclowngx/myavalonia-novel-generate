@@ -156,8 +156,8 @@ public sealed class NovelAnalysisRunTests
         preparer.Reject = false;
         Assert.Equal(AnalysisRunState.Paused, service.AdoptReviewedCandidate(run.Id).State);
         Assert.Equal(AnalysisRunState.ExtractionCompleted, (await service.ExecuteAsync(run.Id, new(), null, default)).State);
-        Assert.Equal(1, calls); Assert.Single(service.ReadExtractions(run.Id));
-        var entry = Assert.Single(service.Usage(run.Id)); Assert.Equal(RequestState.Uncertain, entry.State); Assert.True(entry.RetryAcknowledged); Assert.Equal(200, entry.ChargedTokens);
+        Assert.Equal(2, calls); Assert.Single(service.ReadExtractions(run.Id));
+        Assert.All(service.Usage(run.Id), entry => { Assert.Equal(RequestState.Uncertain, entry.State); Assert.True(entry.RetryAcknowledged); Assert.Equal(200, entry.ChargedTokens); });
     }
 
     [Theory]
@@ -199,7 +199,7 @@ public sealed class NovelAnalysisRunTests
         var legacy = seed with { Id = id, Budget = seed.Budget with { Id = id }, Nodes = seed.Nodes.Select(n => n with { ExtractionPromptVersion = "v2" }).ToImmutableArray() };
         context.Store.Create(legacy); await context.Service.ExecuteAsync(legacy.Id, new(), null, default);
         var revised = await context.Service.CreateAsync(legacy.BookId, ConnectionService.Bind(legacy.Connection.Connection), 12, 500000, new(2, 50000), default, previousRunId: legacy.Id);
-        Assert.Equal("v2", revised.Nodes[0].ExtractionPromptVersion); Assert.Equal("v3", revised.Nodes[1].ExtractionPromptVersion);
+        Assert.Equal("v2", revised.Nodes[0].ExtractionPromptVersion); Assert.Equal(NovelChunkAnalysisService.CurrentPromptVersion, revised.Nodes[1].ExtractionPromptVersion);
         context.Service.Resume(revised.Id, true, 12, 500000);
         Assert.Equal(AnalysisRunState.ExtractionCompleted, (await context.Service.ExecuteAsync(revised.Id, new(), null, default)).State);
         Assert.Equal(3, model.Requests.Count); Assert.Single(context.Service.ReadExtractions(legacy.Id));

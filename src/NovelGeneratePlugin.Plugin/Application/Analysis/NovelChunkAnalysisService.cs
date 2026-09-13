@@ -21,7 +21,7 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         "描述和结论使用中文，枚举使用契约规定名称。" +
         "摘要不超过500字，实体最多25条，结论最多36条，每条优先1条简短证据；文风必须依据原句，推断必须标记。只输出符合契约的JSON。";
 
-    public const string CurrentPromptVersion = "v3";
+    public const string CurrentPromptVersion = "v4";
     /// <summary>保留旧提示供历史运行重放。Kind 是确定性，Narration 是叙述来源，两组枚举不能混用。</summary>
     public static string Prompt(string version) => version switch
     {
@@ -30,6 +30,9 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
             "Findings.Narration只能是Narration、CharacterClaim、Rumor、Dream、Recollection、Plan、Unknown。" +
             "例如角色自称身世，写Kind=Uncertain、Narration=CharacterClaim；叙述明确记载他说了这句话可写Kind=Explicit、Narration=CharacterClaim，Statement应明确是角色说法而非已证实的身世。" +
             "Entities.Kind只表示实体类别Person、Place、Organization、Item。提交JSON前逐条核对这些独立字段。",
+        "v4" => Prompt("v3") + "只返回一个分析结果对象，不要输出JSON Schema、Markdown或解释。顶层只能有Summary、Entities、Findings、Gaps。" +
+            "Gaps优先只填写Dimension和Reason。数量是上限而非配额，不凑满、不重复扩写。短片段可只提取少量实际信息。" +
+            """结果结构示例（内容仅说明格式，不是本次小说事实）：{"Summary":"片段信息有限","Entities":[],"Findings":[],"Gaps":[{"Dimension":"World","Reason":"未说明世界规则"},{"Dimension":"Characters","Reason":"未交代人物"},{"Dimension":"Goals","Reason":"未交代目标"},{"Dimension":"Plot","Reason":"缺少事件"},{"Dimension":"Style","Reason":"原句不足"},{"Dimension":"Theme","Reason":"主题尚不明确"}]}""",
         _ => throw new NotSupportedException("提取提示版本不受支持，历史内容保留。")
     };
 

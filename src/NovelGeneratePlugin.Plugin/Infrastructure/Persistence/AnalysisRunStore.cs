@@ -98,6 +98,7 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
             var old = previous.Nodes[i]; var next = run.Nodes[i];
             if (old.Key != next.Key || old.Kind != next.Kind || old.ChunkId != next.ChunkId || old.ExtractionPromptVersion != next.ExtractionPromptVersion ||
                 old.Dimension != next.Dimension || old.Layer != next.Layer || !old.Selection.SequenceEqual(next.Selection) || !old.Dependencies.SequenceEqual(next.Dependencies) ||
+                next.FormatRetries < old.FormatRetries || next.FormatRetries > old.FormatRetries && (next.State != AnalysisNodeState.Pending || old.OperationId == next.OperationId) ||
                 old.ReviewGuidance != next.ReviewGuidance && (old.State == AnalysisNodeState.Completed || next.State != AnalysisNodeState.Pending || old.OperationId == next.OperationId) ||
                 old.State == AnalysisNodeState.Completed && CanonicalJson.Hash(old) != CanonicalJson.Hash(next) ||
                 old.State != AnalysisNodeState.Completed && next.State == AnalysisNodeState.Completed && result?.Key != next.Key)

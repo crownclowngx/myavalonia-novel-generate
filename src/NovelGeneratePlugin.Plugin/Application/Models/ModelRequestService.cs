@@ -10,6 +10,8 @@ public sealed record ModelRequestEntry(Guid Id, Guid BudgetId, Guid BookId, Guid
     string Model, long ReservedTokens, RequestState State, ModelUsage Usage, string PartialText, string? Failure, DateTimeOffset UpdatedAt)
 {
     public bool RetryAcknowledged { get; init; }
+    public ModelDiagnostic? Diagnostic { get; init; }
+    public bool ResponseComplete { get; init; }
     public long ChargedTokens => Usage.InputTokens is long input && Usage.OutputTokens is long output ? checked(input + output) : ReservedTokens;
     public override string ToString() => $"{UpdatedAt.LocalDateTime:MM-dd HH:mm:ss} · {Model} · {State switch { RequestState.Completed => "完成", RequestState.Truncated => "截断", RequestState.Rejected => "拒绝", RequestState.Uncertain => "结果不确定", _ => "未确认结束" }}";
 }
@@ -72,7 +74,7 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
             var response = await model.GenerateAsync(request, sink, deadline.Token).ConfigureAwait(false);
             sink.Report(response.Text);
             if (response.Usage.InputTokens is < 0 || response.Usage.OutputTokens is < 0) throw new ModelRequestException(ModelFailure.Protocol, "模型用量计数无效。");
-            entry = entry with { Usage = response.Usage };
+            entry = entry with { Usage = response.Usage, ResponseComplete = response.Completion == ModelCompletion.Complete, Diagnostic = response.Diagnostic };
             // 先保存已获得的用量，再验证业务正文；思考耗尽预算的空截断仍是有成本的已知截断。
             if (!Enum.IsDefined(response.Completion) || response.Text is null ||
                 response.Completion == ModelCompletion.Complete && string.IsNullOrWhiteSpace(response.Text))
@@ -93,15 +95,21 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
                 ModelRequestException known => known.Failure,
                 _ => ModelFailure.Local
             };
+            var diagnostic = (exception as ModelRequestException)?.Diagnostic ??
+                (failure is ModelFailure.Timeout or ModelFailure.Cancelled
+                    ? new ModelDiagnostic(failure == ModelFailure.Timeout ? ModelDiagnosticCode.Timeout : ModelDiagnosticCode.Cancelled) : null);
+            var observed = (exception as ModelRequestException)?.ObservedUsage ?? (exception as ModelStreamCancellationException)?.ObservedUsage;
             entry = entry with
             {
                 State = failure is ModelFailure.Authentication or ModelFailure.Balance or ModelFailure.RateLimit ? RequestState.Rejected : RequestState.Uncertain,
                 Failure = failure.ToString(),
+                Diagnostic = diagnostic is null ? entry.Diagnostic : diagnostic with { ResponseComplete = entry.ResponseComplete, OutputCharacters = entry.PartialText.Length },
+                Usage = observed ?? entry.Usage,
                 UpdatedAt = DateTimeOffset.UtcNow
             };
             // 即使最终写入失败，之前的 Reserved/Running 和片段仍在；下一次同预算请求会被保守阻止。
             try { store.Save(entry); } catch (Exception writeError) when (writeError is not OutOfMemoryException) { throw new ModelRequestException(ModelFailure.Local, "请求已停止，但最终账本写入失败；请保留当前窗口并检查本地存储。已有片段仍可恢复。"); }
-            throw new ModelRequestException(failure, failure switch
+            throw new ModelRequestException(failure, entry.Diagnostic?.Message ?? (failure switch
             {
                 ModelFailure.Cancelled => "请求已取消；已有候选保留，远端用量可能尚未确认。",
                 ModelFailure.Timeout => "请求超时；已有候选保留，未自动重发。",
@@ -110,7 +118,8 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
                 ModelFailure.RateLimit => "模型请求受到限流，未自动重试。",
                 ModelFailure.Protocol => "模型响应不符合协议或结构要求，已保留候选供复核。",
                 _ => "模型请求未完成，已保留可用候选；请检查连接及本地存储。"
-            });
+            }))
+            { Diagnostic = entry.Diagnostic, ObservedUsage = entry.Usage };
         }
     }
     /// <summary>供运行调度预留后续阶段额度；真正发送仍在账本事务中重新核验，预估不能替代付款边界。</summary>
@@ -129,12 +138,19 @@ public sealed class ModelRequestService(ITextModel model, IModelRequestStore sto
     {
         try
         {
+            if (contract is not null && ModelJsonDiagnostics.IsSchemaEcho(text))
+                throw new ModelRequestException(ModelFailure.Protocol, "模型回显了格式定义。") { Diagnostic = new(ModelDiagnosticCode.SchemaEcho) };
             using var json = JsonDocument.Parse(text, new JsonDocumentOptions { MaxDepth = 32 });
             if (json.RootElement.ValueKind != JsonValueKind.Object || !json.RootElement.EnumerateObject().Any()) throw new JsonException();
             CheckDuplicates(json.RootElement); contract?.Validate(json.RootElement);
         }
         catch (Exception error) when (error is JsonException or InvalidDataException or ArgumentException or InvalidOperationException or KeyNotFoundException or OverflowException)
-        { throw new ModelRequestException(ModelFailure.Protocol, "结构化候选不符合任务要求。"); }
+        {
+            var path = ModelJsonDiagnostics.SafePath((error as JsonException)?.Path, contract?.JsonSchema);
+            var diagnostic = new ModelDiagnostic(error is JsonException && string.IsNullOrEmpty((error as JsonException)?.Path)
+                ? ModelDiagnosticCode.InvalidJson : ModelDiagnosticCode.ContractMismatch, path);
+            throw new ModelRequestException(ModelFailure.Protocol, diagnostic.Message) { Diagnostic = diagnostic };
+        }
     }
     private static void CheckDuplicates(JsonElement value)
     {

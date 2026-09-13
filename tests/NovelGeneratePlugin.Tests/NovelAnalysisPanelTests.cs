@@ -98,7 +98,7 @@ public sealed class NovelAnalysisPanelTests
         await context.Runner.ExecuteAsync(context.Run.Id, new(), null, default); var original = context.Runner.Read(context.Run.Id);
         var service = new NovelAnalysisCandidateService(new ReferenceSourceStore(workspace.Paths), context.Store, workspace.Models, new NovelAnalysisNodePreparer());
         var review = service.Read(context.Run.Id); Assert.NotEmpty(review.Validation); Assert.Equal("{}", review.Entry.PartialText);
-        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(original), System.Text.Json.JsonSerializer.Serialize(context.Runner.Read(context.Run.Id))); Assert.False(review.Entry.RetryAcknowledged); Assert.Single(context.Runner.Usage(context.Run.Id));
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(original), System.Text.Json.JsonSerializer.Serialize(context.Runner.Read(context.Run.Id))); Assert.False(review.Entry.RetryAcknowledged); Assert.Equal(2, context.Runner.Usage(context.Run.Id).Count);
     }
 
     [Fact]

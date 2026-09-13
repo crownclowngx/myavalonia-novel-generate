@@ -16,7 +16,7 @@ public sealed class NovelChunkAnalysisTests
     internal static ChunkOutput Output(int passage = 2) => new("林远来到雾港，收到警告。",
         [new("林远", StoryEntityKind.Person, [], "来到雾港的送信人", [new(passage)])],
         [new(AnalysisDimension.Plot, "林远", "林远走进城门", AnalysisStatementKind.Explicit, [], "", NarrativeSource.Narration, [new(passage)])],
-        [.. Enum.GetValues<AnalysisDimension>().Where(d => d != AnalysisDimension.Plot).Select(d => new DimensionGap(d, "当前片段没有足够依据。"))]);
+        [.. Enum.GetValues<AnalysisDimension>().Where(d => d != AnalysisDimension.Plot).Select(d => new GapOutput(d, "当前片段没有足够依据。"))]);
 
     internal static string Json(ChunkOutput output) => JsonSerializer.Serialize(output, new JsonSerializerOptions { Converters = { new JsonStringEnumConverter() } });
 
@@ -57,7 +57,7 @@ public sealed class NovelChunkAnalysisTests
         var contract = new ChunkAnalysisContract(input.Source, chunk, Guid.NewGuid(), "stamp", ChunkAnalysisContract.Passages(input.Source, chunk));
         var output = Output() with { Gaps = [.. Output().Gaps, new(AnalysisDimension.World, "力量代价未知。"), new(AnalysisDimension.World, "地理范围未知。")] };
         Assert.Equal(7, contract.Read(Json(output)).Gaps.Length);
-        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Gaps = Enumerable.Repeat(new DimensionGap(AnalysisDimension.World, "未知。"), 25).ToImmutableArray() })));
+        Assert.Throws<InvalidDataException>(() => contract.Read(Json(output with { Gaps = Enumerable.Repeat(new GapOutput(AnalysisDimension.World, "未知。"), 25).ToImmutableArray() })));
     }
 
     [Fact]

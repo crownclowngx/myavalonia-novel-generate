@@ -25,6 +25,6 @@ public sealed class NovelAnalysisCandidateService(IReferenceSourceStore sources,
             validation = "当前本地结构校验通过；仍须核对请求是否完整及语义是否正确，不能据此认定质量通过。";
         }
         catch (Exception error) when (error is not OutOfMemoryException) { validation = error.Message; }
-        return new(node.Key, entry.Failure ?? entry.State.ToString(), validation, entry);
+        return new(node.Key, entry.Diagnostic?.Message ?? entry.Failure ?? entry.State.ToString(), validation, entry);
     }
 }

@@ -73,7 +73,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
             nodes = nodes.AddRange(previous.Nodes.Where(n => n.Kind == AnalysisNodeKind.Integration).Select(n => n with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "" }));
         var run = new AnalysisRun(id, bookId, input.Source.Id, input.Source.TextHash, PipelineVersion, frozen, new(previous?.Budget.Id ?? id, maximumRequests, maximumTokens), reserve,
             nodes, AnalysisRunState.Queued, "已建立全文提取队列。", 1, DateTimeOffset.UtcNow)
-        { Chunks = input.Chunks, Target = target };
+        { Chunks = input.Chunks, Target = target, AllowFormatRetry = true };
         run.Validate();
         // 防止首个请求就侵占后续阶段额度。总 token 不做虚假的精确承诺，每次请求仍按实际账本重新核对。
         var first = preparer.Prepare(run, input, nodes[0], new Dictionary<string, AnalysisNodeResult>());
@@ -133,7 +133,13 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                     if (entry is not null)
                     {
                         // 缺失用量不妨碍恢复真实完整响应，但后续新请求仍由总账本阻止，不能把未知费用当成零。
-                        if (entry.State != RequestState.Completed) return SaveState(run, AnalysisRunState.NeedsAttention, "此节点存在未完成、截断或失败请求。请复核候选和费用后明确重试，未自动重发。", progress);
+                        if (entry.State != RequestState.Completed)
+                        {
+                            var corrected = TryScheduleCorrection(run, index, prepared, ct, progress);
+                            if (corrected is not null) { run = corrected; index--; continue; }
+                            return SaveState(run, AnalysisRunState.NeedsAttention, entry.Diagnostic?.Message ??
+                                "此节点存在未完成、截断或失败请求。请复核候选和费用后明确重试，未自动重发。", progress);
+                        }
                         if (entry.BookId != run.BookId || entry.ConnectionId != run.Connection.Connection.Id || entry.ConnectionVersion != run.Connection.Connection.Version || entry.Model != run.Connection.Preset.Model)
                             throw new InvalidDataException("请求账本与分析节点不一致。");
                         json = ModelRequestService.RepairJsonWrapper(entry.PartialText);
@@ -149,7 +155,14 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
                         CheckStageBudget(run, node.Kind, prepared.Request);
                         node = node with { State = AnalysisNodeState.Running, InputStamp = prepared.InputStamp };
                         run = SaveNode(run, index, node, null, progress);
-                        var response = await requests.GenerateAsync(prepared.Request, run.Budget, null, ct).ConfigureAwait(false);
+                        TextModelResponse response;
+                        try { response = await requests.GenerateAsync(prepared.Request, run.Budget, null, ct).ConfigureAwait(false); }
+                        catch (ModelRequestException)
+                        {
+                            var corrected = TryScheduleCorrection(run, index, prepared, ct, progress);
+                            if (corrected is null) throw;
+                            run = corrected; index--; continue;
+                        }
                         if (response.Completion != ModelCompletion.Complete) return SaveState(run, AnalysisRunState.NeedsAttention, "节点输出截断；候选和费用已保留，请复核切分与模型输出额度。", progress);
                         json = response.Text;
                     }
@@ -198,7 +211,7 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
             throw new InvalidOperationException("存在需复核的请求；确认额外成本后才能重试。");
         var nodes = run.Nodes.Select(node => node.State != AnalysisNodeState.Completed && entries.Any(e => e.Id == node.OperationId && e.State != RequestState.Completed)
             ? node with { OperationId = Guid.NewGuid(), State = AnalysisNodeState.Pending, InputStamp = "", ReviewGuidance = string.IsNullOrWhiteSpace(reviewGuidance) ? node.ReviewGuidance : reviewGuidance } : node).ToImmutableArray();
-        var next = run with { Budget = budget, Nodes = nodes, State = AnalysisRunState.Queued, Message = "已准备恢复；旧费用继续计入总额。", Version = run.Version + 1, UpdatedAt = DateTimeOffset.UtcNow };
+        var next = run with { Budget = budget, Nodes = nodes, AllowFormatRetry = true, State = AnalysisRunState.Queued, Message = "已准备恢复；旧费用继续计入总额。", Version = run.Version + 1, UpdatedAt = DateTimeOffset.UtcNow };
         next.Validate(); requests.ReviseBudget(budget, acknowledgeUncertain); runs.Save(next, run.Version); return next;
     }
 
@@ -253,6 +266,36 @@ public sealed class NovelAnalysisRunService(IReferenceSourceStore sources, IAnal
         };
         if (entries.Count + 1 + reserve.Requests > run.Budget.MaximumRequests || entries.Sum(e => e.ChargedTokens) + ModelRequestService.EstimateReservation(request) + reserve.Tokens > run.Budget.MaximumTokens)
             throw new InvalidOperationException("当前阶段额度不足，后续整合和报告的预留不能被提取耗尽。");
+    }
+
+    /// <summary>
+    /// 只有完整且用量已知的格式错误才允许一次定向纠正。先检查共享预算和所有旧请求，
+    /// 再持久化新的操作 ID；重启不会清零次数，也不会顺便确认其他未知费用。
+    /// </summary>
+    private AnalysisRun? TryScheduleCorrection(AnalysisRun run, int index, PreparedAnalysisNode prepared, CancellationToken ct, IProgress<AnalysisRun>? progress)
+    {
+        var node = run.Nodes[index]; var entries = requests.List(run.Budget.Id);
+        var entry = entries.SingleOrDefault(e => e.Id == node.OperationId);
+        if (ct.IsCancellationRequested || !run.AllowFormatRetry || node.FormatRetries >= 1 ||
+            entry is not { ResponseComplete: true, Diagnostic.CanCorrect: true, Usage.InputTokens: not null, Usage.OutputTokens: not null } ||
+            entries.Any(e => e.Id != entry.Id && !e.RetryAcknowledged && (e.State != RequestState.Completed || e.Usage.InputTokens is null || e.Usage.OutputTokens is null))) return null;
+        var guidance = node.ReviewGuidance + "\n本次只纠正当前单元：" + entry.Diagnostic.Message +
+            "只返回一个符合契约的业务JSON对象，不回显Schema或Markdown，不添加未声明字段；保持依据，不补造事实。";
+        if (guidance.Length > 2000) return null;
+        var retry = node with
+        {
+            OperationId = Guid.NewGuid(),
+            InputStamp = "",
+            State = AnalysisNodeState.Pending,
+            FormatRetries = node.FormatRetries + 1,
+            ReviewGuidance = guidance
+        };
+        // 补充说明也占输入容量；此处以实际新提示核对预留，发送前账本还会再次检查。
+        var revised = prepared.Request with { SystemPrompt = prepared.Request.SystemPrompt + guidance };
+        try { CheckStageBudget(run, node.Kind, revised); }
+        catch (InvalidOperationException) { return null; }
+        requests.ReviseBudget(run.Budget, true);
+        return SaveNode(run, index, retry, null, progress);
     }
     private static void Validate(AnalysisNodeResult result, PreparedAnalysisNode prepared)
     {

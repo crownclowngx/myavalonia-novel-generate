@@ -19,6 +19,7 @@ public sealed record AnalysisNode(string Key, AnalysisNodeKind Kind, Guid? Chunk
     public ImmutableArray<int> Selection { get; init; } = [];
     public int Layer { get; init; }
     public string ReviewGuidance { get; init; } = "";
+    public int FormatRetries { get; init; }
 }
 public sealed record AnalysisStageReserve(int Requests, long Tokens);
 public sealed record AnalysisNodeResult(string Key, string InputStamp, string Json, string Hash);
@@ -33,6 +34,7 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
 {
     public ImmutableArray<AnalysisChunk> Chunks { get; init; } = [];
     public AnalysisTarget Target { get; init; }
+    public bool AllowFormatRetry { get; init; }
     public void Validate()
     {
         Connection.Connection.Validate(); Connection.Preset.Validate();
@@ -53,7 +55,8 @@ public sealed record AnalysisRun(Guid Id, Guid BookId, Guid SourceId, string Sou
                 node.State != AnalysisNodeState.Pending && node.InputStamp.Length != 64 || node.Selection.IsDefault || node.Selection.Length > (node.Kind == AnalysisNodeKind.Summary ? 80 : 60) || node.Layer is < 0 or > 16 || node.ReviewGuidance is null || node.ReviewGuidance.Length > 2000 ||
                 node.Selection.Any(id => id < 1) || node.Selection.Distinct().Count() != node.Selection.Length || node.Dimension is { } dimension && !Enum.IsDefined(dimension) ||
                 node.Kind == AnalysisNodeKind.Integration && node.Selection.IsEmpty || node.Kind == AnalysisNodeKind.Dimension && node.Dimension is null ||
-                node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3")))
+                node.FormatRetries is < 0 or > 1 ||
+                node.Kind == AnalysisNodeKind.Extraction && (node.ChunkId is null || !Chunks.Any(c => c.Id == node.ChunkId) || node.ExtractionPromptVersion is not ("v2" or "v3" or "v4")))
                 throw new InvalidDataException("分析节点身份、依赖顺序或输入指纹无效。");
         }
         if (State == AnalysisRunState.Completed && Nodes.Any(n => n.State != AnalysisNodeState.Completed) ||

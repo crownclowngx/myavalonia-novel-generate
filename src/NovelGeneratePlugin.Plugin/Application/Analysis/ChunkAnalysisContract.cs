@@ -14,7 +14,13 @@ public sealed record PassageReference(int Passage);
 public sealed record MentionOutput(string Name, StoryEntityKind Kind, ImmutableArray<string> Aliases, string Description, ImmutableArray<PassageReference> Evidence);
 public sealed record FindingOutput(AnalysisDimension Dimension, string Subject, string Statement, AnalysisStatementKind Kind,
     ImmutableArray<string> RelatedSubjects, string TimeHint, NarrativeSource Narration, ImmutableArray<PassageReference> Evidence);
-public sealed record ChunkOutput(string Summary, ImmutableArray<MentionOutput> Entities, ImmutableArray<FindingOutput> Findings, ImmutableArray<DimensionGap> Gaps);
+/// <summary>模型缺口 DTO 与领域分离。可选证据只接收段号，仍由本地验证并转换成原文坐标。</summary>
+public sealed record GapOutput(AnalysisDimension Dimension, string Reason)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public ImmutableArray<PassageReference> Evidence { get; init; }
+}
+public sealed record ChunkOutput(string Summary, ImmutableArray<MentionOutput> Entities, ImmutableArray<FindingOutput> Findings, ImmutableArray<GapOutput> Gaps);
 
 /// <summary>
 /// 模型契约负责从“可引用段落”转换成带来源的领域结果。模型只引用段号，原文与坐标由本地取回；
@@ -58,6 +64,7 @@ public sealed class ChunkAnalysisContract
         }
         var observed = findings.Select(f => f.Dimension).ToHashSet();
         var missing = new HashSet<AnalysisDimension>();
+        var gaps = ImmutableArray.CreateBuilder<DimensionGap>();
         foreach (var gap in output.Gaps)
         {
             if (gap is null || !Enum.IsDefined(gap.Dimension) ||
@@ -66,10 +73,12 @@ public sealed class ChunkAnalysisContract
             // 同一维度可以有多个不同缺口；原契约限制每维一条会把有效的不确定信息误拒绝。
             // JSON 字段结构未变，保留 v2 输入身份及已验证缓存；不拼接、截断或猜测修补模型内容。
             missing.Add(gap.Dimension);
+            gaps.Add(new(gap.Dimension, gap.Reason)
+            { Evidence = gap.Evidence.IsDefault ? default : Evidence(gap.Evidence) });
         }
         if (observed.Union(missing).Count() != Enum.GetValues<AnalysisDimension>().Length)
             throw new InvalidDataException("六个分析维度必须有结论或明确的未观察说明。");
-        return new(operationId, chunk.Id, source.Id, inputStamp, output.Summary, entities.ToImmutable(), findings.ToImmutable(), output.Gaps);
+        return new(operationId, chunk.Id, source.Id, inputStamp, output.Summary, entities.ToImmutable(), findings.ToImmutable(), gaps.ToImmutable());
     }
 
     private ImmutableArray<AnalysisEvidence> Evidence(ImmutableArray<PassageReference> quotes)

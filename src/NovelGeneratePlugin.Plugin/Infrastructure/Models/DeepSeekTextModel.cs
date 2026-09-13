@@ -52,11 +52,11 @@ public sealed class DeepSeekTextModel(ConnectionService connections, HttpClient 
         {
             while (await BoundedLines.ReadAsync(reader, 262144, cancellationToken).ConfigureAwait(false) is { } line)
             {
-                total += line.Length; if (total > 8000000) throw Protocol();
+                total += line.Length; if (total > 8000000) throw Protocol(ModelDiagnosticCode.StreamLimit);
                 if (line.StartsWith(':')) continue;
                 if (line.Length > 0)
                 {
-                    if (line.StartsWith("data:", StringComparison.Ordinal)) { data.AppendLine(line[5..].TrimStart(' ')); if (data.Length > 262144) throw Protocol(); }
+                    if (line.StartsWith("data:", StringComparison.Ordinal)) { data.AppendLine(line[5..].TrimStart(' ')); if (data.Length > 262144) throw Protocol(ModelDiagnosticCode.StreamLimit); }
                     continue;
                 }
                 var payload = data.ToString().Trim(); data.Clear(); if (payload.Length == 0) continue;
@@ -76,25 +76,40 @@ public sealed class DeepSeekTextModel(ConnectionService connections, HttpClient 
                     // reasoning_content 只消耗有界协议缓冲，不进入正文、进度或账本。
                     if (delta.TryGetProperty("content", out var content) && content.ValueKind != JsonValueKind.Null)
                     {
-                        text.Append(content.GetString()); if (text.Length > 1000000) throw Protocol();
+                        text.Append(content.GetString()); if (text.Length > 1000000) throw Protocol(ModelDiagnosticCode.StreamLimit);
                         if (DateTimeOffset.UtcNow - lastReport >= TimeSpan.FromMilliseconds(150)) { progress?.Report(text.ToString()); lastReport = DateTimeOffset.UtcNow; }
                     }
                 }
             }
         }
-        catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException) { throw Protocol(); }
+        catch (OperationCanceledException) { throw new ModelStreamCancellationException(usage, cancellationToken); }
+        catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException or IOException or HttpRequestException or ModelRequestException)
+        {
+            var code = (error as ModelRequestException)?.Diagnostic?.Code ?? ModelDiagnosticCode.StreamIncomplete;
+            throw new ModelRequestException(ModelFailure.Protocol, "模型响应流未正常结束。")
+            { ObservedUsage = usage, Diagnostic = new(code, FinishReason: SafeFinish(finish), StreamCharacters: total, OutputCharacters: text.Length) };
+        }
         finally { progress?.Report(text.ToString()); }
         // 思考可能耗尽整个输出额度，此时合法 length 事件没有可见正文。
         // 仍返回截断及服务端用量，让上层明确增加额度或调整思考设置；不能把已知用量丢成协议失败。
-        if (!done || finish is not ("stop" or "length") || finish == "stop" && text.Length == 0) throw Protocol();
-        return new(text.ToString(), finish == "length" ? ModelCompletion.Truncated : ModelCompletion.Complete, usage);
+        if (!done || finish is not ("stop" or "length") || finish == "stop" && text.Length == 0)
+            throw new ModelRequestException(ModelFailure.Protocol, "模型响应流缺少完整结束标志。")
+            {
+                ObservedUsage = usage,
+                Diagnostic = new(!done ? ModelDiagnosticCode.StreamIncomplete : ModelDiagnosticCode.UnsupportedFinish,
+                FinishReason: SafeFinish(finish), StreamCharacters: total, OutputCharacters: text.Length)
+            };
+        return new(text.ToString(), finish == "length" ? ModelCompletion.Truncated : ModelCompletion.Complete, usage)
+        { Diagnostic = finish == "length" ? new(ModelDiagnosticCode.OutputLimit, FinishReason: finish, StreamCharacters: total, OutputCharacters: text.Length) : null };
     }
     internal static long? ReadCount(JsonElement value, string name)
     {
         if (!value.TryGetProperty(name, out var count) || count.ValueKind == JsonValueKind.Null) return null;
         if (!count.TryGetInt64(out var number) || number < 0) throw Protocol(); return number;
     }
-    private static ModelRequestException Protocol() => new(ModelFailure.Protocol, "模型文本流不完整或不受支持。");
+    private static ModelRequestException Protocol(ModelDiagnosticCode code = ModelDiagnosticCode.StreamIncomplete) =>
+        new(ModelFailure.Protocol, "模型文本流不完整或不受支持。") { Diagnostic = new(code) };
+    private static string? SafeFinish(string? reason) => reason is "stop" or "length" or "content_filter" or "tool_calls" or "insufficient_system_resource" or "aborted" ? reason : null;
 }
 
 /// <summary>逐字符读取利用 StreamReader 自身缓冲；先限制单行，再交给 JSON 解析，防止 ReadLine 先分配无界内存。</summary>
@@ -106,7 +121,7 @@ internal static class BoundedLines
         while (await reader.ReadAsync(character.AsMemory(), cancellationToken).ConfigureAwait(false) != 0)
         {
             if (character[0] == '\n') return builder.ToString().TrimEnd('\r');
-            builder.Append(character[0]); if (builder.Length > limit) throw new ModelRequestException(ModelFailure.Protocol, "模型事件超过本地容量限制。");
+            builder.Append(character[0]); if (builder.Length > limit) throw new ModelRequestException(ModelFailure.Protocol, "模型事件超过本地容量限制。") { Diagnostic = new(ModelDiagnosticCode.StreamLimit) };
         }
         return builder.Length == 0 ? null : builder.ToString().TrimEnd('\r');
     }
