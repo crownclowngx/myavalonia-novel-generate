@@ -71,6 +71,7 @@ public sealed record SourceSnapshot(Guid Id, Guid BookId, string FileName, strin
 }
 
 public sealed record ReferenceSection(Guid Id, int Number, string Title, SourceRange Range, bool Included);
+/// <summary>SectionId 指向正文起始章；运行时自动批次可跨连续章节，原章节目录和证据坐标不变。</summary>
 public sealed record AnalysisChunk(Guid Id, Guid SectionId, int Number, SourceRange Body, SourceRange Context);
 
 /// <summary>
@@ -112,11 +113,19 @@ public sealed record ReferenceImport(ReferenceBook Book, SourceSnapshot Source,
                 !sections.TryGetValue(chunk.SectionId, out var section) || !section.Included || chunk.Body is null || chunk.Context is null)
                 throw new InvalidDataException("分析单元身份、顺序或章节归属无效。");
             chunk.Body.Validate(Source.Text); chunk.Context.Validate(Source.Text);
-            if (!section.Range.Contains(chunk.Body) || !chunk.Context.Contains(chunk.Body) ||
+            if (chunk.Body.Start >= section.Range.End || !chunk.Context.Contains(chunk.Body) ||
                 chunk.Body.Start != nextOffsets[section.Id] || section.Number < lastSectionNumber)
                 throw new InvalidDataException("分析单元遗漏、重叠或上下文未包含其正文。");
-            nextOffsets[section.Id] = chunk.Body.End;
-            lastSectionNumber = section.Number;
+            var position = chunk.Body.Start;
+            for (var partIndex = section.Number - 1; position < chunk.Body.End; partIndex++)
+            {
+                if (partIndex >= Sections.Length) throw new InvalidDataException("分析批次超出章节范围。");
+                var part = Sections[partIndex];
+                if (!part.Included || position != nextOffsets[part.Id] || position < part.Range.Start || position >= part.Range.End)
+                    throw new InvalidDataException("分析批次遗漏、重叠或跨越未选中的章节。");
+                position = Math.Min(chunk.Body.End, part.Range.End);
+                nextOffsets[part.Id] = position; lastSectionNumber = part.Number;
+            }
         }
         if (Sections.Any(s => s.Included && nextOffsets[s.Id] != s.Range.End))
             throw new InvalidDataException("分析单元未覆盖所有选定正文。");

@@ -15,7 +15,7 @@ public sealed record PartitionOptions(int ChunkCharacters = 6000, int ContextCha
 
 /// <summary>
 /// 确定性分章与切块，不调用模型、不访问文件。标题只用于组织展示，所有匹配前后的字符始终保留。
-/// 无可靠章标题时按有界段落片段退化；Context 可跨章帮助理解，Body 永远只属于一个章节。
+/// 无可靠章标题时按有界段落片段退化；手动切分的 Body 属于单章，Split 也支持运行时跨章批次。
 /// </summary>
 public static partial class NovelTextPartitioner
 {
@@ -35,7 +35,8 @@ public static partial class NovelTextPartitioner
         {
             var contextStart = SafeLeft(input.Source.Text, Math.Max(parent.Context.Start, start - leftPadding));
             var contextEnd = SafeRight(input.Source.Text, Math.Min(parent.Context.End, end + rightPadding));
-            return new(Guid.NewGuid(), parent.SectionId, 0, new(start, end - start), new(contextStart, contextEnd - contextStart));
+            var section = input.Sections.Single(s => s.Range.Start <= start && start < s.Range.End);
+            return new(Guid.NewGuid(), section.Id, 0, new(start, end - start), new(contextStart, contextEnd - contextStart));
         }
         var children = new[] { Child(parent.Body.Start, middle), Child(middle, parent.Body.End) };
         var chunks = input.Chunks.SelectMany(c => c.Id == chunkId ? children : [c]).Select((c, i) => c with { Number = i + 1 }).ToImmutableArray();
@@ -111,7 +112,7 @@ public static partial class NovelTextPartitioner
         result.Validate(); return result;
     }
 
-    private static int Boundary(string text, int start, int desired)
+    internal static int Boundary(string text, int start, int desired)
     {
         // 只在目标后半段回找换行，避免一连串短行使块过小；找不到就按完整 Unicode 字符边界切分。
         if (desired < text.Length && desired - start > 1)

@@ -55,6 +55,7 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
     /// <summary>构造与解析共用一个入口；断点恢复重放原响应时必须得到完全相同的输入指纹和证据坐标。</summary>
     public static PreparedChunkAnalysis Prepare(ReferenceImport input, AnalysisChunk chunk, FrozenConnection frozen, Guid operationId, string promptVersion = "v2")
     {
+        if (promptVersion == NovelBatchAnalysisContract.PromptVersion) return PrepareBatch(input, chunk, frozen, operationId);
         if (frozen.BookId != input.Book.Id || !input.Chunks.Contains(chunk)) throw new InvalidDataException("冻结连接或分析单元不属于当前来源。");
         var passages = ChunkAnalysisContract.Passages(input.Source, chunk);
         // 提示是模型输入而不是 HTML：保留可直接阅读的中文，避免把整章转成大量 Unicode 转义字符。
@@ -75,6 +76,41 @@ public sealed class NovelChunkAnalysisService(ConnectionService connections, Mod
         var contract = new ChunkAnalysisContract(input.Source, chunk, operationId, stamp, passages, promptVersion is "v4" or "v5", promptVersion == "v5");
         return new(new(operationId, frozen, system, prompt, true) { Contract = contract, AllowJsonWrapperRepair = true }, contract, stamp);
     }
+
+    public static IChunkAnalysisContract ReadContract(ReferenceImport input, AnalysisChunk chunk, AnalysisNode node) =>
+        node.ExtractionPromptVersion == NovelBatchAnalysisContract.PromptVersion
+            ? new NovelBatchAnalysisContract(input, chunk, node.OperationId, node.InputStamp)
+            : new ChunkAnalysisContract(input.Source, chunk, node.OperationId, node.InputStamp, ChunkAnalysisContract.Passages(input.Source, chunk));
+
+    private static PreparedChunkAnalysis PrepareBatch(ReferenceImport input, AnalysisChunk chunk, FrozenConnection frozen, Guid operationId)
+    {
+        if (frozen.BookId != input.Book.Id) throw new InvalidDataException("冻结连接不属于当前来源。");
+        chunk.Body.Validate(input.Source.Text); chunk.Context.Validate(input.Source.Text);
+        var parts = NovelBatchAnalysisContract.Partition(input, chunk);
+        var prompt = JsonSerializer.Serialize(new
+        {
+            Parts = parts.Select(p => new { Part = p.Number, p.Chapter, Body = p.Chunk.Body, Passages = ChunkAnalysisContract.Passages(input.Source, p.Chunk) })
+        }, new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var system = "以下提取规则分别应用于每个章内片段的 Analysis 对象：" + SystemPrompt +
+            "本次将连续章节合批提供，其他片段可辅助理解。每个片段都必须独立覆盖六个维度；不得用全书总摘要代替逐片段分析。" +
+            "顶层只输出 Parts 数组，每项为 {Part:输入片段编号,Analysis:该片段的分析对象}。每个输入片段恰好返回一次，不能遗漏、重复或新增编号。" +
+            "Analysis 包含 Summary、Entities、Findings、Gaps；各项条数和长度上限按每个片段独立计算。" +
+            "Evidence 的 Passage 只引用对应片段的 Passages，不能引用其他片段的段号。每条观察优先1–3条证据，最多8条。" +
+            "Findings.Kind只能为Explicit、Inferred、Uncertain；叙述来源另填Narration，角色说法不当作客观事实。";
+        var stamp = CanonicalJson.Hash(new
+        {
+            input.Source.Id,
+            input.Source.TextHash,
+            chunk.Body,
+            chunk.Context,
+            frozen,
+            Version = NovelBatchAnalysisContract.PromptVersion,
+            SystemPrompt = system,
+            prompt
+        });
+        var contract = new NovelBatchAnalysisContract(input, chunk, operationId, stamp);
+        return new(new(operationId, frozen, system, prompt, true) { Contract = contract, AllowJsonWrapperRepair = true }, contract, stamp);
+    }
 }
 
-public sealed record PreparedChunkAnalysis(TextModelRequest Request, ChunkAnalysisContract Contract, string InputStamp);
+public sealed record PreparedChunkAnalysis(TextModelRequest Request, IChunkAnalysisContract Contract, string InputStamp);

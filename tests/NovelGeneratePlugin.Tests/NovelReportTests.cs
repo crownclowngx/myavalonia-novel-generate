@@ -166,6 +166,8 @@ public sealed class NovelReportTests
         {
             cancellationToken.ThrowIfCancellationRequested(); Requests.Add(request); string json;
             using var prompt = JsonDocument.Parse(request.UserPrompt);
+            if (request.Contract is NovelBatchAnalysisContract)
+                return Task.FromResult(NovelBatchAnalysisTests.Good(request));
             if (request.Contract is ChunkAnalysisContract)
             {
                 var basic = NovelChunkAnalysisTests.Output();

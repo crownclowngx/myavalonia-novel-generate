@@ -7,8 +7,14 @@ namespace NovelGeneratePlugin.Application.Analysis;
 
 public sealed record AnalysisCapacityOptions(long? ContextTokens = null, int MaximumSplitDepth = 3, int MinimumBodyCharacters = 200)
 {
+    // 缺少这些字段的历史运行继续使用逐章切分及原请求超时。
+    public bool AutomaticBatching { get; init; }
+    public long TargetInputTokens { get; init; } = 200000;
+    public int RequestTimeoutMinutes { get; init; } = 15;
     public void Validate()
     {
+        if (TargetInputTokens is < 8192 or > 800000 || RequestTimeoutMinutes is < 1 or > 15)
+            throw new InvalidDataException("批次目标输入需为 8192–800000 token，请求超时需为 1–15 分钟。");
         if (ContextTokens is < 8192 or > 2000000 || MaximumSplitDepth is < 0 or > 8 || MinimumBodyCharacters is < 200 or > 6000)
             throw new InvalidDataException("容量或拆分设置无效：最多 0–8 层，每个子单元至少 200–6000 字符。");
     }
@@ -32,7 +38,9 @@ public static class AnalysisSplitRules
             parent.Kind != AnalysisNodeKind.Extraction || parent.State == AnalysisNodeState.Completed || parent.ChunkId != original.Id ||
             before.Nodes.Any(n => n.Kind != AnalysisNodeKind.Extraction) || split.Children.Length != 2 ||
             split.Children[0].Body.Start != original.Body.Start || split.Children[0].Body.End != split.Children[1].Body.Start ||
-            split.Children[1].Body.End != original.Body.End || split.Children.Any(c => c.SectionId != original.SectionId || !original.Context.Contains(c.Context) || !c.Context.Contains(c.Body)))
+            split.Children[1].Body.End != original.Body.End || split.Children[0].SectionId != original.SectionId ||
+            parent.ExtractionPromptVersion != NovelBatchAnalysisContract.PromptVersion && split.Children.Any(c => c.SectionId != original.SectionId) ||
+            split.Children.Any(c => !original.Context.Contains(c.Context) || !c.Context.Contains(c.Body)))
             throw new InvalidDataException("拆分必须完整替换一个尚未完成的正文单元。");
         var expectedDepth = before.Splits.FirstOrDefault(s => s.Children.Any(c => c.Id == original.Id))?.Depth + 1 ?? 1;
         var options = before.Capacity ?? new();

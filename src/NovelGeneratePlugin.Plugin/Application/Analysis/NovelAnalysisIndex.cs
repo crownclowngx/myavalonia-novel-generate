@@ -22,7 +22,7 @@ public sealed record NovelAnalysisIndex(ImmutableArray<IndexedMention> Mentions,
             var node = run.Nodes.Single(n => n.Kind == AnalysisNodeKind.Extraction && n.ChunkId == chunk.Id);
             if (node.State != AnalysisNodeState.Completed || !results.TryGetValue(node.Key, out var result) || result.InputStamp != node.InputStamp || result.Hash != AnalysisLimits.HashText(result.Json))
                 throw new InvalidDataException("全书整合需要全部有效提取节点，缺少的章节不能被摘要代替。");
-            var contract = new ChunkAnalysisContract(source.Source, chunk, node.OperationId, node.InputStamp, ChunkAnalysisContract.Passages(source.Source, chunk));
+            var contract = NovelChunkAnalysisService.ReadContract(source, chunk, node);
             ModelRequestService.ValidateJson(result.Json, contract); var extracted = contract.Read(result.Json); chunks.Add(extracted);
             foreach (var mention in extracted.Entities) mentions.Add(new(mentions.Count + 1, chunk.Number, mention));
             foreach (var finding in extracted.Findings) findings.Add(new(findings.Count + 1, chunk.Number, finding));

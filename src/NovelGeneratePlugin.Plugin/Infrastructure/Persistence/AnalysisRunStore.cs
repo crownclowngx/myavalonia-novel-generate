@@ -39,15 +39,15 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
                     CREATE TABLE runs(id TEXT PRIMARY KEY,book TEXT NOT NULL,version INTEGER NOT NULL,snapshot TEXT NOT NULL);
                     CREATE TABLE results(run TEXT NOT NULL REFERENCES runs(id),key TEXT NOT NULL,stamp TEXT NOT NULL,json TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(run,key));
                     CREATE INDEX result_stamp ON results(stamp);
-                    PRAGMA application_id={ApplicationId}; PRAGMA user_version=3;
+                    PRAGMA application_id={ApplicationId}; PRAGMA user_version=4;
                     """;
                 command.ExecuteNonQuery();
             }
-            else if (application != ApplicationId || version is not (1 or 2 or 3)) throw new NotSupportedException("运行库标识或版本不受支持，未写入。");
-            else if (version is 1 or 2)
+            else if (application != ApplicationId || version is not (1 or 2 or 3 or 4)) throw new NotSupportedException("运行库标识或版本不受支持，未写入。");
+            else if (version is 1 or 2 or 3)
             {
                 // 新字段影响执行身份，旧程序不能忽略后继续发送；版本升级在一致性备份成功后进行。
-                command.CommandText = "PRAGMA user_version=3"; command.ExecuteNonQuery();
+                command.CommandText = "PRAGMA user_version=4"; command.ExecuteNonQuery();
             }
             transaction.Commit(); ProjectStore.Execute(connection, "PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;"); return connection;
         }
@@ -58,7 +58,7 @@ public sealed class AnalysisRunStore(WorkspacePaths paths) : IAnalysisRunStore
     {
         using var command = connection.CreateCommand(); command.CommandText = "PRAGMA application_id";
         if (Convert.ToInt32(command.ExecuteScalar()) != ApplicationId) return;
-        command.CommandText = "PRAGMA user_version"; var version = Convert.ToInt32(command.ExecuteScalar()); if (version is not (1 or 2)) return;
+        command.CommandText = "PRAGMA user_version"; var version = Convert.ToInt32(command.ExecuteScalar()); if (version is not (1 or 2 or 3)) return;
         // SQLite Backup API 包含已提交的 WAL 内容。备份失败直接阻止升级，不用文件复制猜测数据库状态。
         var directory = Path.Combine(paths.Root, "Backups"); Directory.CreateDirectory(directory);
         var backupPath = Path.Combine(directory, $"reference-runs-schema{version}-" + Guid.NewGuid().ToString("N") + ".db");

@@ -26,9 +26,14 @@ public sealed record ChunkOutput(string Summary, ImmutableArray<MentionOutput> E
 /// 模型契约负责从“可引用段落”转换成带来源的领域结果。模型只引用段号，原文与坐标由本地取回；
 /// 避免模型抄写引文时纠正错别字或标点。段号错误直接拒绝，原文存在与语义支持仍分别校验。
 /// </summary>
+public interface IChunkAnalysisContract : IModelOutputContract
+{
+    ChunkAnalysisResult Read(string json);
+}
+
 public sealed class ChunkAnalysisContract
     (SourceSnapshot source, AnalysisChunk chunk, Guid operationId, string inputStamp, ImmutableArray<AnalysisPassage> passages,
-    bool includeGapEvidenceSchema = false, bool includeCapacitySchema = false) : IModelOutputContract
+    bool includeGapEvidenceSchema = false, bool includeCapacitySchema = false) : IChunkAnalysisContract
 {
     public const string Version = "novel-chunk-v2";
     private const int SummaryMaximum = 3000, EntityMaximum = 40, FindingMaximum = 64, GapMaximum = 24;

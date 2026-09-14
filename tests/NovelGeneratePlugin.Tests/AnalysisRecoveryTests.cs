@@ -166,6 +166,7 @@ public sealed class AnalysisRecoveryTests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
+    [InlineData(3)]
     public async Task 旧运行库升级前创建一致性备份且旧记录仍可读(int version)
     {
         await using var workspace = new TestWorkspace();

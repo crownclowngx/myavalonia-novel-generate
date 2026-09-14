@@ -6,7 +6,7 @@ namespace NovelGeneratePlugin.Application.Models;
 public sealed record ModelInputEstimate(long EstimatedInputTokens, int MaximumOutputTokens, long? ContextTokens, int PromptCharacters)
 {
     public long TotalReservation => checked(EstimatedInputTokens + MaximumOutputTokens);
-    public bool Exceeded => PromptCharacters > 250000 || ContextTokens is long limit && TotalReservation > limit;
+    public bool Exceeded => PromptCharacters > (ContextTokens is long capacity ? capacity : 250000) || ContextTokens is long limit && TotalReservation > limit;
 }
 
 /// <summary>
@@ -15,12 +15,17 @@ public sealed record ModelInputEstimate(long EstimatedInputTokens, int MaximumOu
 /// </summary>
 public static class ModelInputCapacity
 {
+    public static long? ContextCapacity(FrozenConnection connection, ModelPreset preset, long? configured)
+    {
+        long? known = connection.Connection.Settings.Provider == ModelProvider.DeepSeek &&
+            preset.Model is "deepseek-flash" or "deepseek-v4-flash" or "deepseek-v4-pro" ? 1000000L : null;
+        return configured is long value ? known is long ceiling ? Math.Min(value, ceiling) : value : known;
+    }
+
     public static ModelInputEstimate Estimate(TextModelRequest request)
     {
         var schema = request.Contract?.JsonSchema ?? "";
-        long? known = request.Configuration.Connection.Settings.Provider == ModelProvider.DeepSeek &&
-            request.EffectivePreset.Model is "deepseek-flash" or "deepseek-v4-flash" or "deepseek-v4-pro" ? 1000000L : null;
-        var context = request.ContextTokenLimit is long configured ? known is long ceiling ? Math.Min(configured, ceiling) : configured : known;
+        var context = ContextCapacity(request.Configuration, request.EffectivePreset, request.ContextTokenLimit);
         return new((long)Encoding.UTF8.GetByteCount(request.SystemPrompt) + Encoding.UTF8.GetByteCount(request.UserPrompt) +
             Encoding.UTF8.GetByteCount(schema) + 16384, request.EffectivePreset.MaxOutputTokens, context,
             checked(request.SystemPrompt.Length + request.UserPrompt.Length + schema.Length));

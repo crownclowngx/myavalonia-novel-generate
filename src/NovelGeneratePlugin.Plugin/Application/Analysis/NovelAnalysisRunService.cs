@@ -48,6 +48,27 @@ public sealed partial class NovelAnalysisRunService(IReferenceSourceStore source
     ModelRequestService requests, IAnalysisNodePreparer preparer)
 {
     public const string PipelineVersion = "novel-analysis-g32-v1";
+    public async Task<string> PreviewBatchesAsync(Guid bookId, ConnectionBinding binding, AnalysisStageSettings? settings, AnalysisCapacityOptions options, CancellationToken ct)
+    {
+        var input = await Task.Run(() => sources.Read(bookId), ct).ConfigureAwait(false);
+        var frozen = await connections.FreezeAsync(binding, bookId, ModelTask.Checking).ConfigureAwait(false);
+        settings?.Validate(frozen.Connection.Settings.Provider); options.Validate();
+        var preset = settings?.Extraction ?? frozen.Preset;
+        return await Task.Run(() =>
+        {
+            var plan = options.AutomaticBatching ? NovelBatchPlanner.Plan(input, frozen, preset, options, ct) : input;
+            long peak = 0;
+            foreach (var chunk in plan.Chunks)
+            {
+                ct.ThrowIfCancellationRequested();
+                var request = NovelChunkAnalysisService.Prepare(plan, chunk, frozen, Guid.NewGuid(), options.AutomaticBatching ? NovelBatchAnalysisContract.PromptVersion : NovelChunkAnalysisService.CurrentPromptVersion).Request;
+                peak = Math.Max(peak, ModelInputCapacity.Estimate(request with { ExecutionPreset = preset, ContextTokenLimit = options.ContextTokens }).EstimatedInputTokens);
+            }
+            return $"{input.Sections.Count(s => s.Included)} 个章段 → 首轮 {plan.Chunks.Length} 个分析批次；正文覆盖 {plan.Chunks.Sum(c => c.Body.Length)} 字符。\n" +
+                $"最大批次保守输入估算 {peak:N0} token，单次输出预留 {preset.MaxOutputTokens:N0}；整合、报告及重试另计。开始时按当前参数重新计算。";
+        }, ct).ConfigureAwait(false);
+    }
+
     public async Task<AnalysisRun> CreateAsync(Guid bookId, ConnectionBinding binding, int maximumRequests, long maximumTokens,
         AnalysisStageReserve reserve, CancellationToken ct, PartitionOptions? partition = null, Guid? previousRunId = null, AnalysisTarget target = AnalysisTarget.Extraction,
         AnalysisStageSettings? stageSettings = null, AnalysisCapacityOptions? capacity = null)
@@ -62,17 +83,21 @@ public sealed partial class NovelAnalysisRunService(IReferenceSourceStore source
         }
         var input = await Task.Run(() => sources.Read(bookId), ct).ConfigureAwait(false);
         if (previous is not null) input = input with { Chunks = previous.Chunks };
-        if (partition is not null) input = NovelTextPartitioner.Rechunk(input, partition, ct);
+        if (partition is not null && capacity?.AutomaticBatching != true) input = NovelTextPartitioner.Rechunk(input, partition, ct);
         var frozen = await connections.FreezeAsync(binding, bookId, ModelTask.Checking).ConfigureAwait(false);
         stageSettings?.Validate(frozen.Connection.Settings.Provider);
         capacity?.Validate();
+        if (capacity?.AutomaticBatching == true)
+            input = await Task.Run(() => NovelBatchPlanner.Plan(input, frozen, stageSettings?.Extraction ?? frozen.Preset, capacity, ct,
+                previous?.Nodes.Where(n => n.State == AnalysisNodeState.Completed && n.ChunkId is not null).Select(n => n.ChunkId!.Value).ToHashSet()), ct).ConfigureAwait(false);
         if (input.Chunks.Length + reserve.Requests > maximumRequests || maximumRequests > 1000)
             throw new InvalidOperationException("全文单元与后续阶段所需请求超过总额；请调整切分或额度，上限为 1000，尚未发送请求。");
         var id = Guid.NewGuid();
         var nodes = input.Chunks.Select(c => new AnalysisNode("chunk-" + c.Id.ToString("N"), AnalysisNodeKind.Extraction, c.Id, [], Guid.NewGuid(), "", AnalysisNodeState.Pending)
         {
             // 修订可以只加强未完成单元的提示，已完成且范围不变的单元仍引用原提示版本，避免重新付费。
-            ExtractionPromptVersion = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ExtractionPromptVersion ?? NovelChunkAnalysisService.CurrentPromptVersion,
+            ExtractionPromptVersion = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ExtractionPromptVersion ??
+                (capacity?.AutomaticBatching == true ? NovelBatchAnalysisContract.PromptVersion : NovelChunkAnalysisService.CurrentPromptVersion),
             ReviewGuidance = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed)?.ReviewGuidance ?? "",
             ExecutionConnection = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed) is { } completed ? completed.ExecutionConnection ?? previous.Connection : frozen,
             ExecutionPreset = previous?.Nodes.FirstOrDefault(n => n.ChunkId == c.Id && n.State == AnalysisNodeState.Completed) is { } saved ? saved.ExecutionPreset : stageSettings?.Extraction
@@ -191,7 +216,11 @@ public sealed partial class NovelAnalysisRunService(IReferenceSourceStore source
                         node = node with { State = AnalysisNodeState.Running, InputStamp = prepared.InputStamp };
                         run = SaveNode(run, index, node, null, progress);
                         TextModelResponse response;
-                        try { response = await requests.GenerateAsync(prepared.Request, run.Budget, null, ct).ConfigureAwait(false); }
+                        try
+                        {
+                            response = await requests.GenerateAsync(prepared.Request, run.Budget, null, ct,
+                            run.Capacity?.AutomaticBatching == true ? TimeSpan.FromMinutes(run.Capacity.RequestTimeoutMinutes) : null).ConfigureAwait(false);
+                        }
                         catch (ModelRequestException)
                         {
                             var corrected = TryScheduleCorrection(run, index, prepared, ct, progress);
@@ -295,7 +324,7 @@ public sealed partial class NovelAnalysisRunService(IReferenceSourceStore source
             var result = runs.ReadResult(runId, node.Key) ?? throw new InvalidDataException("已完成节点缺少结果。");
             // 离线阅读校验保存时的指纹及原文，不拿新版提示覆盖旧报告的版本身份；执行/缓存复用仍严格重算当前指纹。
             if (result.InputStamp != node.InputStamp || AnalysisLimits.HashText(result.Json) != result.Hash) throw new InvalidDataException("已保存结果与节点指纹不一致。");
-            var contract = new ChunkAnalysisContract(input.Source, chunk, node.OperationId, node.InputStamp, ChunkAnalysisContract.Passages(input.Source, chunk));
+            var contract = NovelChunkAnalysisService.ReadContract(input, chunk, node);
             ModelRequestService.ValidateJson(result.Json, contract); results.Add(contract.Read(result.Json));
         }
         return results;

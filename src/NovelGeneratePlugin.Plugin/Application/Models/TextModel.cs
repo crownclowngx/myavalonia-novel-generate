@@ -11,8 +11,7 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
     public void Validate()
     {
         if (OperationId == Guid.Empty || Configuration is null || Configuration.BookId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(SystemPrompt) || string.IsNullOrWhiteSpace(UserPrompt) ||
-            SystemPrompt.Length + UserPrompt.Length > 250000) throw new InvalidDataException("模型请求身份或提示内容无效（总长度上限 25 万字符）。");
+            string.IsNullOrWhiteSpace(SystemPrompt) || string.IsNullOrWhiteSpace(UserPrompt)) throw new InvalidDataException("模型请求身份或提示内容无效。");
         Configuration.Connection.Validate(); Configuration.Preset.Validate();
         EffectivePreset.Validate();
         if (ExecutionPreset is not null && Configuration.Task != ModelTask.Checking)
@@ -23,8 +22,8 @@ public sealed record TextModelRequest(Guid OperationId, FrozenConnection Configu
         if ((Contract is not null || AllowJsonWrapperRepair) && !JsonOutput) throw new InvalidDataException("结构化契约必须使用 JSON 输出。");
         if (Contract is not null)
         {
-            if (string.IsNullOrWhiteSpace(Contract.JsonSchema) || SystemPrompt.Length + UserPrompt.Length + Contract.JsonSchema.Length > 250000)
-                throw new InvalidDataException("结构化契约为空或使请求超过本地输入容量。");
+            if (string.IsNullOrWhiteSpace(Contract.JsonSchema))
+                throw new InvalidDataException("结构化契约为空。");
             using var schema = System.Text.Json.JsonDocument.Parse(Contract.JsonSchema, new System.Text.Json.JsonDocumentOptions { MaxDepth = 32 });
             if (schema.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object) throw new InvalidDataException("结构化契约必须是 JSON Schema 对象。");
         }

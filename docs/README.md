@@ -32,6 +32,8 @@ G0016 工程验收与真实三章样稿已完成；P1 产品验收仍待作者�
 
 DeepSeek 格式错误、分阶段参数、局部拆分与证据容量诊断的进度见 [G0037–G0040 稳定性修复计划](analysis-reliability-plan.md)。该修复独立验证，原产品人工质量验收状态保持不变。
 
+小说长上下文与跨章请求合批见 [自动分批说明](automatic-novel-batching.md)，包括容量规划、逐章证据、旧运行恢复和实际使用步骤。
+
 ```text
 NovelGeneratePlugin/
 ├─ NovelGeneratePlugin.slnx

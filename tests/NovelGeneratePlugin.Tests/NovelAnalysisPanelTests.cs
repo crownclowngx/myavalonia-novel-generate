@@ -171,6 +171,44 @@ public sealed class NovelAnalysisPanelTests
         }, default);
     }
 
+    [Theory]
+    [InlineData(720)]
+    [InlineData(420)]
+    public async Task 自动分批原生绑定可预览并恢复已保存参数(int width)
+    {
+        var session = HeadlessUnitTestSession.GetOrStartForAssembly(typeof(TestAppBuilder).Assembly);
+        await session.Dispatch<bool>(async () =>
+        {
+            await using var workspace = new TestWorkspace(); var router = new NovelReportTests.Router(); var context = await NovelReportTests.Setup(workspace, router);
+            await using var activity = new NovelAnalysisActivity(context.Runner, workspace.Closing); await using var panel = Panel(workspace, context, activity);
+            Assert.True(panel.AutomaticBatching);
+            var view = new NovelAnalysisView { DataContext = panel }; var window = new Window { Width = width, Height = 1000, Content = view };
+            try
+            {
+                window.Show(); await panel.InitializeAsync(); Assert.False(panel.AutomaticBatching);
+                view.FindControl<TabControl>("AnalysisTabs")!.SelectedIndex = 1; Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                view.FindControl<CheckBox>("AnalysisAutomaticBatching")!.IsChecked = true;
+                view.FindControl<NumericUpDown>("AnalysisBatchTarget")!.Value = 800000;
+                Dispatcher.UIThread.RunJobs(); Assert.True(panel.AutomaticBatching); Assert.Equal(800000, panel.TargetInputTokens);
+                Assert.True(panel.PreviewBatchesCommand.CanExecute(null)); await panel.PreviewBatchesCommand.ExecuteAsync(null);
+                Assert.Contains("首轮 1 个分析批次", panel.BatchPreviewSummary); Assert.Empty(router.Requests);
+                var output = Environment.GetEnvironmentVariable("NOVEL_TEST_ARTIFACTS");
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    Directory.CreateDirectory(output); AvaloniaHeadlessPlatform.ForceRenderTimerTick(); Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                    using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
+                    frame.Save(Path.Combine(output, $"novel-batching-{width}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+                await panel.StartCommand.ExecuteAsync(null); var id = panel.SelectedRun!.Run.Id; await activity.StartAsync(id);
+                panel.TargetInputTokens = 200000; panel.AutomaticBatching = false;
+                await panel.ReadRunCommand.ExecuteAsync(null); Assert.True(panel.AutomaticBatching); Assert.Equal(800000, panel.TargetInputTokens);
+                Assert.Equal(AnalysisRunState.Completed, panel.SelectedRun!.Run.State);
+            }
+            finally { window.Close(); }
+            return true;
+        }, default);
+    }
+
     private sealed class HeldModel : ITextModel
     {
         private readonly NovelReportTests.Router _router = new();

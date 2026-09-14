@@ -40,6 +40,10 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     [ObservableProperty] private bool _acknowledgeCosts;
     [ObservableProperty] private bool _useStageSettings = true;
     [ObservableProperty] private long _contextTokens;
+    [ObservableProperty] private bool _automaticBatching = true;
+    [ObservableProperty] private long _targetInputTokens = 200000;
+    [ObservableProperty] private int _requestTimeoutMinutes = 15;
+    [ObservableProperty] private string _batchPreviewSummary = "按模型上下文与输出余量合并连续章节；可先预览实际批次数量。";
     [ObservableProperty] private int _maximumSplitDepth = 3;
     [ObservableProperty] private string _capacitySummary = "单次容量预检使用保守估算；实际 token 以请求用量为准。";
     public ObservableCollection<AnalysisStageEditor> StageParameters { get; } = [];
@@ -64,6 +68,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     public ObservableCollection<string> Nodes { get; } = [];
     public IReadOnlyList<string> Encodings { get; } = ["自动", "utf-8", "utf-16le", "utf-16be", "utf-32le", "utf-32be", "gb18030"];
     public bool CanEdit => !IsBusy && !_disposed && !_closing;
+    public bool CanEditManualChunks => CanEdit && !AutomaticBatching;
     public bool CanImport => CanEdit && _preview is not null;
     public bool CanStart => CanEdit && SelectedBook is not null && SelectedConnection is not null;
     public bool CanUseRun => CanEdit && SelectedRun is not null;
@@ -79,12 +84,13 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     partial void OnFilePathChanged(string value) => InvalidatePreview();
     partial void OnEncodingNameChanged(string value) => InvalidatePreview();
     partial void OnChunkCharactersChanged(int value) => InvalidatePreview();
+    partial void OnAutomaticBatchingChanged(bool value) { OnPropertyChanged(nameof(CanEditManualChunks)); BatchPreviewSummary = "分批方式已改变，请重新预览批次。"; }
     private void InvalidatePreview() { _preview = null; Sections.Clear(); SelectedSection = null; PreviewText = ""; PreviewSummary = "输入已变化，请重新预览。"; Notify(); }
-    partial void OnIsBusyChanged(bool value) => Notify();
+    partial void OnIsBusyChanged(bool value) { OnPropertyChanged(nameof(CanEditManualChunks)); Notify(); }
     partial void OnSelectedConnectionChanged(ModelConnection? value)
     {
         if (value is not null && !_loading)
-            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), value, ModelTask.Checking, value.Settings.Checking)));
+            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), value, ModelTask.Checking, value.Settings.Checking), AutomaticBatching));
         Notify();
     }
     private void LoadStageParameters(AnalysisStageSettings settings)
@@ -96,7 +102,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     {
         if (!UseStageSettings) return null;
         if (StageParameters.Count == 0 && SelectedConnection is not null)
-            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), SelectedConnection, ModelTask.Checking, SelectedConnection.Settings.Checking)));
+            LoadStageParameters(AnalysisStageSettings.Default(new(Guid.NewGuid(), SelectedConnection, ModelTask.Checking, SelectedConnection.Settings.Checking), AutomaticBatching));
         ModelPreset Read(AnalysisNodeKind kind) => StageParameters.Single(p => p.Kind == kind).Build();
         return new(Read(AnalysisNodeKind.Extraction), Read(AnalysisNodeKind.Integration), Read(AnalysisNodeKind.Summary), Read(AnalysisNodeKind.Dimension), Read(AnalysisNodeKind.Synthesis));
     }
@@ -109,11 +115,11 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     }
     private void Notify()
     {
-        foreach (var name in new[] { nameof(CanEdit), nameof(CanImport), nameof(CanStart), nameof(CanUseRun), nameof(CanChangeRun), nameof(CanResume), nameof(CanStop) }) OnPropertyChanged(name);
+        foreach (var name in new[] { nameof(CanEdit), nameof(CanEditManualChunks), nameof(CanImport), nameof(CanStart), nameof(CanUseRun), nameof(CanChangeRun), nameof(CanResume), nameof(CanStop) }) OnPropertyChanged(name);
         ChooseFileCommand.NotifyCanExecuteChanged(); PreviewCommand.NotifyCanExecuteChanged(); ImportCommand.NotifyCanExecuteChanged();
         RefreshCommand.NotifyCanExecuteChanged(); MoreBooksCommand.NotifyCanExecuteChanged(); LoadBookCommand.NotifyCanExecuteChanged();
         MoreRunsCommand.NotifyCanExecuteChanged();
-        StartCommand.NotifyCanExecuteChanged(); ReadRunCommand.NotifyCanExecuteChanged(); ResumeCommand.NotifyCanExecuteChanged(); ReviseCommand.NotifyCanExecuteChanged();
+        StartCommand.NotifyCanExecuteChanged(); PreviewBatchesCommand.NotifyCanExecuteChanged(); ReadRunCommand.NotifyCanExecuteChanged(); ResumeCommand.NotifyCanExecuteChanged(); ReviseCommand.NotifyCanExecuteChanged();
         PauseCommand.NotifyCanExecuteChanged(); CancelCommand.NotifyCanExecuteChanged(); ReviewCandidateCommand.NotifyCanExecuteChanged(); AdoptCandidateCommand.NotifyCanExecuteChanged(); ReadReportCommand.NotifyCanExecuteChanged();
     }
     [RelayCommand(CanExecute = nameof(CanEdit))]
@@ -129,7 +135,9 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         var preview = await importer.PreviewAsync(path, encoding == "自动" ? null : encoding, new(size), ct);
         if (path != FilePath || encoding != EncodingName || size != ChunkCharacters) throw new InvalidOperationException("预览期间输入改变，请重新预览。");
         _preview = preview; Sections.Clear(); foreach (var section in preview.Import.Sections) Sections.Add(new(section)); SelectedSection = Sections.FirstOrDefault();
-        PreviewSummary = $"编码 {preview.Import.Source.EncodingName} · {preview.Import.Source.Bytes.Length} 字节 · {preview.Import.Source.Text.Length} UTF-16 字符\n{Sections.Count} 个章段，{preview.Import.Chunks.Length} 个全文提取单元；无排除、无截断。\n首轮至少 {preview.Import.Chunks.Length} 次请求，另为整合与报告预留 32 次/1200000 token；实际计划随内容密度增长。\n" + string.Join("\n", preview.Warnings);
+        PreviewSummary = $"编码 {preview.Import.Source.EncodingName} · {preview.Import.Source.Bytes.Length} 字节 · {preview.Import.Source.Text.Length} UTF-16 字符\n{Sections.Count} 个章段，全文保留，无排除、无截断。\n" +
+            (AutomaticBatching ? "运行时根据模型上下文自动合批；导入后的“预览分析批次”显示实际首轮请求数。\n" : $"按手动切分首轮 {preview.Import.Chunks.Length} 次请求。\n") +
+            "另为整合与报告预留 32 次/1200000 token；实际计划随内容密度增长。\n" + string.Join("\n", preview.Warnings);
         ShowSection(); Status = "预览已就绪。导入将保存这份完整来源快照。";
     });
     partial void OnSelectedSectionChanged(AnalysisSectionChoice? value) => ShowSection();
@@ -182,6 +190,14 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
     });
     [RelayCommand(CanExecute = nameof(CanStart))]
     private Task Start() => CreateRunAsync(false);
+    private AnalysisCapacityOptions BuildCapacity() => new(ContextTokens == 0 ? null : ContextTokens, MaximumSplitDepth)
+    { AutomaticBatching = AutomaticBatching, TargetInputTokens = TargetInputTokens, RequestTimeoutMinutes = RequestTimeoutMinutes };
+    [RelayCommand(CanExecute = nameof(CanStart))]
+    private Task PreviewBatches() => RunAsync(async ct =>
+    {
+        BatchPreviewSummary = await runner.PreviewBatchesAsync(SelectedBook!.Book.Id, ConnectionService.Bind(SelectedConnection!), BuildStageSettings(), BuildCapacity(), ct);
+        Status = "批次预览完成，未发送模型请求。";
+    });
     [RelayCommand(CanExecute = nameof(CanChangeRun))]
     private Task Revise() => CreateRunAsync(true);
     private Task CreateRunAsync(bool revision) => RunAsync(async ct =>
@@ -192,7 +208,7 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
             await Task.Run(() => runner.Resume(old.Id, AcknowledgeCosts, MaximumRequests, MaximumTokens, ReviewGuidance), ct);
         var run = await runner.CreateAsync(SelectedBook.Book.Id, ConnectionService.Bind(SelectedConnection), MaximumRequests, MaximumTokens,
             old?.ReportReserve ?? new(32, 1200000), ct, revision ? new(ChunkCharacters) : null, old?.Id, AnalysisTarget.Report, BuildStageSettings(),
-            new(ContextTokens == 0 ? null : ContextTokens, MaximumSplitDepth));
+            BuildCapacity());
         Runs.Insert(0, new(run)); SelectedRun = Runs[0]; Begin(run.Id); Status = "全文分析已开始，隐藏面板不影响任务。";
     });
     private void Begin(Guid id) { _ = ObserveAsync(activity.StartAsync(id), id); Notify(); }
@@ -221,6 +237,9 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
             Apply(snapshot); MaximumRequests = snapshot.Run.Budget.MaximumRequests; MaximumTokens = snapshot.Run.Budget.MaximumTokens;
             UseStageSettings = snapshot.Run.StageSettings is not null;
             ContextTokens = snapshot.Run.Capacity?.ContextTokens ?? 0; MaximumSplitDepth = snapshot.Run.Capacity?.MaximumSplitDepth ?? 3;
+            AutomaticBatching = snapshot.Run.Capacity?.AutomaticBatching ?? false;
+            TargetInputTokens = snapshot.Run.Capacity?.TargetInputTokens ?? 200000;
+            RequestTimeoutMinutes = snapshot.Run.Capacity?.RequestTimeoutMinutes ?? 15;
             LoadStageParameters(snapshot.Run.StageSettings ?? AnalysisStageSettings.Default(snapshot.Run.Connection));
         }
     }
@@ -247,7 +266,8 @@ public sealed partial class NovelAnalysisPanel(NovelImportService importer, IRef
         var known = update.Usage.Where(e => e.Usage.InputTokens is not null && e.Usage.OutputTokens is not null).ToArray();
         var unknown = update.Usage.Except(known).ToArray();
         var estimate = update.Usage.LastOrDefault(e => e.InputEstimate is not null)?.InputEstimate;
-        CapacitySummary = $"已局部拆分 {run.Splits.Length} 次；最多 {run.Capacity?.MaximumSplitDepth ?? 3} 层。\n" +
+        CapacitySummary = (run.Capacity?.AutomaticBatching == true ? $"自动合批 · 输入目标 {run.Capacity.TargetInputTokens:N0} token · 首轮当前 {run.Chunks.Length} 批。\n" : "手动按章切分。\n") +
+            $"已局部拆分 {run.Splits.Length} 次；最多 {run.Capacity?.MaximumSplitDepth ?? 3} 层。\n" +
             (estimate is null ? "尚无单次请求估算记录。" :
             $"最近单次保守输入估算 {estimate.EstimatedInputTokens}，输出预留 {estimate.MaximumOutputTokens}，上下文容量 {(estimate.ContextTokens?.ToString() ?? "未配置")} token；估算不是实测用量。");
         UsageSummary = $"全部累计请求 {update.Usage.Count}/{run.Budget.MaximumRequests}，已知用量 {known.Sum(e => e.ChargedTokens)} token；未知 {unknown.Length} 次，保守预留 {unknown.Sum(e => e.ReservedTokens)} token。\n已知加预留 {update.Usage.Sum(e => e.ChargedTokens)}/{run.Budget.MaximumTokens} token；金额未知。";

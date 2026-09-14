@@ -17,12 +17,12 @@ public sealed record AnalysisStageSettings(ModelPreset Extraction, ModelPreset I
         AnalysisNodeKind.Synthesis => Synthesis,
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
-    public static AnalysisStageSettings Default(FrozenConnection connection)
+    public static AnalysisStageSettings Default(FrozenConnection connection, bool automaticBatching = false)
     {
         var preset = connection.Preset;
         if (connection.Connection.Settings.Provider != ModelProvider.DeepSeek) return new(preset, preset, preset, preset, preset);
-        var extraction = new ModelPreset(preset.Model, 16384, "none"); var reasoning = new ModelPreset(preset.Model, 32768, "high");
-        return new(extraction, reasoning, extraction, reasoning, reasoning);
+        var extraction = new ModelPreset(preset.Model, automaticBatching ? 65536 : 16384, "none"); var reasoning = new ModelPreset(preset.Model, 32768, "high");
+        return new(extraction, reasoning, new(preset.Model, 16384, "none"), reasoning, reasoning);
     }
     public void Validate(ModelProvider provider)
     {

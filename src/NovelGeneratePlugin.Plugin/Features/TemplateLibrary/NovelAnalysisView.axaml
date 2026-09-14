@@ -10,8 +10,9 @@
       <TextBox x:Name="AnalysisFilePath" Text="{Binding FilePath}" PlaceholderText="本机 TXT 路径" IsEnabled="{Binding CanEdit}" />
       <TextBlock Text="文本编码" />
       <ComboBox ItemsSource="{Binding Encodings}" SelectedItem="{Binding EncodingName}" IsEnabled="{Binding CanEdit}" HorizontalAlignment="Stretch" />
-      <TextBlock Text="每个提取单元的最大正文字符数" TextWrapping="Wrap" />
-      <NumericUpDown x:Name="AnalysisChunkSize" Value="{Binding ChunkCharacters}" Minimum="200" Maximum="12000" Increment="500" IsEnabled="{Binding CanEdit}" />
+      <CheckBox Content="根据模型上下文自动分批（推荐）" IsChecked="{Binding AutomaticBatching}" IsEnabled="{Binding CanEdit}" />
+      <TextBlock Text="手动模式：每个提取单元的最大正文字符数" TextWrapping="Wrap" />
+      <NumericUpDown x:Name="AnalysisChunkSize" Value="{Binding ChunkCharacters}" Minimum="200" Maximum="12000" Increment="500" IsEnabled="{Binding CanEditManualChunks}" />
       <WrapPanel>
        <Button Content="预览全文" Command="{Binding PreviewCommand}" Margin="0,0,6,6" />
        <Button Content="确认导入" Command="{Binding ImportCommand}" Margin="0,0,6,6" />
@@ -33,6 +34,13 @@
       <Button Content="读取该书的分析记录" Command="{Binding LoadBookCommand}" />
       <TextBlock Text="模型连接（提供服务地址与认证）" TextWrapping="Wrap" />
       <ComboBox ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
+      <CheckBox x:Name="AnalysisAutomaticBatching" Content="根据模型上下文自动分批（推荐）" IsChecked="{Binding AutomaticBatching}" IsEnabled="{Binding CanEdit}" />
+      <StackPanel IsVisible="{Binding AutomaticBatching}" IsEnabled="{Binding CanEdit}" Spacing="4">
+       <TextBlock Text="每批目标输入 token（保守估算，实际还受模型窗口与输出余量约束）" TextWrapping="Wrap" />
+       <NumericUpDown x:Name="AnalysisBatchTarget" Value="{Binding TargetInputTokens}" Minimum="8192" Maximum="800000" Increment="50000" />
+       <TextBlock Text="单次请求超时（分钟）" />
+       <NumericUpDown Value="{Binding RequestTimeoutMinutes}" Minimum="1" Maximum="15" Increment="1" />
+      </StackPanel>
       <Expander x:Name="AnalysisParameters" Header="分析专用参数" HorizontalAlignment="Stretch">
        <StackPanel Spacing="8" IsEnabled="{Binding CanEdit}">
         <CheckBox Content="按阶段设置模型、思考强度与单次输出上限" IsChecked="{Binding UseStageSettings}" />
@@ -59,6 +67,8 @@
       <NumericUpDown Value="{Binding MaximumRequests}" Minimum="1" Maximum="1000" Increment="10" IsEnabled="{Binding CanEdit}" />
       <TextBlock Text="全过程 token 上限" />
       <NumericUpDown Value="{Binding MaximumTokens}" Minimum="1" Maximum="1000000000" Increment="100000" IsEnabled="{Binding CanEdit}" />
+      <Button Content="预览分析批次" Command="{Binding PreviewBatchesCommand}" />
+      <TextBlock Text="{Binding BatchPreviewSummary}" TextWrapping="Wrap" />
       <Button Content="开始新的全文分析" Command="{Binding StartCommand}" />
       <TextBlock Text="已保存运行" FontWeight="SemiBold" />
       <ComboBox x:Name="AnalysisRunSelector" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" HorizontalAlignment="Stretch" IsEnabled="{Binding CanEdit}" />
