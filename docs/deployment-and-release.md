@@ -1,6 +1,6 @@
 # 临时部署、正式发布与验收
 
-最近本机部署见 [1.2.0 分析保存与报告转模板替换记录](deployments/2026-09-13-report-template.md)：441 项 Release 测试通过，已覆盖到 `D:\data\avalonia\Controls\NovelGeneratePlugin`，并配套更新 Host 退出修复；旧插件与宿主均已备份。历史记录：[1.1.1 分析稳定性修复](deployments/2026-09-13-analysis-reliability.md) · [1.1.0 整本小说分析](deployments/2026-09-13-novel-analysis.md) · [1.0.1 DeepSeek 默认连接](deployments/2026-09-12-deepseek-defaults.md) · [Controls 初始部署](deployments/2026-09-12-local-controls.md)。
+最近本机部署见 [1.3.0 小说自动分批发布记录](deployments/2026-09-14-automatic-batching.md)：457 项 Release 测试通过，已覆盖到 `D:\data\avalonia\Controls\NovelGeneratePlugin`，旧插件已备份，其他插件摘要保持不变。历史记录：[1.2.0 分析保存与报告转模板](deployments/2026-09-13-report-template.md) · [1.1.1 分析稳定性修复](deployments/2026-09-13-analysis-reliability.md) · [1.1.0 整本小说分析](deployments/2026-09-13-novel-analysis.md) · [1.0.1 DeepSeek 默认连接](deployments/2026-09-12-deepseek-defaults.md) · [Controls 初始部署](deployments/2026-09-12-local-controls.md)。
 
 部署分为开发期临时联调和正式 ZIP 发布。两者都必须使用 Build 包筛选出的干净插件目录，不能直接复制
 普通 `bin/Debug` 或 `bin/Release`，因为普通输出可能包含 Host 应当统一提供的共享程序集。
