@@ -187,6 +187,7 @@ public sealed partial class ReportTemplatePanel(ReportTemplateConversionService 
         if (_report?.RunId == reportId) { History.Insert(0, new(run)); SelectedConversion = History[0]; }
         var completed = await activity.StartAsync(run.Id);
         if (_report?.RunId == reportId) Show(completed);
+        await NotifyCreatedAsync(completed);
     });
     [RelayCommand(CanExecute = nameof(CanContinue))]
     private Task Continue() => RunAsync(async () =>
@@ -194,6 +195,7 @@ public sealed partial class ReportTemplatePanel(ReportTemplateConversionService 
         var id = SelectedConversion!.Value.Id;
         var result = await activity.StartAsync(id, AcknowledgeCosts, MaximumRequests, MaximumTokens);
         if (SelectedConversion?.Value.Id == id) Show(result);
+        await NotifyCreatedAsync(result);
     });
     [RelayCommand(CanExecute = nameof(CanCancel))] private void Cancel() { activity.Cancel(SelectedConversion!.Value.Id); Status = "已请求取消；成功步骤仍会保留。"; }
     [RelayCommand(CanExecute = nameof(CanOpen))]
@@ -239,13 +241,17 @@ public sealed partial class ReportTemplatePanel(ReportTemplateConversionService 
                     ShowUsage(run, update.Usage);
                 }
             }
-            if (!update.Active && run.State == TemplateConversionState.DraftSaved && DraftCreatedAsync is not null) _ = NotifyCreatedAsync(run.TemplateId);
             Notify();
         }
         if (_ui is null || ReferenceEquals(_ui, SynchronizationContext.Current)) Apply(); else _ui.Post(_ => Apply(), null);
     }
-    private async Task NotifyCreatedAsync(Guid id)
-    { try { await DraftCreatedAsync!(id); } catch (Exception error) when (error is not OutOfMemoryException) { Status = "草案已保存，模板列表刷新失败，可稍后打开：" + error.Message; } }
+    private async Task NotifyCreatedAsync(ReportTemplateConversion run)
+    {
+        if (run.State != TemplateConversionState.DraftSaved || DraftCreatedAsync is not { } refresh) return;
+        try { await refresh(run.TemplateId); }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        { Status = "草案已保存，模板列表刷新失败，可稍后打开：" + error.Message; }
+    }
     private void Notify()
     {
         foreach (var property in new[] { nameof(CanEdit), nameof(CanGenerate), nameof(CanContinue), nameof(CanCancel), nameof(CanOpen) }) OnPropertyChanged(property);

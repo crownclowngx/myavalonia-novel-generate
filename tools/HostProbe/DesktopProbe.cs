@@ -83,7 +83,6 @@ internal static class DesktopProbe
         services.AddSingleton(catalog);
         var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         var shutdown = new HostRuntimeShutdown(owners, provider, scopes.CloseAll, participants, HostResourceRetention.ProcessLifetime, diagnostics);
-        provider.GetRequiredService<HostDesktopClosePreparation>().Bind(shutdown.PrepareAsync);
         var runtime = HostRuntime.Initialize(new HostRuntime(provider, shutdown), () =>
         {
             owners.Compose(catalog, provider, builder, scopes, diagnostics);
